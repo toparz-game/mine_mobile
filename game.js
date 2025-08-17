@@ -398,7 +398,7 @@ class Minesweeper {
                         navigator.vibrate(50);
                     }
                 }
-            }, 500); // 500ms長押しで旗
+            }, 300); // 300ms長押しで旗
             
             // preventDefaultを削除してスクロールを可能にする
             // e.preventDefault();
