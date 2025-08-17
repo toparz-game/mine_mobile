@@ -176,6 +176,9 @@ class Minesweeper {
         let touchMoved = false;
         let tapCount = 0;
         let tapTimer = null;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        const moveThreshold = 10;
         
         cell.addEventListener('touchstart', (e) => {
             // マルチタッチの場合はピンチ操作と判断
@@ -189,6 +192,8 @@ class Minesweeper {
             
             e.preventDefault();
             touchStartTime = Date.now();
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
             touchMoved = false;
             this.isLongPress = false;
             this.isPinching = false;
@@ -199,16 +204,27 @@ class Minesweeper {
                     navigator.vibrate && navigator.vibrate(50);
                     this.toggleFlag(row, col);
                 }
-            }, 500);
+            }, 700);
         }, { passive: false });
         
         cell.addEventListener('touchmove', (e) => {
-            touchMoved = true;
             if (e.touches.length > 1) {
                 this.isPinching = true;
+                touchMoved = true;
+                if (this.longPressTimer) {
+                    clearTimeout(this.longPressTimer);
+                }
+                return;
             }
-            if (this.longPressTimer) {
-                clearTimeout(this.longPressTimer);
+            
+            const deltaX = Math.abs(e.touches[0].clientX - touchStartX);
+            const deltaY = Math.abs(e.touches[0].clientY - touchStartY);
+            
+            if (deltaX > moveThreshold || deltaY > moveThreshold) {
+                touchMoved = true;
+                if (this.longPressTimer) {
+                    clearTimeout(this.longPressTimer);
+                }
             }
         });
         
@@ -225,7 +241,7 @@ class Minesweeper {
             
             const touchDuration = Date.now() - touchStartTime;
             
-            if (!touchMoved && !this.isLongPress && touchDuration < 500 && !this.gameOver) {
+            if (!touchMoved && !this.isLongPress && touchDuration < 700 && !this.gameOver) {
                 const currentTime = Date.now();
                 const timeSinceLastTap = currentTime - this.lastTapTime;
                 
