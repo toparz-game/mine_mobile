@@ -1045,28 +1045,28 @@ class PCMinesweeper extends MinesweeperCore {
     openSettings() {
         const modal = document.getElementById('settings-modal');
         if (modal) {
-            modal.classList.add('active');
+            modal.classList.add('show');
         }
     }
     
     closeSettings() {
         const modal = document.getElementById('settings-modal');
         if (modal) {
-            modal.classList.remove('active');
+            modal.classList.remove('show');
         }
     }
     
     openHelp() {
         const modal = document.getElementById('help-modal');
         if (modal) {
-            modal.classList.add('active');
+            modal.classList.add('show');
         }
     }
     
     closeHelp() {
         const modal = document.getElementById('help-modal');
         if (modal) {
-            modal.classList.remove('active');
+            modal.classList.remove('show');
         }
     }
     

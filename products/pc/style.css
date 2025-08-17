@@ -75,6 +75,7 @@ body {
     z-index: 100;
     color: var(--text-primary);
     transition: transform 0.2s ease;
+    pointer-events: auto;
 }
 
 .help-btn-floating:active {
@@ -333,6 +334,9 @@ body {
     align-items: center;
     gap: 8px;
     box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+    position: relative;
+    z-index: 10;
+    pointer-events: auto;
 }
 
 .control-btn:active {

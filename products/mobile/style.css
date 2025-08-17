@@ -333,6 +333,8 @@ body {
     align-items: center;
     gap: 8px;
     box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+    position: relative;
+    z-index: 10;
 }
 
 .control-btn:active {
