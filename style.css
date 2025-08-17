@@ -85,27 +85,36 @@ body {
     justify-content: center;
 }
 
-.diff-btn {
-    flex: 1;
+.difficulty-select {
+    width: 100%;
     padding: 12px 20px;
     border: none;
-    background: #e0e0e0;
+    background: linear-gradient(145deg, #f0f0f0, #cacaca);
     border-radius: 10px;
     font-size: 16px;
     font-weight: 600;
-    color: #666;
+    color: #333;
     cursor: pointer;
     transition: all 0.3s ease;
+    box-shadow: 3px 3px 6px #b8b8b8, -3px -3px 6px #ffffff;
+    text-align: center;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 20px;
+    padding-right: 45px;
 }
 
-.diff-btn.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    transform: scale(1.05);
+.difficulty-select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
 }
 
-.diff-btn:active {
-    transform: scale(0.95);
+.difficulty-select:active {
+    transform: scale(0.98);
 }
 
 .game-board-wrapper {
@@ -372,9 +381,12 @@ body {
         font-size: calc(min(2.5vw, 12px));
     }
     
-    .diff-btn {
+    .difficulty-select {
         padding: 8px 12px;
         font-size: 13px;
+        padding-right: 35px;
+        background-size: 16px;
+        background-position: right 10px center;
     }
     
     .control-btn {

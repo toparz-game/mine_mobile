@@ -25,9 +25,15 @@
         </header>
         
         <div class="difficulty-selector">
-            <button class="diff-btn" data-level="easy">初級</button>
-            <button class="diff-btn active" data-level="medium">中級</button>
-            <button class="diff-btn" data-level="hard">上級</button>
+            <select id="difficulty-select" class="difficulty-select">
+                <option value="easy">初級 (9×9, 地雷10)</option>
+                <option value="medium" selected>中級 (16×16, 地雷40)</option>
+                <option value="hard">上級 (16×30, 地雷99)</option>
+                <option value="hiddeneasy">裏初級 (9×9, 地雷20)</option>
+                <option value="hiddenmedium">裏中級 (16×16, 地雷64)</option>
+                <option value="hiddenhard">裏上級 (16×30, 地雷120)</option>
+                <option value="extreme">極悪 (64×64, 地雷999)</option>
+            </select>
         </div>
 
         <div class="game-board-wrapper">

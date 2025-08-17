@@ -3,7 +3,11 @@ class Minesweeper {
         this.difficulties = {
             easy: { rows: 9, cols: 9, mines: 10 },
             medium: { rows: 16, cols: 16, mines: 40 },
-            hard: { rows: 16, cols: 30, mines: 99 }
+            hard: { rows: 16, cols: 30, mines: 99 },
+            hiddeneasy: { rows: 9, cols: 9, mines: 20 },
+            hiddenmedium: { rows: 16, cols: 16, mines: 64 },
+            hiddenhard: { rows: 16, cols: 30, mines: 120 },
+            extreme: { rows: 64, cols: 64, mines: 999 }
         };
         
         this.currentDifficulty = 'medium';
@@ -47,13 +51,9 @@ class Minesweeper {
             this.toggleFlagMode();
         });
         
-        document.querySelectorAll('.diff-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                this.currentDifficulty = e.target.dataset.level;
-                this.newGame();
-            });
+        document.getElementById('difficulty-select').addEventListener('change', (e) => {
+            this.currentDifficulty = e.target.value;
+            this.newGame();
         });
         
         document.getElementById('zoom-in-btn').addEventListener('click', () => {
@@ -92,7 +92,6 @@ class Minesweeper {
         this.gameOver = false;
         this.gameWon = false;
         this.flagMode = false;
-        this.zoomLevel = 1.0;
         
         const btn = document.getElementById('flag-mode-btn');
         const text = btn.querySelector('.mode-text');
