@@ -72,14 +72,6 @@ class Minesweeper {
     }
     
     setupEventListeners() {
-        // ゲームボード全体で右クリックメニューを無効化
-        document.addEventListener('contextmenu', (e) => {
-            const gameBoard = document.getElementById('game-board');
-            if (gameBoard && gameBoard.contains(e.target)) {
-                e.preventDefault();
-                return false;
-            }
-        });
         
         const resetBtn = document.getElementById('reset-btn');
         if (resetBtn) {
@@ -507,6 +499,12 @@ class Minesweeper {
         const boardElement = document.getElementById('game-board');
         boardElement.innerHTML = '';
         boardElement.style.gridTemplateColumns = `repeat(${this.cols}, 1fr)`;
+        
+        // ボード要素で右クリックメニューを無効化（ただしイベントは伝播させる）
+        boardElement.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            // stopPropagationは削除してイベントを伝播させる
+        });
         
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
