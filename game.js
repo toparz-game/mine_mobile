@@ -132,14 +132,13 @@ class Minesweeper {
         const boardElement = document.getElementById('game-board');
         boardElement.innerHTML = '';
         
-        const cellSize = Math.min(
-            Math.floor((window.innerWidth - 60) / this.cols),
-            Math.floor((window.innerHeight - 300) / this.rows),
-            40
-        );
+        // CSSカスタムプロパティを設定
+        document.documentElement.style.setProperty('--cols', this.cols);
+        document.documentElement.style.setProperty('--rows', this.rows);
         
-        boardElement.style.gridTemplateColumns = `repeat(${this.cols}, ${cellSize}px)`;
-        boardElement.style.gridTemplateRows = `repeat(${this.rows}, ${cellSize}px)`;
+        // グリッドを動的に設定
+        boardElement.style.gridTemplateColumns = `repeat(${this.cols}, 1fr)`;
+        boardElement.style.gridTemplateRows = `repeat(${this.rows}, 1fr)`;
         
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
