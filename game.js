@@ -970,6 +970,95 @@ class Minesweeper {
                 }
             }
         }
+        
+        // クリア時にポップアップを表示
+        if (won) {
+            setTimeout(() => {
+                this.showClearModal();
+            }, 500);
+        }
+    }
+    
+    showClearModal() {
+        const modal = document.getElementById('clear-modal');
+        if (!modal) return;
+        
+        // 現在の難易度に応じたメッセージを設定
+        const messageElement = document.getElementById('clear-message');
+        const nextButton = document.getElementById('next-difficulty-btn');
+        const replayButton = document.getElementById('replay-difficulty-btn');
+        
+        let message = '';
+        let nextDifficulty = '';
+        let showNextButton = true;
+        
+        switch(this.currentDifficulty) {
+            case 'easy':
+                message = 'おめでとう！初級をクリアしました！\n中級に挑戦してみましょう！';
+                nextDifficulty = 'medium';
+                break;
+            case 'medium':
+                message = 'おめでとう！中級をクリアしました！\n上級で腕前を試してみませんか？';
+                nextDifficulty = 'hard';
+                break;
+            case 'hard':
+                message = 'おめでとう！上級をクリアしました！\n素晴らしいプレイでした！';
+                showNextButton = false;
+                break;
+            case 'hiddeneasy':
+                message = 'おめでとう！隠し初級をクリアしました！\n隠し中級に挑戦してみましょう！';
+                nextDifficulty = 'hiddenmedium';
+                break;
+            case 'hiddenmedium':
+                message = 'おめでとう！隠し中級をクリアしました！\n隠し上級で腕前を試してみませんか？';
+                nextDifficulty = 'hiddenhard';
+                break;
+            case 'hiddenhard':
+                message = 'おめでとう！隠し上級をクリアしました！\n究極の難易度に挑戦しますか？';
+                nextDifficulty = 'extreme';
+                break;
+            case 'extreme':
+                message = 'おめでとう！究極難易度をクリアしました！\nあなたは真のマインスイーパーマスターです！';
+                showNextButton = false;
+                break;
+        }
+        
+        if (messageElement) {
+            messageElement.textContent = message;
+        }
+        
+        if (nextButton) {
+            if (showNextButton) {
+                nextButton.style.display = 'block';
+                nextButton.onclick = () => {
+                    this.currentDifficulty = nextDifficulty;
+                    const difficultySelect = document.getElementById('difficulty-select');
+                    if (difficultySelect) {
+                        difficultySelect.value = nextDifficulty;
+                    }
+                    this.newGame();
+                    this.closeClearModal();
+                };
+            } else {
+                nextButton.style.display = 'none';
+            }
+        }
+        
+        if (replayButton) {
+            replayButton.onclick = () => {
+                this.newGame();
+                this.closeClearModal();
+            };
+        }
+        
+        modal.classList.add('show');
+    }
+    
+    closeClearModal() {
+        const modal = document.getElementById('clear-modal');
+        if (modal) {
+            modal.classList.remove('show');
+        }
     }
     
     
