@@ -126,17 +126,20 @@ body {
     margin-bottom: 20px;
     border-radius: 10px;
     background: #999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
 }
 
 .game-board {
     display: grid;
     gap: 1px;
-    padding: 10px;
+    padding: 20px;
     justify-content: center;
     touch-action: manipulation;
     position: relative;
     width: fit-content;
-    margin: 0 auto;
+    margin: 0;
     transform-origin: top left;
     transition: transform 0.3s ease;
 }
