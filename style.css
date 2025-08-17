@@ -747,3 +747,72 @@ body {
         transform: scale(1);
     }
 }
+
+@keyframes slideUp {
+    0% {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 省電力モード */
+body.power-save-mode {
+    background: var(--container-bg) !important;
+}
+
+body.power-save-mode .reset-btn,
+body.power-save-mode .control-btn,
+body.power-save-mode .zoom-btn,
+body.power-save-mode .settings-btn,
+body.power-save-mode .font-btn,
+body.power-save-mode .settings-toggle-btn,
+body.power-save-mode .difficulty-select-modal {
+    background: var(--button-bg-light) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+body.power-save-mode .cell {
+    border-color: var(--cell-border) !important;
+    border-width: 1px !important;
+}
+
+body.power-save-mode .control-btn.active {
+    background: var(--bg-gradient-start) !important;
+}
+
+/* アニメーション削減モード */
+body.reduced-motion * {
+    transition: none !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+}
+
+body.reduced-motion .cell:active:not(.revealed):not(.flagged) {
+    transform: none !important;
+}
+
+body.reduced-motion .reset-btn:active,
+body.reduced-motion .control-btn:active,
+body.reduced-motion .zoom-btn:active,
+body.reduced-motion .settings-btn:active,
+body.reduced-motion .font-btn:active,
+body.reduced-motion .settings-toggle-btn:active {
+    transform: none !important;
+}
+
+body.reduced-motion .falling-flag {
+    display: none !important;
+}
+
+body.reduced-motion .cell.flag-animation,
+body.reduced-motion .cell.unflag-animation {
+    animation: none !important;
+}
+
+body.reduced-motion .game-board {
+    transition: none !important;
+}

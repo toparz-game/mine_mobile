@@ -1,5 +1,9 @@
 class Minesweeper {
     constructor() {
+        // デバイス判定
+        this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        this.isPC = !this.isTouchDevice;
+        
         this.difficulties = {
             easy: { rows: 9, cols: 9, mines: 10 },
             medium: { rows: 16, cols: 16, mines: 40 },
@@ -49,11 +53,19 @@ class Minesweeper {
         // 旗アニメーション設定
         this.flagAnimationEnabled = true;
         
+        // 省電力モード設定
+        this.powerSaveMode = false;
+        this.reducedMotion = false;
+        
+        // ページ表示状態の監視
+        this.wasTimerRunning = false;
+        
         this.init();
     }
     
     init() {
         this.setupEventListeners();
+        this.setupVisibilityHandler();
         this.newGame();
     }
     
@@ -82,34 +94,30 @@ class Minesweeper {
         
         const zoomInBtn = document.getElementById('zoom-in-btn');
         if (zoomInBtn) {
-            // タッチイベントで即座に反応
-            zoomInBtn.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                this.zoomIn();
-            }, { passive: false });
-            
-            // PCのクリックイベントも維持
-            zoomInBtn.addEventListener('click', (e) => {
-                // タッチデバイスでのクリックイベントは無視（二重実行防止）
-                if (e.detail === 0) return;
-                this.zoomIn();
-            });
+            if (this.isTouchDevice) {
+                // タッチデバイスはtouchstartのみ
+                zoomInBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.zoomIn();
+                }, { passive: false });
+            } else {
+                // PCはclickのみ
+                zoomInBtn.addEventListener('click', () => this.zoomIn());
+            }
         }
         
         const zoomOutBtn = document.getElementById('zoom-out-btn');
         if (zoomOutBtn) {
-            // タッチイベントで即座に反応
-            zoomOutBtn.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                this.zoomOut();
-            }, { passive: false });
-            
-            // PCのクリックイベントも維持
-            zoomOutBtn.addEventListener('click', (e) => {
-                // タッチデバイスでのクリックイベントは無視（二重実行防止）
-                if (e.detail === 0) return;
-                this.zoomOut();
-            });
+            if (this.isTouchDevice) {
+                // タッチデバイスはtouchstartのみ
+                zoomOutBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.zoomOut();
+                }, { passive: false });
+            } else {
+                // PCはclickのみ
+                zoomOutBtn.addEventListener('click', () => this.zoomOut());
+            }
         }
         
         const settingsBtn = document.getElementById('settings-btn');
@@ -154,6 +162,20 @@ class Minesweeper {
             });
         }
         
+        const powerSaveToggleBtn = document.getElementById('power-save-toggle-btn');
+        if (powerSaveToggleBtn) {
+            powerSaveToggleBtn.addEventListener('click', () => {
+                this.togglePowerSaveMode();
+            });
+        }
+        
+        const reducedMotionToggleBtn = document.getElementById('reduced-motion-toggle-btn');
+        if (reducedMotionToggleBtn) {
+            reducedMotionToggleBtn.addEventListener('click', () => {
+                this.toggleReducedMotion();
+            });
+        }
+        
         // 設定モーダルの外側クリックで閉じる
         const settingsModal = document.getElementById('settings-modal');
         if (settingsModal) {
@@ -164,60 +186,67 @@ class Minesweeper {
             });
         }
         
-        // ゲームボードのピンチイベントを防止
-        const gameBoard = document.getElementById('game-board');
-        if (gameBoard) {
-            gameBoard.addEventListener('touchstart', (e) => {
+        // ゲームボードのピンチイベントを防止（タッチデバイスのみ）
+        if (this.isTouchDevice) {
+            const gameBoard = document.getElementById('game-board');
+            if (gameBoard) {
+                gameBoard.addEventListener('touchstart', (e) => {
+                    if (e.touches.length > 1) {
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+            }
+        }
+        
+        // タッチデバイス向けのイベント防止
+        if (this.isTouchDevice) {
+            // グローバルなピンチズーム防止
+            document.addEventListener('touchmove', (e) => {
                 if (e.touches.length > 1) {
                     e.preventDefault();
                 }
             }, { passive: false });
-        }
-        
-        // グローバルなピンチズーム防止
-        document.addEventListener('touchmove', (e) => {
-            if (e.touches.length > 1) {
-                e.preventDefault();
-            }
-        }, { passive: false });
-        
-        // プルトゥリフレッシュを防止
-        document.addEventListener('touchstart', (e) => {
-            // スクロール位置が最上部の場合のタッチ開始を記録
-            if (window.pageYOffset === 0) {
-                this.touchStartY = e.touches[0].clientY;
-            }
-        }, { passive: false });
-        
-        document.addEventListener('touchmove', (e) => {
-            // スクロール位置が最上部で下方向にスワイプしている場合
-            if (window.pageYOffset === 0 && this.touchStartY !== undefined) {
-                const touchY = e.touches[0].clientY;
-                const touchDiff = touchY - this.touchStartY;
-                if (touchDiff > 0) {
-                    // 下方向へのスワイプを防止
+            
+            // プルトゥリフレッシュを防止
+            document.addEventListener('touchstart', (e) => {
+                // スクロール位置が最上部の場合のタッチ開始を記録
+                if (window.pageYOffset === 0) {
+                    this.touchStartY = e.touches[0].clientY;
+                }
+            }, { passive: true }); // passiveをtrueに変更
+            
+            document.addEventListener('touchmove', (e) => {
+                // スクロール位置が最上部で下方向にスワイプしている場合
+                if (window.pageYOffset === 0 && this.touchStartY !== undefined) {
+                    const touchY = e.touches[0].clientY;
+                    const touchDiff = touchY - this.touchStartY;
+                    if (touchDiff > 0) {
+                        // 下方向へのスワイプを防止
+                        e.preventDefault();
+                    }
+                }
+            }, { passive: false });
+            
+            // ダブルタップズーム防止
+            document.addEventListener('touchend', (e) => {
+                const now = new Date().getTime();
+                if (now - this.lastTapTime < 500) {
                     e.preventDefault();
                 }
-            }
-        }, { passive: false });
-        
-        // ダブルタップズーム防止
-        document.addEventListener('touchend', (e) => {
-            const now = new Date().getTime();
-            if (now - this.lastTapTime < 500) {
+                this.lastTapTime = now;
+            }, { passive: false });
+            
+            // iOS Safari用のジェスチャーイベント防止
+            document.addEventListener('gesturestart', (e) => {
                 e.preventDefault();
-            }
-            this.lastTapTime = now;
-        }, false);
+                return false;
+            });
+        }
         
-        // iOS Safari用のジェスチャーイベント防止
-        document.addEventListener('gesturestart', (e) => {
-            e.preventDefault();
-            return false;
-        });
-        
-        // PC用ドラッグイベントの設定
-        this.setupDragEvents();
+        // PC用ドラッグイベントの設定（PCのみ）
+        if (this.isPC) {
+            this.setupDragEvents();
+        }
     }
     
     setupDragEvents() {
@@ -226,6 +255,7 @@ class Minesweeper {
         
         // 設定の読み込み
         this.loadFlagAnimationSetting();
+        this.loadPowerSaveSettings();
         
         let isDraggingWithMiddleButton = false;
         
@@ -409,14 +439,16 @@ class Minesweeper {
     }
     
     setupCellEventListeners(cell, row, col) {
-        let touchTimer;
-        let touchStartX, touchStartY;
-        let hasMoved = false;
-        let lastTapTime = 0;
-        const doubleTapThreshold = 300; // ダブルタップの判定時間（ミリ秒）
-        
-        // タッチ開始
-        cell.addEventListener('touchstart', (e) => {
+        // タッチデバイス向けイベント
+        if (this.isTouchDevice) {
+            let touchTimer;
+            let touchStartX, touchStartY;
+            let hasMoved = false;
+            let lastTapTime = 0;
+            const doubleTapThreshold = 300; // ダブルタップの判定時間（ミリ秒）
+            
+            // タッチ開始
+            cell.addEventListener('touchstart', (e) => {
             if (this.gameOver) return;
             
             touchStartX = e.touches[0].clientX;
@@ -451,12 +483,12 @@ class Minesweeper {
                 }
             }, 300); // 300ms長押しで旗
             
-            // preventDefaultを削除してスクロールを可能にする
-            // e.preventDefault();
-        }, { passive: false });
-        
-        // タッチ移動（長押し判定のキャンセル用）
-        cell.addEventListener('touchmove', (e) => {
+                // preventDefaultを削除してスクロールを可能にする
+                // e.preventDefault();
+            }, { passive: true }); // passiveをtrueに変更
+            
+            // タッチ移動（長押し判定のキャンセル用）
+            cell.addEventListener('touchmove', (e) => {
             const moveX = e.touches[0].clientX;
             const moveY = e.touches[0].clientY;
             const distance = Math.sqrt(
@@ -464,15 +496,15 @@ class Minesweeper {
                 Math.pow(moveY - touchStartY, 2)
             );
             
-            // 10ピクセル以上動いたら移動とみなす
-            if (distance > 10) {
-                hasMoved = true;
-                clearTimeout(touchTimer);
-            }
-        });
-        
-        // タッチ終了
-        cell.addEventListener('touchend', (e) => {
+                // 10ピクセル以上動いたら移動とみなす
+                if (distance > 10) {
+                    hasMoved = true;
+                    clearTimeout(touchTimer);
+                }
+            }, { passive: true }); // passiveをtrueに変更
+            
+            // タッチ終了
+            cell.addEventListener('touchend', (e) => {
             clearTimeout(touchTimer);
             
             // 長押しの場合は何もしない（旗の設置/取り消しは既に実行済み）
@@ -520,43 +552,47 @@ class Minesweeper {
                     }
                     lastTapTime = currentTime;
                 }
-                // タップ時のみpreventDefaultを呼ぶ
-                e.preventDefault();
-            }
-        });
+                    // タップ時のみpreventDefaultを呼ぶ
+                    e.preventDefault();
+                }
+            }, { passive: false });
+            
+            // タッチキャンセル
+            cell.addEventListener('touchcancel', () => {
+                clearTimeout(touchTimer);
+                this.isLongPress = false;
+                hasMoved = false;
+            }, { passive: true }); // passiveをtrueに変更
+        }
         
-        // タッチキャンセル
-        cell.addEventListener('touchcancel', () => {
-            clearTimeout(touchTimer);
-            this.isLongPress = false;
-            hasMoved = false;
-        });
-        
-        // PCのクリックイベント
-        cell.addEventListener('click', (e) => {
+        // PC向けイベント
+        if (this.isPC) {
+            // PCのクリックイベント
+            cell.addEventListener('click', (e) => {
             if (!this.gameOver) {
                 if (e.shiftKey || this.flagMode > 0) {
                     this.handleCellMark(row, col);
-                } else {
-                    this.revealCell(row, col);
+                    } else {
+                        this.revealCell(row, col);
+                    }
                 }
-            }
-        });
-        
-        cell.addEventListener('dblclick', (e) => {
-            e.preventDefault();
-            if (!this.gameOver && this.revealed[row][col] && this.board[row][col] > 0) {
-                this.chordReveal(row, col);
-            }
-        });
-        
-        cell.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            if (!this.gameOver) {
-                this.cycleFlag(row, col);
-            }
-            return false;
-        });
+            });
+            
+            cell.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                if (!this.gameOver && this.revealed[row][col] && this.board[row][col] > 0) {
+                    this.chordReveal(row, col);
+                }
+            });
+            
+            cell.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                if (!this.gameOver) {
+                    this.cycleFlag(row, col);
+                }
+                return false;
+            });
+        }
     }
     
     revealCell(row, col) {
@@ -988,6 +1024,110 @@ class Minesweeper {
         }
     }
     
+    loadPowerSaveSettings() {
+        // グラデーション・影の設定読み込み（デフォルトON）
+        const savedPowerSave = localStorage.getItem('powerSaveMode');
+        const powerBtn = document.getElementById('power-save-toggle-btn');
+        if (powerBtn) {
+            const powerText = powerBtn.querySelector('.power-save-text');
+            if (savedPowerSave === 'off') {
+                this.powerSaveMode = true;
+                if (powerText) powerText.textContent = 'OFF';
+                document.body.classList.add('power-save-mode');
+            } else {
+                this.powerSaveMode = false;
+                if (powerText) powerText.textContent = 'ON';
+            }
+        }
+        
+        // トランジション効果の設定読み込み（デフォルトON）
+        const savedReducedMotion = localStorage.getItem('reducedMotion');
+        const motionBtn = document.getElementById('reduced-motion-toggle-btn');
+        if (motionBtn) {
+            const motionText = motionBtn.querySelector('.reduced-motion-text');
+            if (savedReducedMotion === 'off') {
+                this.reducedMotion = true;
+                if (motionText) motionText.textContent = 'OFF';
+                document.body.classList.add('reduced-motion');
+            } else {
+                this.reducedMotion = false;
+                if (motionText) motionText.textContent = 'ON';
+            }
+        }
+    }
+    
+    togglePowerSaveMode() {
+        this.powerSaveMode = !this.powerSaveMode;
+        const btn = document.getElementById('power-save-toggle-btn');
+        if (!btn) return;
+        
+        const powerText = btn.querySelector('.power-save-text');
+        
+        if (this.powerSaveMode) {
+            if (powerText) powerText.textContent = 'OFF';
+            document.body.classList.add('power-save-mode');
+        } else {
+            if (powerText) powerText.textContent = 'ON';
+            document.body.classList.remove('power-save-mode');
+        }
+        
+        // 設定を保存（逆転：OFFが省電力モード）
+        localStorage.setItem('powerSaveMode', this.powerSaveMode ? 'off' : 'on');
+    }
+    
+    toggleReducedMotion() {
+        this.reducedMotion = !this.reducedMotion;
+        const btn = document.getElementById('reduced-motion-toggle-btn');
+        if (!btn) return;
+        
+        const motionText = btn.querySelector('.reduced-motion-text');
+        
+        if (this.reducedMotion) {
+            if (motionText) motionText.textContent = 'OFF';
+            document.body.classList.add('reduced-motion');
+        } else {
+            if (motionText) motionText.textContent = 'ON';
+            document.body.classList.remove('reduced-motion');
+        }
+        
+        // 設定を保存（逆転：OFFが省電力モード）
+        localStorage.setItem('reducedMotion', this.reducedMotion ? 'off' : 'on');
+    }
+    
+    setupVisibilityHandler() {
+        // Page Visibility APIを使用してバックグラウンド時の処理を制御
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // ページが非表示になった時
+                if (this.timerInterval) {
+                    this.wasTimerRunning = true;
+                    this.stopTimer();
+                }
+            } else {
+                // ページが表示された時
+                if (this.wasTimerRunning && !this.gameOver && !this.firstClick) {
+                    this.startTimer();
+                    this.wasTimerRunning = false;
+                }
+            }
+        });
+        
+        // ブラウザのフォーカス/ブラー処理も追加
+        window.addEventListener('blur', () => {
+            if (this.timerInterval && !document.hidden) {
+                this.wasTimerRunning = true;
+                this.stopTimer();
+            }
+        });
+        
+        window.addEventListener('focus', () => {
+            if (this.wasTimerRunning && !this.gameOver && !this.firstClick && !document.hidden) {
+                this.startTimer();
+                this.wasTimerRunning = false;
+            }
+        });
+    }
+    
     zoomIn() {
         const newZoom = this.zoomLevel + this.zoomStep;
         if (newZoom <= this.maxZoom) {
@@ -1043,6 +1183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         const game = new Minesweeper();
         game.loadTheme();
+        game.loadPowerSaveSettings();
     } catch (error) {
         console.error('Error during initialization:', error);
     }
