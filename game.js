@@ -546,6 +546,10 @@ class Minesweeper {
             cell.classList.add('flagged');
             // ビジュアルフィードバック：旗を立てた時のアニメーション
             cell.classList.add('flag-animation');
+            
+            // 画面上部から旗が降ってくるアニメーション
+            this.createFallingFlag(cell);
+            
             setTimeout(() => {
                 cell.classList.remove('flag-animation');
             }, 300);
@@ -761,6 +765,32 @@ class Minesweeper {
             if (themeIcon) themeIcon.textContent = '☀️';
             if (themeText) themeText.textContent = 'ライトモード';
         }
+    }
+    
+    createFallingFlag(targetCell) {
+        const container = document.getElementById('flag-animation-container');
+        if (!container) return;
+        
+        // セルの位置を取得
+        const cellRect = targetCell.getBoundingClientRect();
+        const cellCenterX = cellRect.left + cellRect.width / 2;
+        const cellCenterY = cellRect.top + cellRect.height / 2;
+        
+        // 旗要素を作成
+        const flag = document.createElement('div');
+        flag.className = 'falling-flag';
+        flag.textContent = '🚩';
+        
+        // 最終位置（セルの中心）に配置
+        flag.style.left = (cellCenterX - 25) + 'px';
+        flag.style.top = cellCenterY + 'px';
+        
+        container.appendChild(flag);
+        
+        // アニメーション終了後に要素を削除
+        setTimeout(() => {
+            flag.remove();
+        }, 400);
     }
     
     zoomIn() {
