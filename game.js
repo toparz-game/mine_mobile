@@ -717,10 +717,14 @@ class Minesweeper {
         const themeIcon = themeBtn.querySelector('.theme-icon');
         const themeText = themeBtn.querySelector('.theme-text');
         
-        if (savedTheme === 'dark') {
+        // デフォルトはダークモード（未設定またはdarkの場合）
+        if (savedTheme !== 'light') {
             document.body.setAttribute('data-theme', 'dark');
             themeIcon.textContent = '☀️';
             themeText.textContent = 'ライトモード';
+        } else {
+            themeIcon.textContent = '🌙';
+            themeText.textContent = 'ダークモード';
         }
     }
     

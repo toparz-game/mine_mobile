@@ -246,6 +246,15 @@ body {
 .cell[data-count="7"] { color: #000000; }
 .cell[data-count="8"] { color: #808080; }
 
+[data-theme="dark"] .cell[data-count="1"] { color: #4d94ff; }
+[data-theme="dark"] .cell[data-count="2"] { color: #4dff4d; }
+[data-theme="dark"] .cell[data-count="3"] { color: #ff6666; }
+[data-theme="dark"] .cell[data-count="4"] { color: #6666ff; }
+[data-theme="dark"] .cell[data-count="5"] { color: #ff9999; }
+[data-theme="dark"] .cell[data-count="6"] { color: #66ffff; }
+[data-theme="dark"] .cell[data-count="7"] { color: #e0e0e0; }
+[data-theme="dark"] .cell[data-count="8"] { color: #c0c0c0; }
+
 .controls {
     display: flex;
     justify-content: center;
@@ -556,7 +565,7 @@ body {
 
 @media (max-width: 480px) {
     .container {
-        padding: 20px;
+        padding: 25px;
         border-radius: 0;
         max-width: 100%;
         width: 100%;
@@ -569,7 +578,7 @@ body {
     }
     
     .info-panel {
-        padding: 12px;
+        padding: 15px;
     }
     
     .info-item {
@@ -588,12 +597,12 @@ body {
     }
     
     .game-board {
-        padding: 15px;
-        gap: 2px;
+        padding: 20px;
+        gap: 3px;
     }
     
     .game-board-wrapper {
-        margin-bottom: 20px;
+        margin-bottom: 25px;
     }
     
     .cell {
@@ -604,11 +613,11 @@ body {
     }
     
     .difficulty-select {
-        padding: 10px 15px;
+        padding: 12px 18px;
         font-size: 14px;
-        padding-right: 40px;
+        padding-right: 45px;
         background-size: 16px;
-        background-position: right 12px center;
+        background-position: right 15px center;
     }
     
     .control-btn {
@@ -628,16 +637,16 @@ body {
     }
     
     .difficulty-selector {
-        margin-bottom: 20px;
+        margin-bottom: 25px;
     }
     
     .game-header {
-        margin-bottom: 20px;
+        margin-bottom: 25px;
     }
     
     .controls {
-        gap: 20px;
-        margin-top: 25px;
+        gap: 25px;
+        margin-top: 30px;
     }
 }
 
