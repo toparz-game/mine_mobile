@@ -10,18 +10,6 @@
 </head>
 <body>
     <div class="container">
-        <div class="difficulty-selector">
-            <select id="difficulty-select" class="difficulty-select">
-                <option value="easy">初級 (9×9, 地雷10)</option>
-                <option value="medium" selected>中級 (16×16, 地雷40)</option>
-                <option value="hard">上級 (16×30, 地雷99)</option>
-                <option value="hiddeneasy">裏初級 (9×9, 地雷20)</option>
-                <option value="hiddenmedium">裏中級 (16×16, 地雷64)</option>
-                <option value="hiddenhard">裏上級 (16×30, 地雷120)</option>
-                <option value="extreme">極悪 (64×64, 地雷999)</option>
-            </select>
-        </div>
-        
         <header class="game-header">
             <div class="info-panel">
                 <div class="info-item">
@@ -43,7 +31,6 @@
         <div class="controls">
             <button id="flag-mode-btn" class="control-btn">
                 <span class="mode-icon">🚩</span>
-                <span class="mode-text">旗モード: OFF</span>
             </button>
             <div class="zoom-controls">
                 <button id="zoom-out-btn" class="zoom-btn">－</button>
@@ -69,6 +56,18 @@
                     <button id="close-settings" class="close-btn">✕</button>
                 </div>
                 <div class="settings-body">
+                    <div class="settings-section">
+                        <h3>難易度</h3>
+                        <select id="difficulty-select" class="difficulty-select-modal">
+                            <option value="easy">初級 (9×9, 地雷10)</option>
+                            <option value="medium" selected>中級 (16×16, 地雷40)</option>
+                            <option value="hard">上級 (16×30, 地雷99)</option>
+                            <option value="hiddeneasy">裏初級 (9×9, 地雷20)</option>
+                            <option value="hiddenmedium">裏中級 (16×16, 地雷64)</option>
+                            <option value="hiddenhard">裏上級 (16×30, 地雷120)</option>
+                            <option value="extreme">極悪 (64×64, 地雷999)</option>
+                        </select>
+                    </div>
                     <div class="settings-section">
                         <h3>文字サイズ</h3>
                         <div class="settings-controls">

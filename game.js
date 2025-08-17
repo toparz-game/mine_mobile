@@ -67,6 +67,7 @@ class Minesweeper {
         document.getElementById('difficulty-select').addEventListener('change', (e) => {
             this.currentDifficulty = e.target.value;
             this.newGame();
+            this.closeSettings();
         });
         
         document.getElementById('zoom-in-btn').addEventListener('click', () => {
