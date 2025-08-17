@@ -512,7 +512,7 @@ class Minesweeper {
                         cell.classList.remove('questioned');
                         cell.classList.add('flagged');
                         cell.textContent = '';
-                        this.createFallingFlag(cell);
+                        // ?から旗への切り替え時はアニメーションなし
                         this.updateMineCount();
                         this.checkWin();
                     } else {
