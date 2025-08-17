@@ -129,10 +129,24 @@ class Minesweeper {
             });
         }
         
+        const helpBtn = document.getElementById('help-btn');
+        if (helpBtn) {
+            helpBtn.addEventListener('click', () => {
+                this.openHelp();
+            });
+        }
+        
         const closeSettingsBtn = document.getElementById('close-settings');
         if (closeSettingsBtn) {
             closeSettingsBtn.addEventListener('click', () => {
                 this.closeSettings();
+            });
+        }
+        
+        const closeHelpBtn = document.getElementById('close-help');
+        if (closeHelpBtn) {
+            closeHelpBtn.addEventListener('click', () => {
+                this.closeHelp();
             });
         }
         
@@ -185,6 +199,16 @@ class Minesweeper {
             settingsModal.addEventListener('click', (e) => {
                 if (e.target === settingsModal) {
                     this.closeSettings();
+                }
+            });
+        }
+        
+        // ヘルプモーダルの外側クリックで閉じる
+        const helpModal = document.getElementById('help-modal');
+        if (helpModal) {
+            helpModal.addEventListener('click', (e) => {
+                if (e.target === helpModal) {
+                    this.closeHelp();
                 }
             });
         }
@@ -1340,6 +1364,30 @@ class Minesweeper {
     
     closeSettings() {
         const modal = document.getElementById('settings-modal');
+        if (modal) modal.classList.remove('show');
+    }
+    
+    openHelp() {
+        const modal = document.getElementById('help-modal');
+        if (modal) {
+            modal.classList.add('show');
+            // デバイスに応じて適切なセクションを表示
+            const mobileHelp = document.getElementById('mobile-help');
+            const pcHelp = document.getElementById('pc-help');
+            if (mobileHelp && pcHelp) {
+                if (this.isTouchDevice) {
+                    mobileHelp.style.display = 'block';
+                    pcHelp.style.display = 'none';
+                } else {
+                    mobileHelp.style.display = 'none';
+                    pcHelp.style.display = 'block';
+                }
+            }
+        }
+    }
+    
+    closeHelp() {
+        const modal = document.getElementById('help-modal');
         if (modal) modal.classList.remove('show');
     }
 }
