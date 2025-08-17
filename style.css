@@ -76,8 +76,8 @@ body {
 }
 
 .info-panel {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     background: var(--panel-bg);
     border-radius: 10px;
@@ -87,6 +87,7 @@ body {
 .info-item-group {
     display: flex;
     gap: 15px;
+    justify-self: start;
 }
 
 .info-item {
@@ -97,6 +98,10 @@ body {
     font-weight: bold;
     color: var(--text-primary);
     min-width: 70px;
+}
+
+.info-panel > .info-item {
+    justify-self: end;
 }
 
 .emoji {
@@ -117,6 +122,7 @@ body {
     justify-content: center;
     line-height: 1;
     padding: 0;
+    text-align: center;
 }
 
 .reset-btn:active {
