@@ -3,9 +3,6 @@ class MobileMinesweeper extends MinesweeperCore {
     constructor() {
         super();
         
-        // デバイス判定
-        this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        this.isPC = !this.isTouchDevice;
         
         // 難易度設定
         this.difficulties = {
@@ -201,59 +198,55 @@ class MobileMinesweeper extends MinesweeperCore {
             });
         }
         
-        // ゲームボードのピンチイベントを防止（タッチデバイスのみ）
-        if (this.isTouchDevice) {
-            const gameBoard = document.getElementById('game-board');
-            if (gameBoard) {
-                gameBoard.addEventListener('touchstart', (e) => {
-                    if (e.touches.length > 1) {
-                        e.preventDefault();
-                    }
-                }, { passive: false });
-            }
-        }
-        
-        // タッチデバイス向けのイベント防止
-        if (this.isTouchDevice) {
-            // グローバルなピンチズーム防止
-            document.addEventListener('touchmove', (e) => {
+        // ゲームボードのピンチイベントを防止
+        const gameBoard = document.getElementById('game-board');
+        if (gameBoard) {
+            gameBoard.addEventListener('touchstart', (e) => {
                 if (e.touches.length > 1) {
                     e.preventDefault();
                 }
             }, { passive: false });
-            
-            // プルトゥリフレッシュを防止
-            document.addEventListener('touchstart', (e) => {
-                if (window.pageYOffset === 0) {
-                    this.touchStartY = e.touches[0].clientY;
-                }
-            }, { passive: true });
-            
-            document.addEventListener('touchmove', (e) => {
-                if (window.pageYOffset === 0 && this.touchStartY !== undefined) {
-                    const touchY = e.touches[0].clientY;
-                    const touchDiff = touchY - this.touchStartY;
-                    if (touchDiff > 0) {
-                        e.preventDefault();
-                    }
-                }
-            }, { passive: false });
-            
-            // ダブルタップズーム防止
-            document.addEventListener('touchend', (e) => {
-                const now = new Date().getTime();
-                if (now - this.lastTapTime < 500) {
+        }
+        
+        // タッチデバイス向けのイベント防止
+        // グローバルなピンチズーム防止
+        document.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // プルトゥリフレッシュを防止
+        document.addEventListener('touchstart', (e) => {
+            if (window.pageYOffset === 0) {
+                this.touchStartY = e.touches[0].clientY;
+            }
+        }, { passive: true });
+        
+        document.addEventListener('touchmove', (e) => {
+            if (window.pageYOffset === 0 && this.touchStartY !== undefined) {
+                const touchY = e.touches[0].clientY;
+                const touchDiff = touchY - this.touchStartY;
+                if (touchDiff > 0) {
                     e.preventDefault();
                 }
-                this.lastTapTime = now;
-            }, { passive: false });
-            
-            // iOS Safari用のジェスチャーイベント防止
-            document.addEventListener('gesturestart', (e) => {
+            }
+        }, { passive: false });
+        
+        // ダブルタップズーム防止
+        document.addEventListener('touchend', (e) => {
+            const now = new Date().getTime();
+            if (now - this.lastTapTime < 500) {
                 e.preventDefault();
-                return false;
-            });
-        }
+            }
+            this.lastTapTime = now;
+        }, { passive: false });
+        
+        // iOS Safari用のジェスチャーイベント防止
+        document.addEventListener('gesturestart', (e) => {
+            e.preventDefault();
+            return false;
+        });
         
         // ドラッグイベントの設定
         this.setupDragEvents();
@@ -268,80 +261,26 @@ class MobileMinesweeper extends MinesweeperCore {
         this.loadPowerSaveSettings();
         this.loadReverseModeSetting();
         
-        let isDraggingWithMiddleButton = false;
-        let isDraggingTouch = false;
         
-        // 中ボタン（スクロールボタン）でのドラッグ処理
-        wrapper.addEventListener('mousedown', (e) => {
-            if (e.button === 1) {
-                isDraggingWithMiddleButton = true;
-                this.isDragging = true;
-                this.dragStartX = e.clientX;
-                this.dragStartY = e.clientY;
-                this.scrollStartX = wrapper.scrollLeft;
-                this.scrollStartY = wrapper.scrollTop;
-                
-                wrapper.style.cursor = 'move';
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
-        
-        // マウス移動イベント（中ボタンドラッグ時のみ）
-        wrapper.addEventListener('mousemove', (e) => {
-            if (!this.isDragging || !isDraggingWithMiddleButton) return;
-            
-            const deltaX = e.clientX - this.dragStartX;
-            const deltaY = e.clientY - this.dragStartY;
-            
-            // リバースモードの場合、スクロール方向を反転
-            if (this.reverseMode) {
-                wrapper.scrollLeft = this.scrollStartX + deltaX;
-                wrapper.scrollTop = this.scrollStartY + deltaY;
-            } else {
-                wrapper.scrollLeft = this.scrollStartX - deltaX;
-                wrapper.scrollTop = this.scrollStartY - deltaY;
-            }
-            
-            e.preventDefault();
-        });
-        
-        // マウスアップイベント
-        const handleMouseUp = (e) => {
-            if (isDraggingWithMiddleButton && e.button === 1) {
-                this.isDragging = false;
-                isDraggingWithMiddleButton = false;
-                wrapper.style.cursor = 'grab';
-                e.preventDefault();
-            }
-        };
-        
-        wrapper.addEventListener('mouseup', handleMouseUp);
-        document.addEventListener('mouseup', handleMouseUp);
-        
-        // マウスがウィンドウ外に出た場合
-        wrapper.addEventListener('mouseleave', () => {
-            if (this.isDragging) {
-                this.isDragging = false;
-                isDraggingWithMiddleButton = false;
-                wrapper.style.cursor = 'grab';
-            }
-        });
-        
-        // タッチデバイス向けのスワイプ実装
-        if (this.isTouchDevice) {
+        // タッチデバイス向けのドラッグ処理
+        {
+            let isDraggingTouch = false;
             let touchStartX = 0;
             let touchStartY = 0;
             let scrollStartX = 0;
             let scrollStartY = 0;
+            let touchStartTime = 0;
+            let dragThreshold = 10; // ドラッグと判定する最小移動量
             
             wrapper.addEventListener('touchstart', (e) => {
-                if (e.touches.length === 1) {
+                // wrapperの直接のタッチのみ処理（セルのタッチは除外）
+                if (e.target === wrapper && e.touches.length === 1) {
                     isDraggingTouch = true;
                     touchStartX = e.touches[0].clientX;
                     touchStartY = e.touches[0].clientY;
                     scrollStartX = wrapper.scrollLeft;
                     scrollStartY = wrapper.scrollTop;
+                    touchStartTime = Date.now();
                 }
             }, { passive: true });
             
@@ -351,17 +290,21 @@ class MobileMinesweeper extends MinesweeperCore {
                 const touch = e.touches[0];
                 const deltaX = touch.clientX - touchStartX;
                 const deltaY = touch.clientY - touchStartY;
+                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
                 
-                // リバースモードの場合、スクロール方向を反転
-                if (this.reverseMode) {
-                    wrapper.scrollLeft = scrollStartX + deltaX;
-                    wrapper.scrollTop = scrollStartY + deltaY;
-                } else {
-                    wrapper.scrollLeft = scrollStartX - deltaX;
-                    wrapper.scrollTop = scrollStartY - deltaY;
+                // 閾値を超えたらドラッグと判定
+                if (distance > dragThreshold) {
+                    // リバースモードの場合、スクロール方向を反転
+                    if (this.reverseMode) {
+                        wrapper.scrollLeft = scrollStartX + deltaX;
+                        wrapper.scrollTop = scrollStartY + deltaY;
+                    } else {
+                        wrapper.scrollLeft = scrollStartX - deltaX;
+                        wrapper.scrollTop = scrollStartY - deltaY;
+                    }
+                    
+                    e.preventDefault();
                 }
-                
-                e.preventDefault();
             }, { passive: false });
             
             wrapper.addEventListener('touchend', () => {
@@ -584,34 +527,6 @@ class MobileMinesweeper extends MinesweeperCore {
             });
         }
         
-        // PC向けイベント
-        if (this.isPC) {
-            // 左クリック
-            cell.addEventListener('click', (e) => {
-                if (this.gameOver) return;
-                
-                if (this.flagMode > 0) {
-                    this.handleCellMark(row, col);
-                } else if (!this.flagged[row][col] && !this.questioned[row][col]) {
-                    this.revealCell(row, col);
-                }
-            });
-            
-            // 右クリック
-            cell.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                if (!this.gameOver && !this.revealed[row][col]) {
-                    this.toggleFlag(row, col);
-                }
-            });
-            
-            // ダブルクリック
-            cell.addEventListener('dblclick', (e) => {
-                if (this.revealed[row][col] && this.board[row][col] > 0) {
-                    this.chordReveal(row, col);
-                }
-            });
-        }
     }
     
     // コアライブラリのメソッドをオーバーライド
@@ -804,7 +719,7 @@ class MobileMinesweeper extends MinesweeperCore {
         const boardElement = document.getElementById('game-board');
         if (boardElement) {
             boardElement.style.transform = `scale(${this.zoomLevel})`;
-            boardElement.style.transformOrigin = 'center center';
+            boardElement.style.transformOrigin = 'top left';
         }
     }
     
@@ -1068,19 +983,12 @@ class MobileMinesweeper extends MinesweeperCore {
         if (modal) {
             modal.classList.add('show');
             
-            // デバイスに応じて適切な説明を表示
+            // モバイル版なので常にモバイル向けの説明を表示
             const mobileHelp = document.getElementById('mobile-help');
             const pcHelp = document.getElementById('pc-help');
             
-            if (this.isTouchDevice) {
-                // スマホ・タブレットの場合
-                if (mobileHelp) mobileHelp.style.display = 'block';
-                if (pcHelp) pcHelp.style.display = 'none';
-            } else {
-                // PCの場合
-                if (mobileHelp) mobileHelp.style.display = 'none';
-                if (pcHelp) pcHelp.style.display = 'block';
-            }
+            if (mobileHelp) mobileHelp.style.display = 'block';
+            if (pcHelp) pcHelp.style.display = 'none';
         }
     }
     

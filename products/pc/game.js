@@ -3,10 +3,6 @@ class PCMinesweeper extends MinesweeperCore {
     constructor() {
         super();
         
-        // デバイス判定
-        this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        this.isPC = !this.isTouchDevice;
-        
         // 難易度設定
         this.difficulties = {
             easy: { rows: 9, cols: 9, mines: 10 },
@@ -20,16 +16,10 @@ class PCMinesweeper extends MinesweeperCore {
         
         this.currentDifficulty = 'easy';
         this.flagMode = 0; // 0: 通常, 1: 旗モード, 2: ?モード, 3: 取り消しモード
-        this.longPressTimer = null;
-        this.isLongPress = false;
-        this.isPinching = false;
-        this.touchCount = 0;
         this.zoomLevel = 1.0;
         this.minZoom = 0.3;
         this.maxZoom = 3.0;
         this.zoomStep = 0.1;
-        this.lastTapTime = 0;
-        this.doubleTapDelay = 300;
         
         // フォントサイズ関連の変数
         this.currentFontSize = 100; // パーセンテージ
@@ -89,26 +79,12 @@ class PCMinesweeper extends MinesweeperCore {
         
         const zoomInBtn = document.getElementById('zoom-in-btn');
         if (zoomInBtn) {
-            if (this.isTouchDevice) {
-                zoomInBtn.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.zoomIn();
-                }, { passive: false });
-            } else {
-                zoomInBtn.addEventListener('click', () => this.zoomIn());
-            }
+            zoomInBtn.addEventListener('click', () => this.zoomIn());
         }
         
         const zoomOutBtn = document.getElementById('zoom-out-btn');
         if (zoomOutBtn) {
-            if (this.isTouchDevice) {
-                zoomOutBtn.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.zoomOut();
-                }, { passive: false });
-            } else {
-                zoomOutBtn.addEventListener('click', () => this.zoomOut());
-            }
+            zoomOutBtn.addEventListener('click', () => this.zoomOut());
         }
         
         const settingsBtn = document.getElementById('settings-btn');
@@ -201,59 +177,6 @@ class PCMinesweeper extends MinesweeperCore {
             });
         }
         
-        // ゲームボードのピンチイベントを防止（タッチデバイスのみ）
-        if (this.isTouchDevice) {
-            const gameBoard = document.getElementById('game-board');
-            if (gameBoard) {
-                gameBoard.addEventListener('touchstart', (e) => {
-                    if (e.touches.length > 1) {
-                        e.preventDefault();
-                    }
-                }, { passive: false });
-            }
-        }
-        
-        // タッチデバイス向けのイベント防止
-        if (this.isTouchDevice) {
-            // グローバルなピンチズーム防止
-            document.addEventListener('touchmove', (e) => {
-                if (e.touches.length > 1) {
-                    e.preventDefault();
-                }
-            }, { passive: false });
-            
-            // プルトゥリフレッシュを防止
-            document.addEventListener('touchstart', (e) => {
-                if (window.pageYOffset === 0) {
-                    this.touchStartY = e.touches[0].clientY;
-                }
-            }, { passive: true });
-            
-            document.addEventListener('touchmove', (e) => {
-                if (window.pageYOffset === 0 && this.touchStartY !== undefined) {
-                    const touchY = e.touches[0].clientY;
-                    const touchDiff = touchY - this.touchStartY;
-                    if (touchDiff > 0) {
-                        e.preventDefault();
-                    }
-                }
-            }, { passive: false });
-            
-            // ダブルタップズーム防止
-            document.addEventListener('touchend', (e) => {
-                const now = new Date().getTime();
-                if (now - this.lastTapTime < 500) {
-                    e.preventDefault();
-                }
-                this.lastTapTime = now;
-            }, { passive: false });
-            
-            // iOS Safari用のジェスチャーイベント防止
-            document.addEventListener('gesturestart', (e) => {
-                e.preventDefault();
-                return false;
-            });
-        }
         
         // ドラッグイベントの設定
         this.setupDragEvents();
@@ -268,89 +191,45 @@ class PCMinesweeper extends MinesweeperCore {
         this.loadPowerSaveSettings();
         this.loadReverseModeSetting();
         
-        let isDraggingWithMiddleButton = false;
-        let isDraggingTouch = false;
-        
-        // 中ボタン（スクロールボタン）でのドラッグ処理
-        wrapper.addEventListener('mousedown', (e) => {
-            if (e.button === 1) {
-                isDraggingWithMiddleButton = true;
-                this.isDragging = true;
-                this.dragStartX = e.clientX;
-                this.dragStartY = e.clientY;
-                this.scrollStartX = wrapper.scrollLeft;
-                this.scrollStartY = wrapper.scrollTop;
-                
-                wrapper.style.cursor = 'move';
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
-        
-        // マウス移動イベント（中ボタンドラッグ時のみ）
-        wrapper.addEventListener('mousemove', (e) => {
-            if (!this.isDragging || !isDraggingWithMiddleButton) return;
-            
-            const deltaX = e.clientX - this.dragStartX;
-            const deltaY = e.clientY - this.dragStartY;
-            
-            // リバースモードの場合、スクロール方向を反転
-            if (this.reverseMode) {
-                wrapper.scrollLeft = this.scrollStartX + deltaX;
-                wrapper.scrollTop = this.scrollStartY + deltaY;
-            } else {
-                wrapper.scrollLeft = this.scrollStartX - deltaX;
-                wrapper.scrollTop = this.scrollStartY - deltaY;
-            }
-            
-            e.preventDefault();
-        });
-        
-        // マウスアップイベント
-        const handleMouseUp = (e) => {
-            if (isDraggingWithMiddleButton && e.button === 1) {
-                this.isDragging = false;
-                isDraggingWithMiddleButton = false;
-                wrapper.style.cursor = 'grab';
-                e.preventDefault();
-            }
-        };
-        
-        wrapper.addEventListener('mouseup', handleMouseUp);
-        document.addEventListener('mouseup', handleMouseUp);
-        
-        // マウスがウィンドウ外に出た場合
-        wrapper.addEventListener('mouseleave', () => {
-            if (this.isDragging) {
-                this.isDragging = false;
-                isDraggingWithMiddleButton = false;
-                wrapper.style.cursor = 'grab';
-            }
-        });
-        
-        // タッチデバイス向けのスワイプ実装
-        if (this.isTouchDevice) {
-            let touchStartX = 0;
-            let touchStartY = 0;
+        // PC向けのドラッグ処理（中ボタンでドラッグ）
+        {
+            let isDraggingMouse = false;
+            let mouseStartX = 0;
+            let mouseStartY = 0;
             let scrollStartX = 0;
             let scrollStartY = 0;
+            let dragThreshold = 5; // ドラッグと判定する最小移動量
+            let hasDraggedEnough = false;
             
-            wrapper.addEventListener('touchstart', (e) => {
-                if (e.touches.length === 1) {
-                    isDraggingTouch = true;
-                    touchStartX = e.touches[0].clientX;
-                    touchStartY = e.touches[0].clientY;
+            wrapper.addEventListener('mousedown', (e) => {
+                // 中ボタンでドラッグ開始
+                if (e.button === 1) {
+                    isDraggingMouse = true;
+                    hasDraggedEnough = false;
+                    mouseStartX = e.clientX;
+                    mouseStartY = e.clientY;
                     scrollStartX = wrapper.scrollLeft;
                     scrollStartY = wrapper.scrollTop;
+                    wrapper.style.cursor = 'grabbing';
+                    e.preventDefault();
                 }
-            }, { passive: true });
+            });
             
-            wrapper.addEventListener('touchmove', (e) => {
-                if (!isDraggingTouch || e.touches.length !== 1) return;
+            document.addEventListener('mousemove', (e) => {
+                if (!isDraggingMouse) return;
                 
-                const touch = e.touches[0];
-                const deltaX = touch.clientX - touchStartX;
-                const deltaY = touch.clientY - touchStartY;
+                const deltaX = e.clientX - mouseStartX;
+                const deltaY = e.clientY - mouseStartY;
+                
+                // 閾値を超えたらドラッグと判定
+                if (!hasDraggedEnough) {
+                    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                    if (distance > dragThreshold) {
+                        hasDraggedEnough = true;
+                    } else {
+                        return;
+                    }
+                }
                 
                 // リバースモードの場合、スクロール方向を反転
                 if (this.reverseMode) {
@@ -362,14 +241,13 @@ class PCMinesweeper extends MinesweeperCore {
                 }
                 
                 e.preventDefault();
-            }, { passive: false });
-            
-            wrapper.addEventListener('touchend', () => {
-                isDraggingTouch = false;
             });
             
-            wrapper.addEventListener('touchcancel', () => {
-                isDraggingTouch = false;
+            document.addEventListener('mouseup', (e) => {
+                if (isDraggingMouse) {
+                    isDraggingMouse = false;
+                    wrapper.style.cursor = 'grab';
+                }
             });
         }
     }
@@ -456,162 +334,32 @@ class PCMinesweeper extends MinesweeperCore {
     }
     
     setupCellEventListeners(cell, row, col) {
-        // タッチデバイス向けイベント
-        if (this.isTouchDevice) {
-            let touchTimer;
-            let touchStartX, touchStartY;
-            let hasMoved = false;
-            let lastTapTime = 0;
-            const doubleTapThreshold = 300;
-            
-            // タッチ開始
-            cell.addEventListener('touchstart', (e) => {
-                if (this.gameOver) return;
-                
-                touchStartX = e.touches[0].clientX;
-                touchStartY = e.touches[0].clientY;
-                hasMoved = false;
-                
-                // 長押し検出用タイマー
-                touchTimer = setTimeout(() => {
-                    if (!hasMoved && !this.gameOver) {
-                        const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-                        if (this.flagged[row][col] || this.questioned[row][col]) {
-                            // 旗または?がある場合は消去
-                            if (this.flagged[row][col]) {
-                                this.createRisingFlag(cell);
-                                cell.classList.add('unflag-animation');
-                                setTimeout(() => {
-                                    cell.classList.remove('unflag-animation');
-                                }, 200);
-                            } else if (this.questioned[row][col]) {
-                                this.createRisingQuestion(cell);
-                                cell.classList.add('unflag-animation');
-                                setTimeout(() => {
-                                    cell.classList.remove('unflag-animation');
-                                }, 200);
-                            }
-                            this.flagged[row][col] = false;
-                            this.questioned[row][col] = false;
-                            cell.classList.remove('flagged', 'questioned');
-                            cell.textContent = '';
-                            this.updateMineCount();
-                        } else {
-                            // 何もない場合は旗を立てる
-                            this.flagged[row][col] = true;
-                            cell.classList.add('flagged');
-                            cell.classList.add('flag-animation');
-                            this.createFallingFlag(cell);
-                            setTimeout(() => {
-                                cell.classList.remove('flag-animation');
-                            }, 300);
-                            this.updateMineCount();
-                            this.checkWin();
-                        }
-                        this.isLongPress = true;
-                    }
-                }, 200);
-            }, { passive: true });
-            
-            // タッチ移動
-            cell.addEventListener('touchmove', (e) => {
-                const moveX = e.touches[0].clientX;
-                const moveY = e.touches[0].clientY;
-                const distance = Math.sqrt(
-                    Math.pow(moveX - touchStartX, 2) + 
-                    Math.pow(moveY - touchStartY, 2)
-                );
-                
-                if (distance > 10) {
-                    hasMoved = true;
-                    clearTimeout(touchTimer);
-                }
-            }, { passive: true });
-            
-            // タッチ終了
-            cell.addEventListener('touchend', (e) => {
-                clearTimeout(touchTimer);
-                
-                if (this.isLongPress) {
-                    this.isLongPress = false;
-                    e.preventDefault();
-                    return;
-                }
-                
-                if (!hasMoved && !this.gameOver) {
-                    const currentTime = new Date().getTime();
-                    const timeDiff = currentTime - lastTapTime;
-                    
-                    // ダブルタップの検出
-                    if (timeDiff < doubleTapThreshold && this.revealed[row][col] && this.board[row][col] > 0) {
-                        this.chordReveal(row, col);
-                        lastTapTime = 0;
-                    } else {
-                        // シングルタップの処理
-                        if (this.flagMode > 0) {
-                            this.handleCellMark(row, col);
-                        } else if (this.flagged[row][col]) {
-                            const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-                            this.flagged[row][col] = false;
-                            this.questioned[row][col] = true;
-                            cell.classList.remove('flagged');
-                            cell.classList.add('questioned');
-                            cell.textContent = '?';
-                            this.updateMineCount();
-                        } else if (this.questioned[row][col]) {
-                            const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-                            this.questioned[row][col] = false;
-                            this.flagged[row][col] = true;
-                            cell.classList.remove('questioned');
-                            cell.classList.add('flagged');
-                            cell.textContent = '';
-                            this.updateMineCount();
-                            this.checkWin();
-                        } else {
-                            this.revealCell(row, col);
-                        }
-                        lastTapTime = currentTime;
-                    }
-                }
-                
-                e.preventDefault();
-            });
-            
-            // タッチキャンセル
-            cell.addEventListener('touchcancel', () => {
-                clearTimeout(touchTimer);
-                this.isLongPress = false;
-            });
-        }
-        
         // PC向けイベント
-        if (this.isPC) {
-            // 左クリック
-            cell.addEventListener('click', (e) => {
-                if (this.gameOver) return;
-                
-                if (this.flagMode > 0) {
-                    this.handleCellMark(row, col);
-                } else if (!this.flagged[row][col] && !this.questioned[row][col]) {
-                    this.revealCell(row, col);
-                }
-            });
+        // 左クリック
+        cell.addEventListener('click', (e) => {
+            if (this.gameOver) return;
             
-            // 右クリック
-            cell.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                if (!this.gameOver && !this.revealed[row][col]) {
-                    this.toggleFlag(row, col);
-                }
-            });
-            
-            // ダブルクリック
-            cell.addEventListener('dblclick', (e) => {
-                if (this.revealed[row][col] && this.board[row][col] > 0) {
-                    this.chordReveal(row, col);
-                }
-            });
-        }
+            if (this.flagMode > 0) {
+                this.handleCellMark(row, col);
+            } else if (!this.flagged[row][col] && !this.questioned[row][col]) {
+                this.revealCell(row, col);
+            }
+        });
+        
+        // 右クリック
+        cell.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if (!this.gameOver && !this.revealed[row][col]) {
+                this.toggleFlag(row, col);
+            }
+        });
+        
+        // ダブルクリック
+        cell.addEventListener('dblclick', (e) => {
+            if (this.revealed[row][col] && this.board[row][col] > 0) {
+                this.chordReveal(row, col);
+            }
+        });
     }
     
     // コアライブラリのメソッドをオーバーライド
@@ -804,7 +552,7 @@ class PCMinesweeper extends MinesweeperCore {
         const boardElement = document.getElementById('game-board');
         if (boardElement) {
             boardElement.style.transform = `scale(${this.zoomLevel})`;
-            boardElement.style.transformOrigin = 'center center';
+            boardElement.style.transformOrigin = 'top left';
         }
     }
     
@@ -1068,19 +816,12 @@ class PCMinesweeper extends MinesweeperCore {
         if (modal) {
             modal.classList.add('show');
             
-            // デバイスに応じて適切な説明を表示
+            // PC版なので常にPC向けの説明を表示
             const mobileHelp = document.getElementById('mobile-help');
             const pcHelp = document.getElementById('pc-help');
             
-            if (this.isTouchDevice) {
-                // スマホ・タブレットの場合
-                if (mobileHelp) mobileHelp.style.display = 'block';
-                if (pcHelp) pcHelp.style.display = 'none';
-            } else {
-                // PCの場合
-                if (mobileHelp) mobileHelp.style.display = 'none';
-                if (pcHelp) pcHelp.style.display = 'block';
-            }
+            if (mobileHelp) mobileHelp.style.display = 'none';
+            if (pcHelp) pcHelp.style.display = 'block';
         }
     }
     
