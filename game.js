@@ -384,6 +384,8 @@ class Minesweeper {
         let touchTimer;
         let touchStartX, touchStartY;
         let hasMoved = false;
+        let lastTapTime = 0;
+        const doubleTapThreshold = 300; // ダブルタップの判定時間（ミリ秒）
         
         // タッチ開始
         cell.addEventListener('touchstart', (e) => {
@@ -431,10 +433,22 @@ class Minesweeper {
             clearTimeout(touchTimer);
             
             if (!hasMoved && !this.isLongPress && !this.gameOver) {
-                if (this.flagMode) {
-                    this.toggleFlag(row, col);
+                const currentTime = new Date().getTime();
+                const timeDiff = currentTime - lastTapTime;
+                
+                // ダブルタップの検出
+                if (timeDiff < doubleTapThreshold && this.revealed[row][col] && this.board[row][col] > 0) {
+                    // ダブルタップでチョードリビール（数字の周りを開く）
+                    this.chordReveal(row, col);
+                    lastTapTime = 0; // ダブルタップ後はリセット
                 } else {
-                    this.revealCell(row, col);
+                    // シングルタップの処理
+                    if (this.flagMode) {
+                        this.toggleFlag(row, col);
+                    } else {
+                        this.revealCell(row, col);
+                    }
+                    lastTapTime = currentTime;
                 }
                 // タップ時のみpreventDefaultを呼ぶ
                 e.preventDefault();
