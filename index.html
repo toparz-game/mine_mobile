@@ -2,194 +2,218 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
-    <title>マインスイーパー</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マインスイーパー コレクション</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 50px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-decoration: none;
+            color: #333;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .product-card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.8rem;
+        }
+
+        .product-card .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .status.available {
+            background: #4ade80;
+            color: white;
+        }
+
+        .status.coming-soon {
+            background: #fbbf24;
+            color: #333;
+        }
+
+        .product-card p {
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .features {
+            list-style: none;
+            margin-top: 15px;
+        }
+
+        .features li {
+            padding: 5px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4ade80;
+            font-weight: bold;
+        }
+
+        .play-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: opacity 0.3s ease;
+        }
+
+        .play-button:hover {
+            opacity: 0.9;
+        }
+
+        .play-button.disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            margin-top: auto;
+            padding-top: 30px;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div id="flag-animation-container"></div>
     <div class="container">
-        <header class="game-header">
-            <div class="info-panel">
-                <div class="info-item-group">
-                    <div class="info-item">
-                        <span class="emoji">🚩</span>
-                        <span id="flag-count">0/10</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="emoji">💣</span>
-                        <span id="mine-remaining">10</span>
-                    </div>
-                </div>
-                <button id="reset-btn" class="reset-btn">😊</button>
-                <div class="info-item">
-                    <span class="emoji">⏱️</span>
-                    <span id="timer">000</span>
-                </div>
-            </div>
+        <header>
+            <h1>🎮 マインスイーパー コレクション</h1>
+            <p class="subtitle">クラシックゲームの様々なバリエーションをお楽しみください</p>
         </header>
 
-        <div class="game-board-wrapper">
-            <div class="game-board" id="game-board"></div>
-        </div>
-        
-        <div class="controls">
-            <button id="flag-mode-btn" class="control-btn">
-                <span class="mode-icon">🚩</span>
-            </button>
-            <div class="zoom-controls">
-                <button id="zoom-out-btn" class="zoom-btn">－</button>
-                <button id="zoom-in-btn" class="zoom-btn">＋</button>
+        <div class="products-grid">
+            <div class="product-card">
+                <h2>シンプル版</h2>
+                <span class="status available">プレイ可能</span>
+                <p>
+                    オリジナルのマインスイーパー体験。
+                    モバイル最適化されたインターフェースで、いつでもどこでも楽しめます。
+                </p>
+                <ul class="features">
+                    <li>3つの難易度レベル</li>
+                    <li>タッチ操作対応</li>
+                    <li>ピンチズーム機能</li>
+                    <li>タイマー機能</li>
+                </ul>
+                <a href="products/simple/" class="play-button">今すぐプレイ</a>
             </div>
-            <button id="settings-btn" class="control-btn">
-                <span class="settings-icon">⚙️</span>
-            </button>
-        </div>
 
-        <button id="help-btn" class="help-btn-floating">
-            <span class="help-icon">？</span>
-        </button>
+            <div class="product-card">
+                <h2>DX版</h2>
+                <span class="status coming-soon">開発中</span>
+                <p>
+                    シンプル版に豪華な機能を追加した決定版。
+                    より楽しく、より挑戦的なゲーム体験を提供します。
+                </p>
+                <ul class="features">
+                    <li>サウンドエフェクト</li>
+                    <li>アニメーション効果</li>
+                    <li>統計・ランキング</li>
+                    <li>アチーブメント</li>
+                    <li>カスタムテーマ</li>
+                </ul>
+                <span class="play-button disabled">準備中...</span>
+            </div>
 
-        <div class="settings-modal" id="settings-modal">
-            <div class="settings-modal-content">
-                <div class="settings-header">
-                    <h2>設定</h2>
-                    <button id="close-settings" class="close-btn">✕</button>
-                </div>
-                <div class="settings-body">
-                    <div class="settings-section">
-                        <h3>難易度</h3>
-                        <select id="difficulty-select" class="difficulty-select-modal">
-                            <option value="easy" selected>初級 (9×9, 地雷10)</option>
-                            <option value="medium">中級 (16×16, 地雷40)</option>
-                            <option value="hard">上級 (16×30, 地雷99)</option>
-                            <option value="hiddeneasy">裏初級 (9×9, 地雷20)</option>
-                            <option value="hiddenmedium">裏中級 (16×16, 地雷64)</option>
-                            <option value="hiddenhard">裏上級 (16×30, 地雷120)</option>
-                            <option value="extreme">極悪 (64×64, 地雷999)</option>
-                        </select>
-                    </div>
-                    <div class="settings-section">
-                        <h3>文字サイズ</h3>
-                        <div class="settings-controls">
-                            <button id="font-size-down-btn" class="settings-btn">小</button>
-                            <span id="font-size-display" class="settings-value">100%</span>
-                            <button id="font-size-up-btn" class="settings-btn">大</button>
-                        </div>
-                    </div>
-                    <div class="settings-section">
-                        <h3>テーマ</h3>
-                        <button id="theme-toggle-btn" class="settings-toggle-btn">
-                            <span class="theme-icon">☀️</span>
-                            <span class="theme-text">ライトモード</span>
-                        </button>
-                    </div>
-                    <div class="settings-section">
-                        <h3>旗アニメーション</h3>
-                        <button id="flag-animation-toggle-btn" class="settings-toggle-btn">
-                            <span class="flag-animation-icon">🚩</span>
-                            <span class="flag-animation-text">ON</span>
-                        </button>
-                    </div>
-                    <div class="settings-section">
-                        <h3>グラデーション・影</h3>
-                        <button id="power-save-toggle-btn" class="settings-toggle-btn">
-                            <span class="power-save-icon">🎨</span>
-                            <span class="power-save-text">ON</span>
-                        </button>
-                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;">OFFで消費電力を削減</p>
-                    </div>
-                    <div class="settings-section">
-                        <h3>リバース操作</h3>
-                        <button id="reverse-toggle-btn" class="settings-toggle-btn">
-                            <span class="reverse-icon">🔄</span>
-                            <span class="reverse-text">OFF</span>
-                        </button>
-                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;">スワイプ操作を反転します</p>
-                    </div>
-                </div>
+            <div class="product-card">
+                <h2>その他のバリエーション</h2>
+                <span class="status coming-soon">計画中</span>
+                <p>
+                    今後、様々なバリエーションを追加予定です。
+                    お楽しみに！
+                </p>
+                <ul class="features">
+                    <li>キッズ版</li>
+                    <li>パズルモード</li>
+                    <li>バトルモード</li>
+                    <li>教育版</li>
+                </ul>
+                <span class="play-button disabled">Coming Soon</span>
             </div>
         </div>
 
-        <div class="help-modal" id="help-modal">
-            <div class="help-modal-content">
-                <div class="help-header">
-                    <h2>操作説明</h2>
-                    <button id="close-help" class="close-btn">✕</button>
-                </div>
-                <div class="help-body">
-                    <div class="help-section" id="mobile-help">
-                        <h3>📱 スマートフォン・タブレット</h3>
-                        <div class="help-item">
-                            <span class="help-action">タップ</span>
-                            <span class="help-description">マスを開く</span>
-                        </div>
-                        <div class="help-item">
-                            <span class="help-action">長押し</span>
-                            <span class="help-description">旗を立てる/外す</span>
-                        </div>
-                        <div class="help-item">
-                            <span class="help-action">🚩ボタン</span>
-                            <span class="help-description">旗モードの切り替え（ONの時はタップで旗）</span>
-                        </div>
-                        <div class="help-item">
-                            <span class="help-action">＋/－ボタン</span>
-                            <span class="help-description">拡大・縮小</span>
-                        </div>
-                        <div class="help-item">
-                            <span class="help-action">スワイプ</span>
-                            <span class="help-description">ボードを移動（拡大時）</span>
-                        </div>
-                    </div>
-                    <div class="help-section" id="pc-help">
-                        <h3>💻 パソコン</h3>
-                        <div class="help-item">
-                            <span class="help-action">左クリック</span>
-                            <span class="help-description">マスを開く</span>
-                        </div>
-                        <div class="help-item">
-                            <span class="help-action">右クリック</span>
-                            <span class="help-description">旗を立てる/外す</span>
-                        </div>
-                        <div class="help-item">
-                            <span class="help-action">🚩ボタン</span>
-                            <span class="help-description">旗モードの切り替え（ONの時は左クリックで旗）</span>
-                        </div>
-                        <div class="help-item">
-                            <span class="help-action">＋/－ボタン</span>
-                            <span class="help-description">拡大・縮小</span>
-                        </div>
-                        <div class="help-item">
-                            <span class="help-action">中ボタンでドラッグ</span>
-                            <span class="help-description">ボードを移動（拡大時）</span>
-                        </div>
-                    </div>
-                    <div class="help-section">
-                        <h3>🎮 ゲームルール</h3>
-                        <p>地雷を避けながらすべての安全なマスを開くゲームです。数字は周囲8マスの地雷数を示します。</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <footer>
+            <p>&copy; 2025 Minesweeper Collection. All rights reserved.</p>
+        </footer>
     </div>
-    
-    <!-- ゲームクリアモーダル -->
-    <div id="clear-modal" class="modal">
-        <div class="modal-content clear-modal-content">
-            <div class="clear-modal-header">
-                <span class="clear-icon">🎉</span>
-                <h2>クリア！</h2>
-            </div>
-            <p id="clear-message" class="clear-message"></p>
-            <div class="clear-modal-buttons">
-                <button id="next-difficulty-btn" class="clear-btn next-btn">次の難易度へ</button>
-                <button id="replay-difficulty-btn" class="clear-btn replay-btn">もう一度プレイ</button>
-            </div>
-        </div>
-    </div>
-    
-    <script src="game.js"></script>
 </body>
 </html>
