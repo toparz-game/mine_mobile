@@ -243,14 +243,10 @@ class Minesweeper {
         const btn = document.getElementById('flag-mode-btn');
         if (!btn) return;
         
-        const text = btn.querySelector('.mode-text');
-        
         if (this.flagMode) {
             btn.classList.add('active');
-            if (text) text.textContent = '旗モード: ON';
         } else {
             btn.classList.remove('active');
-            if (text) text.textContent = '旗モード: OFF';
         }
     }
     
