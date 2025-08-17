@@ -26,8 +26,8 @@ class Minesweeper {
         this.isPinching = false;
         this.touchCount = 0;
         this.zoomLevel = 1.0;
-        this.minZoom = 0.5;
-        this.maxZoom = 2.0;
+        this.minZoom = 0.3;
+        this.maxZoom = 3.0;
         this.zoomStep = 0.1;
         this.lastTapTime = 0;
         this.doubleTapDelay = 300;

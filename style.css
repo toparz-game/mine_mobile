@@ -152,11 +152,9 @@ body {
     cursor: pointer;
     transition: all 0.1s ease;
     position: relative;
-    width: calc((100vw - 60px) / var(--cols));
-    max-width: 35px;
-    height: calc((100vw - 60px) / var(--cols));
-    max-height: 35px;
-    font-size: calc(min(3vw, 14px));
+    width: 35px;
+    height: 35px;
+    font-size: 14px;
 }
 
 .cell:active:not(.revealed):not(.flagged) {
@@ -176,13 +174,13 @@ body {
 .cell.flagged::after {
     content: '🚩';
     position: absolute;
-    font-size: calc(min(3vw, 16px));
+    font-size: 16px;
 }
 
 .cell.mine.revealed::after {
     content: '💣';
     position: absolute;
-    font-size: calc(min(3vw, 16px));
+    font-size: 16px;
 }
 
 .cell[data-count="1"] { color: #0000ff; }
@@ -373,12 +371,10 @@ body {
     }
     
     .cell {
-        width: calc((100vw - 30px) / var(--cols));
-        max-width: 30px;
-        height: calc((100vw - 30px) / var(--cols));
-        max-height: 30px;
+        width: 30px;
+        height: 30px;
         border-width: 1px;
-        font-size: calc(min(2.5vw, 12px));
+        font-size: 12px;
     }
     
     .difficulty-select {
@@ -411,10 +407,8 @@ body {
 
 @media (min-width: 768px) {
     .cell {
-        width: 30px;
-        height: 30px;
-        max-width: 30px;
-        max-height: 30px;
+        width: 35px;
+        height: 35px;
         font-size: 14px;
     }
     
