@@ -3,6 +3,8 @@ class MobileMinesweeper extends MinesweeperCore {
     constructor() {
         super();
         
+        // タッチデバイス判定
+        this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         
         // 難易度設定
         this.difficulties = {
@@ -395,6 +397,7 @@ class MobileMinesweeper extends MinesweeperCore {
             
             // タッチ開始
             cell.addEventListener('touchstart', (e) => {
+                e.preventDefault();
                 if (this.gameOver) return;
                 
                 touchStartX = e.touches[0].clientX;
@@ -440,7 +443,7 @@ class MobileMinesweeper extends MinesweeperCore {
                         this.isLongPress = true;
                     }
                 }, 200);
-            }, { passive: true });
+            }, { passive: false });
             
             // タッチ移動
             cell.addEventListener('touchmove', (e) => {

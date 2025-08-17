@@ -198,7 +198,7 @@ body {
     min-height: 0;
     overflow: auto;
     -webkit-overflow-scrolling: touch;
-    touch-action: none;
+    touch-action: pan-x pan-y;
     margin-bottom: 10px;
     border-radius: 10px;
     background: var(--cell-border);
@@ -224,7 +224,7 @@ body {
     gap: 1px;
     padding: 20px;
     justify-content: center;
-    touch-action: manipulation;
+    touch-action: none;
     position: relative;
     width: fit-content;
     margin: 0;
@@ -370,7 +370,6 @@ body {
 }
 
 .zoom-btn:active {
-    transform: scale(0.95);
     box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -2px -2px 4px var(--shadow-light);
 }
 
