@@ -45,6 +45,9 @@ class Minesweeper {
         this.scrollStartX = 0;
         this.scrollStartY = 0;
         
+        // 旗アニメーション設定
+        this.flagAnimationEnabled = true;
+        
         this.init();
     }
     
@@ -143,6 +146,13 @@ class Minesweeper {
             });
         }
         
+        const flagAnimationToggleBtn = document.getElementById('flag-animation-toggle-btn');
+        if (flagAnimationToggleBtn) {
+            flagAnimationToggleBtn.addEventListener('click', () => {
+                this.toggleFlagAnimation();
+            });
+        }
+        
         // 設定モーダルの外側クリックで閉じる
         const settingsModal = document.getElementById('settings-modal');
         if (settingsModal) {
@@ -212,6 +222,9 @@ class Minesweeper {
     setupDragEvents() {
         const wrapper = document.querySelector('.game-board-wrapper');
         if (!wrapper) return;
+        
+        // 設定の読み込み
+        this.loadFlagAnimationSetting();
         
         let isDraggingWithMiddleButton = false;
         
@@ -603,19 +616,17 @@ class Minesweeper {
     
     checkWin() {
         let revealedCount = 0;
-        let correctFlags = 0;
         
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
-                if (this.revealed[row][col]) revealedCount++;
-                if (this.flagged[row][col] && this.board[row][col] === -1) {
-                    correctFlags++;
+                if (this.revealed[row][col] && this.board[row][col] !== -1) {
+                    revealedCount++;
                 }
             }
         }
         
-        if (revealedCount === this.rows * this.cols - this.mineCount || 
-            correctFlags === this.mineCount) {
+        // 勝利条件：爆弾以外のすべてのマスが開かれた時
+        if (revealedCount === this.rows * this.cols - this.mineCount) {
             this.endGame(true);
         }
     }
@@ -768,6 +779,9 @@ class Minesweeper {
     }
     
     createFallingFlag(targetCell) {
+        // アニメーションが無効の場合は実行しない
+        if (!this.flagAnimationEnabled) return;
+        
         const container = document.getElementById('flag-animation-container');
         if (!container) return;
         
@@ -791,6 +805,40 @@ class Minesweeper {
         setTimeout(() => {
             flag.remove();
         }, 400);
+    }
+    
+    toggleFlagAnimation() {
+        this.flagAnimationEnabled = !this.flagAnimationEnabled;
+        const btn = document.getElementById('flag-animation-toggle-btn');
+        if (!btn) return;
+        
+        const animationText = btn.querySelector('.flag-animation-text');
+        
+        if (this.flagAnimationEnabled) {
+            if (animationText) animationText.textContent = 'ON';
+        } else {
+            if (animationText) animationText.textContent = 'OFF';
+        }
+        
+        // 設定を保存
+        localStorage.setItem('flagAnimation', this.flagAnimationEnabled ? 'on' : 'off');
+    }
+    
+    loadFlagAnimationSetting() {
+        const savedSetting = localStorage.getItem('flagAnimation');
+        const btn = document.getElementById('flag-animation-toggle-btn');
+        if (!btn) return;
+        
+        const animationText = btn.querySelector('.flag-animation-text');
+        
+        // デフォルトはON
+        if (savedSetting === 'off') {
+            this.flagAnimationEnabled = false;
+            if (animationText) animationText.textContent = 'OFF';
+        } else {
+            this.flagAnimationEnabled = true;
+            if (animationText) animationText.textContent = 'ON';
+        }
     }
     
     zoomIn() {
