@@ -372,8 +372,9 @@ class Minesweeper {
                 }
             }, 500); // 500ms長押しで旗
             
-            e.preventDefault();
-        });
+            // preventDefaultを削除してスクロールを可能にする
+            // e.preventDefault();
+        }, { passive: false });
         
         // タッチ移動（長押し判定のキャンセル用）
         cell.addEventListener('touchmove', (e) => {
@@ -401,10 +402,11 @@ class Minesweeper {
                 } else {
                     this.revealCell(row, col);
                 }
+                // タップ時のみpreventDefaultを呼ぶ
+                e.preventDefault();
             }
             
             this.isLongPress = false;
-            e.preventDefault();
         });
         
         // タッチキャンセル

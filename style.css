@@ -163,11 +163,17 @@ body {
     display: flex;
     align-items: flex-start;
     justify-content: flex-start;
-    cursor: grab;
 }
 
-.game-board-wrapper:active {
-    cursor: grabbing;
+/* PC用のカーソルスタイル */
+@media (hover: hover) and (pointer: fine) {
+    .game-board-wrapper {
+        cursor: grab;
+    }
+    
+    .game-board-wrapper:active {
+        cursor: grabbing;
+    }
 }
 
 .game-board {
