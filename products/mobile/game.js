@@ -67,14 +67,31 @@ class MobileMinesweeper extends MinesweeperCore {
     setupEventListeners() {
         const resetBtn = document.getElementById('reset-btn');
         if (resetBtn) {
-            resetBtn.addEventListener('click', () => this.newGame());
+            // タッチデバイスの場合はtouchstartを優先
+            if (this.isTouchDevice) {
+                resetBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.newGame();
+                }, { passive: false });
+            } else {
+                resetBtn.addEventListener('click', () => this.newGame());
+            }
         }
         
         const flagModeBtn = document.getElementById('flag-mode-btn');
         if (flagModeBtn) {
-            flagModeBtn.addEventListener('click', () => {
-                this.toggleFlagMode();
-            });
+            if (this.isTouchDevice) {
+                flagModeBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.toggleFlagMode();
+                }, { passive: false });
+            } else {
+                flagModeBtn.addEventListener('click', () => {
+                    this.toggleFlagMode();
+                });
+            }
         }
         
         const difficultySelect = document.getElementById('difficulty-select');
@@ -88,82 +105,178 @@ class MobileMinesweeper extends MinesweeperCore {
         
         const zoomInBtn = document.getElementById('zoom-in-btn');
         if (zoomInBtn) {
-            zoomInBtn.addEventListener('click', () => this.zoomIn());
+            if (this.isTouchDevice) {
+                zoomInBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.zoomIn();
+                }, { passive: false });
+            } else {
+                zoomInBtn.addEventListener('click', () => this.zoomIn());
+            }
         }
         
         const zoomOutBtn = document.getElementById('zoom-out-btn');
         if (zoomOutBtn) {
-            zoomOutBtn.addEventListener('click', () => this.zoomOut());
+            if (this.isTouchDevice) {
+                zoomOutBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.zoomOut();
+                }, { passive: false });
+            } else {
+                zoomOutBtn.addEventListener('click', () => this.zoomOut());
+            }
         }
         
         const settingsBtn = document.getElementById('settings-btn');
         if (settingsBtn) {
-            settingsBtn.addEventListener('click', () => {
-                this.openSettings();
-            });
+            if (this.isTouchDevice) {
+                settingsBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.openSettings();
+                }, { passive: false });
+            } else {
+                settingsBtn.addEventListener('click', () => {
+                    this.openSettings();
+                });
+            }
         }
         
         const helpBtn = document.getElementById('help-btn');
         if (helpBtn) {
-            helpBtn.addEventListener('click', () => {
-                this.openHelp();
-            });
+            if (this.isTouchDevice) {
+                helpBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.openHelp();
+                }, { passive: false });
+            } else {
+                helpBtn.addEventListener('click', () => {
+                    this.openHelp();
+                });
+            }
         }
         
         const closeSettingsBtn = document.getElementById('close-settings');
         if (closeSettingsBtn) {
-            closeSettingsBtn.addEventListener('click', () => {
-                this.closeSettings();
-            });
+            if (this.isTouchDevice) {
+                closeSettingsBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.closeSettings();
+                }, { passive: false });
+            } else {
+                closeSettingsBtn.addEventListener('click', () => {
+                    this.closeSettings();
+                });
+            }
         }
         
         const closeHelpBtn = document.getElementById('close-help');
         if (closeHelpBtn) {
-            closeHelpBtn.addEventListener('click', () => {
-                this.closeHelp();
-            });
+            if (this.isTouchDevice) {
+                closeHelpBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.closeHelp();
+                }, { passive: false });
+            } else {
+                closeHelpBtn.addEventListener('click', () => {
+                    this.closeHelp();
+                });
+            }
         }
         
         const fontSizeUpBtn = document.getElementById('font-size-up-btn');
         if (fontSizeUpBtn) {
-            fontSizeUpBtn.addEventListener('click', () => {
-                this.increaseFontSize();
-            });
+            if (this.isTouchDevice) {
+                fontSizeUpBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.increaseFontSize();
+                }, { passive: false });
+            } else {
+                fontSizeUpBtn.addEventListener('click', () => {
+                    this.increaseFontSize();
+                });
+            }
         }
         
         const fontSizeDownBtn = document.getElementById('font-size-down-btn');
         if (fontSizeDownBtn) {
-            fontSizeDownBtn.addEventListener('click', () => {
-                this.decreaseFontSize();
-            });
+            if (this.isTouchDevice) {
+                fontSizeDownBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.decreaseFontSize();
+                }, { passive: false });
+            } else {
+                fontSizeDownBtn.addEventListener('click', () => {
+                    this.decreaseFontSize();
+                });
+            }
         }
         
         const themeToggleBtn = document.getElementById('theme-toggle-btn');
         if (themeToggleBtn) {
-            themeToggleBtn.addEventListener('click', () => {
-                this.toggleTheme();
-            });
+            if (this.isTouchDevice) {
+                themeToggleBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.toggleTheme();
+                }, { passive: false });
+            } else {
+                themeToggleBtn.addEventListener('click', () => {
+                    this.toggleTheme();
+                });
+            }
         }
         
         const flagAnimationToggleBtn = document.getElementById('flag-animation-toggle-btn');
         if (flagAnimationToggleBtn) {
-            flagAnimationToggleBtn.addEventListener('click', () => {
-                this.toggleFlagAnimation();
-            });
+            if (this.isTouchDevice) {
+                flagAnimationToggleBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.toggleFlagAnimation();
+                }, { passive: false });
+            } else {
+                flagAnimationToggleBtn.addEventListener('click', () => {
+                    this.toggleFlagAnimation();
+                });
+            }
         }
         
         const powerSaveToggleBtn = document.getElementById('power-save-toggle-btn');
         if (powerSaveToggleBtn) {
-            powerSaveToggleBtn.addEventListener('click', () => {
-                this.togglePowerSaveMode();
-            });
+            if (this.isTouchDevice) {
+                powerSaveToggleBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.togglePowerSaveMode();
+                }, { passive: false });
+            } else {
+                powerSaveToggleBtn.addEventListener('click', () => {
+                    this.togglePowerSaveMode();
+                });
+            }
         }
         
         const reverseToggleBtn = document.getElementById('reverse-toggle-btn');
         if (reverseToggleBtn) {
-            reverseToggleBtn.addEventListener('click', () => {
-                this.toggleReverseMode();
-            });
+            if (this.isTouchDevice) {
+                reverseToggleBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.toggleReverseMode();
+                }, { passive: false });
+            } else {
+                reverseToggleBtn.addEventListener('click', () => {
+                    this.toggleReverseMode();
+                });
+            }
         }
         
         // 設定モーダルの外側クリックで閉じる
@@ -1007,7 +1120,8 @@ class MobileMinesweeper extends MinesweeperCore {
             const nextDifficulty = difficultyOrder[currentIndex + 1];
             if (nextBtn) {
                 nextBtn.style.display = 'block';
-                nextBtn.onclick = () => {
+                // タッチデバイス用とマウス用のイベントハンドラ
+                const nextHandler = () => {
                     this.currentDifficulty = nextDifficulty;
                     const select = document.getElementById('difficulty-select');
                     if (select) {
@@ -1016,6 +1130,16 @@ class MobileMinesweeper extends MinesweeperCore {
                     this.newGame();
                     modal.classList.remove('active');
                 };
+                
+                if (this.isTouchDevice) {
+                    nextBtn.ontouchstart = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        nextHandler();
+                    };
+                } else {
+                    nextBtn.onclick = nextHandler;
+                }
             }
         } else {
             // 最高難易度の場合
@@ -1025,10 +1149,20 @@ class MobileMinesweeper extends MinesweeperCore {
         }
         
         if (replayBtn) {
-            replayBtn.onclick = () => {
+            const replayHandler = () => {
                 this.newGame();
                 modal.classList.remove('active');
             };
+            
+            if (this.isTouchDevice) {
+                replayBtn.ontouchstart = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    replayHandler();
+                };
+            } else {
+                replayBtn.onclick = replayHandler;
+            }
         }
         
         modal.classList.add('active');
