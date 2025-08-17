@@ -32,6 +32,19 @@ class Minesweeper {
         this.lastTapTime = 0;
         this.doubleTapDelay = 300;
         
+        // フォントサイズ関連の変数
+        this.currentFontSize = 100; // パーセンテージ
+        this.minFontSize = 50;
+        this.maxFontSize = 200;
+        this.fontSizeStep = 25;
+        
+        // ドラッグ関連の変数
+        this.isDragging = false;
+        this.dragStartX = 0;
+        this.dragStartY = 0;
+        this.scrollStartX = 0;
+        this.scrollStartY = 0;
+        
         this.init();
     }
     
@@ -64,9 +77,99 @@ class Minesweeper {
             this.zoomOut();
         });
         
+        document.getElementById('font-size-up-btn').addEventListener('click', () => {
+            this.increaseFontSize();
+        });
+        
+        document.getElementById('font-size-down-btn').addEventListener('click', () => {
+            this.decreaseFontSize();
+        });
+        
         document.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             return false;
+        });
+        
+        // PC用ドラッグイベントの設定
+        this.setupDragEvents();
+    }
+    
+    setupDragEvents() {
+        const wrapper = document.querySelector('.game-board-wrapper');
+        let clickedCell = null;
+        let hasMoved = false;
+        
+        // マウスダウンイベント
+        wrapper.addEventListener('mousedown', (e) => {
+            // 右クリックは無視
+            if (e.button !== 0) return;
+            
+            // セルをクリックした場合、後でクリック処理するために記録
+            if (e.target.classList.contains('cell')) {
+                clickedCell = e.target;
+                hasMoved = false;
+            }
+            
+            this.isDragging = true;
+            this.dragStartX = e.clientX;
+            this.dragStartY = e.clientY;
+            this.scrollStartX = wrapper.scrollLeft;
+            this.scrollStartY = wrapper.scrollTop;
+            
+            wrapper.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+        
+        // マウス移動イベント
+        wrapper.addEventListener('mousemove', (e) => {
+            if (!this.isDragging) return;
+            
+            const deltaX = e.clientX - this.dragStartX;
+            const deltaY = e.clientY - this.dragStartY;
+            
+            // 移動量が閾値を超えたらドラッグとみなす
+            if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+                hasMoved = true;
+                clickedCell = null; // ドラッグ中はセルクリックをキャンセル
+            }
+            
+            wrapper.scrollLeft = this.scrollStartX - deltaX;
+            wrapper.scrollTop = this.scrollStartY - deltaY;
+            
+            e.preventDefault();
+        });
+        
+        // マウスアップイベント
+        const handleMouseUp = (e) => {
+            if (this.isDragging) {
+                this.isDragging = false;
+                wrapper.style.cursor = '';
+                
+                // ドラッグせずにセルをクリックした場合、クリック処理を実行
+                if (clickedCell && !hasMoved && !this.gameOver) {
+                    const row = parseInt(clickedCell.dataset.row);
+                    const col = parseInt(clickedCell.dataset.col);
+                    
+                    if (e.shiftKey || this.flagMode) {
+                        this.toggleFlag(row, col);
+                    } else {
+                        this.revealCell(row, col);
+                    }
+                }
+                
+                clickedCell = null;
+                hasMoved = false;
+            }
+        };
+        
+        wrapper.addEventListener('mouseup', handleMouseUp);
+        document.addEventListener('mouseup', handleMouseUp);
+        
+        // マウスがウィンドウ外に出た場合
+        wrapper.addEventListener('mouseleave', () => {
+            if (this.isDragging) {
+                wrapper.style.cursor = '';
+            }
         });
     }
     
@@ -109,6 +212,7 @@ class Minesweeper {
         this.renderBoard();
         this.updateMineCount();
         this.updateZoom();
+        this.updateFontSizeButtons();
     }
     
     initBoard() {
@@ -440,32 +544,32 @@ class Minesweeper {
         
         if (won) {
             document.getElementById('reset-btn').textContent = '😎';
-            this.showModal('勝利！', `タイム: ${this.timer}秒`);
         } else {
             document.getElementById('reset-btn').textContent = '😵';
             this.revealAllMines();
-            this.showModal('ゲームオーバー', 'もう一度挑戦してください！');
         }
     }
     
     revealAllMines() {
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
-                if (this.board[row][col] === -1) {
-                    const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                
+                if (this.flagged[row][col]) {
+                    if (this.board[row][col] !== -1) {
+                        // 間違った場所に旗を立てていた場合
+                        cell.classList.add('wrong-flag');
+                        cell.textContent = '❌';
+                    }
+                    // 正しい場所に旗を立てていた場合は何もしない（旗のまま表示）
+                } else if (this.board[row][col] === -1) {
+                    // 旗を立てていない地雷を表示
                     cell.classList.add('revealed', 'mine');
                 }
             }
         }
     }
     
-    showModal(title, message) {
-        setTimeout(() => {
-            document.getElementById('modal-title').textContent = title;
-            document.getElementById('modal-message').textContent = message;
-            document.getElementById('game-over-modal').classList.add('show');
-        }, 500);
-    }
     
     updateMineCount() {
         let flagCount = 0;
@@ -493,6 +597,37 @@ class Minesweeper {
     
     updateTimer() {
         document.getElementById('timer').textContent = String(this.timer).padStart(3, '0');
+    }
+    
+    increaseFontSize() {
+        if (this.currentFontSize < this.maxFontSize) {
+            this.currentFontSize = Math.min(this.currentFontSize + this.fontSizeStep, this.maxFontSize);
+            this.updateFontSize();
+            this.updateFontSizeButtons();
+        }
+    }
+    
+    decreaseFontSize() {
+        if (this.currentFontSize > this.minFontSize) {
+            this.currentFontSize = Math.max(this.currentFontSize - this.fontSizeStep, this.minFontSize);
+            this.updateFontSize();
+            this.updateFontSizeButtons();
+        }
+    }
+    
+    updateFontSize() {
+        const cells = document.querySelectorAll('.cell');
+        cells.forEach(cell => {
+            cell.style.fontSize = `${this.currentFontSize}%`;
+        });
+    }
+    
+    updateFontSizeButtons() {
+        const upBtn = document.getElementById('font-size-up-btn');
+        const downBtn = document.getElementById('font-size-down-btn');
+        
+        upBtn.disabled = this.currentFontSize >= this.maxFontSize;
+        downBtn.disabled = this.currentFontSize <= this.minFontSize;
     }
 }
 
