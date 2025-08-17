@@ -3,217 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>マインスイーパー コレクション</title>
+    <title>マインスイーパー</title>
     <style>
-        * {
+        body {
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+            height: 100vh;
             display: flex;
-            flex-direction: column;
+            justify-content: center;
             align-items: center;
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
-
-        .container {
-            max-width: 1200px;
-            width: 100%;
-        }
-
-        header {
+        .loading {
             text-align: center;
             color: white;
-            margin-bottom: 50px;
         }
-
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        .loading h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
         }
-
-        .subtitle {
+        .loading p {
             font-size: 1.2rem;
             opacity: 0.9;
         }
-
-        .products-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-            margin-bottom: 50px;
+        .spinner {
+            width: 50px;
+            height: 50px;
+            margin: 20px auto;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top: 5px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
         }
-
-        .product-card {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            text-decoration: none;
-            color: #333;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
-
-        .product-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        .manual-select {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
         }
-
-        .product-card h2 {
-            color: #667eea;
-            margin-bottom: 15px;
-            font-size: 1.8rem;
-        }
-
-        .product-card .status {
-            display: inline-block;
-            padding: 5px 15px;
-            border-radius: 20px;
+        .manual-select p {
             font-size: 0.9rem;
+            opacity: 0.8;
             margin-bottom: 15px;
-            font-weight: bold;
         }
-
-        .status.available {
-            background: #4ade80;
+        .version-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+        .version-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.2);
             color: white;
-        }
-
-        .status.coming-soon {
-            background: #fbbf24;
-            color: #333;
-        }
-
-        .product-card p {
-            line-height: 1.6;
-            margin-bottom: 20px;
-        }
-
-        .features {
-            list-style: none;
-            margin-top: 15px;
-        }
-
-        .features li {
-            padding: 5px 0;
-            padding-left: 20px;
-            position: relative;
-        }
-
-        .features li:before {
-            content: "✓";
-            position: absolute;
-            left: 0;
-            color: #4ade80;
-            font-weight: bold;
-        }
-
-        .play-button {
-            display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 12px 30px;
+            border: 2px solid white;
             border-radius: 25px;
             text-decoration: none;
             font-weight: bold;
-            transition: opacity 0.3s ease;
+            transition: all 0.3s ease;
         }
-
-        .play-button:hover {
-            opacity: 0.9;
-        }
-
-        .play-button.disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            opacity: 0.7;
-        }
-
-        footer {
-            text-align: center;
-            color: white;
-            margin-top: auto;
-            padding-top: 30px;
-        }
-
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 2rem;
-            }
-            
-            .products-grid {
-                grid-template-columns: 1fr;
-            }
+        .version-btn:hover {
+            background: white;
+            color: #667eea;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🎮 マインスイーパー コレクション</h1>
-            <p class="subtitle">クラシックゲームの様々なバリエーションをお楽しみください</p>
-        </header>
-
-        <div class="products-grid">
-            <div class="product-card">
-                <h2>シンプル版</h2>
-                <span class="status available">プレイ可能</span>
-                <p>
-                    オリジナルのマインスイーパー体験。
-                    モバイル最適化されたインターフェースで、いつでもどこでも楽しめます。
-                </p>
-                <ul class="features">
-                    <li>3つの難易度レベル</li>
-                    <li>タッチ操作対応</li>
-                    <li>ピンチズーム機能</li>
-                    <li>タイマー機能</li>
-                </ul>
-                <a href="products/simple/" class="play-button">今すぐプレイ</a>
-            </div>
-
-            <div class="product-card">
-                <h2>DX版</h2>
-                <span class="status coming-soon">開発中</span>
-                <p>
-                    シンプル版に豪華な機能を追加した決定版。
-                    より楽しく、より挑戦的なゲーム体験を提供します。
-                </p>
-                <ul class="features">
-                    <li>サウンドエフェクト</li>
-                    <li>アニメーション効果</li>
-                    <li>統計・ランキング</li>
-                    <li>アチーブメント</li>
-                    <li>カスタムテーマ</li>
-                </ul>
-                <span class="play-button disabled">準備中...</span>
-            </div>
-
-            <div class="product-card">
-                <h2>その他のバリエーション</h2>
-                <span class="status coming-soon">計画中</span>
-                <p>
-                    今後、様々なバリエーションを追加予定です。
-                    お楽しみに！
-                </p>
-                <ul class="features">
-                    <li>キッズ版</li>
-                    <li>パズルモード</li>
-                    <li>バトルモード</li>
-                    <li>教育版</li>
-                </ul>
-                <span class="play-button disabled">Coming Soon</span>
+    <div class="loading">
+        <h1>🎮 マインスイーパー</h1>
+        <div class="spinner"></div>
+        <p id="status-text">最適なバージョンを検出中...</p>
+        
+        <div class="manual-select">
+            <p>または手動でバージョンを選択：</p>
+            <div class="version-buttons">
+                <a href="?version=mobile" class="version-btn">📱 モバイル版</a>
+                <a href="?version=pc" class="version-btn">💻 PC版</a>
             </div>
         </div>
-
-        <footer>
-            <p>&copy; 2025 Minesweeper Collection. All rights reserved.</p>
-        </footer>
     </div>
+
+    <script>
+        // デバイス判定
+        function detectDevice() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+            const isTablet = /ipad|tablet|playbook|silk|(android(?!.*mobile))/i.test(userAgent);
+            const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            
+            // タッチデバイスまたはモバイル/タブレットの場合はモバイル版へ
+            if (isMobile || isTablet || isTouchDevice) {
+                return 'mobile';
+            }
+            
+            // それ以外はPC版へ
+            return 'pc';
+        }
+        
+        // URLパラメータでバージョンを強制指定できるようにする
+        function getVersionFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('version');
+        }
+        
+        // リダイレクト処理
+        function redirect() {
+            const forcedVersion = getVersionFromURL();
+            let version;
+            
+            if (forcedVersion === 'pc' || forcedVersion === 'mobile') {
+                version = forcedVersion;
+                // 強制バージョンをlocalStorageに保存
+                localStorage.setItem('minesweeper-forced-version', forcedVersion);
+            } else {
+                // 以前に強制指定されたバージョンがあれば使用
+                const savedVersion = localStorage.getItem('minesweeper-forced-version');
+                if (savedVersion) {
+                    version = savedVersion;
+                } else {
+                    version = detectDevice();
+                }
+            }
+            
+            // ステータステキストを更新
+            const statusText = document.getElementById('status-text');
+            if (version === 'mobile') {
+                statusText.textContent = 'モバイル版に移動します...';
+            } else {
+                statusText.textContent = 'PC版に移動します...';
+            }
+            
+            // デバッグ情報をコンソールに出力
+            console.log('Device detection:', {
+                userAgent: navigator.userAgent,
+                detectedDevice: detectDevice(),
+                selectedVersion: version,
+                forcedVersion: forcedVersion,
+                isTouchDevice: 'ontouchstart' in window || navigator.maxTouchPoints > 0
+            });
+            
+            // リダイレクト
+            setTimeout(() => {
+                window.location.replace(`./products/${version}/index.html`);
+            }, 1000);
+        }
+        
+        // URLパラメータがある場合は即座にリダイレクト
+        if (getVersionFromURL()) {
+            redirect();
+        } else {
+            // ページ読み込み後に自動リダイレクト（3秒後）
+            setTimeout(redirect, 3000);
+        }
+    </script>
 </body>
 </html>
