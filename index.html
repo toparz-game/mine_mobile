@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>マインスイーパー</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="game-header">
+            <div class="info-panel">
+                <div class="info-item">
+                    <span class="emoji">💣</span>
+                    <span id="mine-count">10</span>
+                </div>
+                <button id="reset-btn" class="reset-btn">😊</button>
+                <div class="info-item">
+                    <span class="emoji">⏱️</span>
+                    <span id="timer">000</span>
+                </div>
+            </div>
+        </header>
+        
+        <div class="difficulty-selector">
+            <button class="diff-btn" data-level="easy">初級</button>
+            <button class="diff-btn active" data-level="medium">中級</button>
+            <button class="diff-btn" data-level="hard">上級</button>
+        </div>
+
+        <div class="game-board" id="game-board"></div>
+        
+        <div class="controls">
+            <button id="flag-mode-btn" class="control-btn">
+                <span class="mode-icon">🚩</span>
+                <span class="mode-text">旗モード: OFF</span>
+            </button>
+        </div>
+
+        <div class="game-over-modal" id="game-over-modal">
+            <div class="modal-content">
+                <h2 id="modal-title"></h2>
+                <p id="modal-message"></p>
+                <button id="modal-reset" class="modal-btn">もう一度プレイ</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="game.js"></script>
+</body>
+</html>
