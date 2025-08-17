@@ -86,26 +86,12 @@ class MobileMinesweeper extends MinesweeperCore {
         
         const zoomInBtn = document.getElementById('zoom-in-btn');
         if (zoomInBtn) {
-            if (this.isTouchDevice) {
-                zoomInBtn.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.zoomIn();
-                }, { passive: false });
-            } else {
-                zoomInBtn.addEventListener('click', () => this.zoomIn());
-            }
+            zoomInBtn.addEventListener('click', () => this.zoomIn());
         }
         
         const zoomOutBtn = document.getElementById('zoom-out-btn');
         if (zoomOutBtn) {
-            if (this.isTouchDevice) {
-                zoomOutBtn.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.zoomOut();
-                }, { passive: false });
-            } else {
-                zoomOutBtn.addEventListener('click', () => this.zoomOut());
-            }
+            zoomOutBtn.addEventListener('click', () => this.zoomOut());
         }
         
         const settingsBtn = document.getElementById('settings-btn');
@@ -473,11 +459,11 @@ class MobileMinesweeper extends MinesweeperCore {
             
             // タッチ終了
             cell.addEventListener('touchend', (e) => {
+                e.preventDefault();
                 clearTimeout(touchTimer);
                 
                 if (this.isLongPress) {
                     this.isLongPress = false;
-                    e.preventDefault();
                     return;
                 }
                 
@@ -516,9 +502,7 @@ class MobileMinesweeper extends MinesweeperCore {
                         lastTapTime = currentTime;
                     }
                 }
-                
-                e.preventDefault();
-            });
+            }, { passive: false });
             
             // タッチキャンセル
             cell.addEventListener('touchcancel', () => {
