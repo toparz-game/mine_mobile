@@ -543,8 +543,16 @@ class Minesweeper {
         
         if (this.flagged[row][col]) {
             cell.classList.add('flagged');
+            // 旗を立てた時に振動（50ms）
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
         } else {
             cell.classList.remove('flagged');
+            // 旗を外した時に短い振動（20ms）
+            if (navigator.vibrate) {
+                navigator.vibrate(20);
+            }
         }
         
         this.updateMineCount();
