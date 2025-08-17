@@ -779,6 +779,7 @@ class MobileMinesweeper extends MinesweeperCore {
                 cell.textContent = '💣';
             } else if (this.board[row][col] > 0) {
                 cell.textContent = this.board[row][col];
+                cell.setAttribute('data-count', this.board[row][col]);
                 cell.classList.add(`number-${this.board[row][col]}`);
             }
         }
@@ -851,13 +852,15 @@ class MobileMinesweeper extends MinesweeperCore {
     // テーマ機能
     toggleTheme() {
         const body = document.body;
-        const isDark = body.classList.toggle('dark-theme');
+        const currentTheme = body.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        body.setAttribute('data-theme', newTheme);
         
         const themeBtn = document.getElementById('theme-toggle-btn');
         if (themeBtn) {
             const icon = themeBtn.querySelector('.theme-icon');
             const text = themeBtn.querySelector('.theme-text');
-            if (isDark) {
+            if (newTheme === 'dark') {
                 icon.textContent = '🌙';
                 text.textContent = 'ダークモード';
             } else {
@@ -866,19 +869,23 @@ class MobileMinesweeper extends MinesweeperCore {
             }
         }
         
-        localStorage.setItem('minesweeper-theme', isDark ? 'dark' : 'light');
+        localStorage.setItem('minesweeper-theme', newTheme);
     }
     
     loadThemeSetting() {
-        const theme = localStorage.getItem('minesweeper-theme');
-        if (theme === 'dark') {
-            document.body.classList.add('dark-theme');
-            const themeBtn = document.getElementById('theme-toggle-btn');
-            if (themeBtn) {
-                const icon = themeBtn.querySelector('.theme-icon');
-                const text = themeBtn.querySelector('.theme-text');
+        const theme = localStorage.getItem('minesweeper-theme') || 'dark';
+        document.body.setAttribute('data-theme', theme);
+        
+        const themeBtn = document.getElementById('theme-toggle-btn');
+        if (themeBtn) {
+            const icon = themeBtn.querySelector('.theme-icon');
+            const text = themeBtn.querySelector('.theme-text');
+            if (theme === 'dark') {
                 icon.textContent = '🌙';
                 text.textContent = 'ダークモード';
+            } else {
+                icon.textContent = '☀️';
+                text.textContent = 'ライトモード';
             }
         }
     }
