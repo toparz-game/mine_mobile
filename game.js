@@ -86,14 +86,32 @@ class Minesweeper {
         
         const zoomInBtn = document.getElementById('zoom-in-btn');
         if (zoomInBtn) {
-            zoomInBtn.addEventListener('click', () => {
+            // タッチイベントで即座に反応
+            zoomInBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.zoomIn();
+            }, { passive: false });
+            
+            // PCのクリックイベントも維持
+            zoomInBtn.addEventListener('click', (e) => {
+                // タッチデバイスでのクリックイベントは無視（二重実行防止）
+                if (e.detail === 0) return;
                 this.zoomIn();
             });
         }
         
         const zoomOutBtn = document.getElementById('zoom-out-btn');
         if (zoomOutBtn) {
-            zoomOutBtn.addEventListener('click', () => {
+            // タッチイベントで即座に反応
+            zoomOutBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.zoomOut();
+            }, { passive: false });
+            
+            // PCのクリックイベントも維持
+            zoomOutBtn.addEventListener('click', (e) => {
+                // タッチデバイスでのクリックイベントは無視（二重実行防止）
+                if (e.detail === 0) return;
                 this.zoomOut();
             });
         }
