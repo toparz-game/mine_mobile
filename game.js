@@ -424,7 +424,14 @@ class Minesweeper {
         cell.addEventListener('touchend', (e) => {
             clearTimeout(touchTimer);
             
-            if (!hasMoved && !this.isLongPress && !this.gameOver) {
+            // 長押しの場合は何もしない（旗の設置/取り消しは既に実行済み）
+            if (this.isLongPress) {
+                this.isLongPress = false;
+                e.preventDefault();
+                return;
+            }
+            
+            if (!hasMoved && !this.gameOver) {
                 const currentTime = new Date().getTime();
                 const timeDiff = currentTime - lastTapTime;
                 
@@ -445,8 +452,6 @@ class Minesweeper {
                 // タップ時のみpreventDefaultを呼ぶ
                 e.preventDefault();
             }
-            
-            this.isLongPress = false;
         });
         
         // タッチキャンセル
@@ -727,7 +732,8 @@ class Minesweeper {
         const themeIcon = themeBtn.querySelector('.theme-icon');
         const themeText = themeBtn.querySelector('.theme-text');
         
-        if (savedTheme === 'dark') {
+        // デフォルトをダークテーマに設定（保存された設定がない場合、またはダークテーマの場合）
+        if (savedTheme !== 'light') {
             document.body.setAttribute('data-theme', 'dark');
             if (themeIcon) themeIcon.textContent = '☀️';
             if (themeText) themeText.textContent = 'ライトモード';
