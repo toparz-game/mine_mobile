@@ -77,12 +77,31 @@ class Minesweeper {
             this.zoomOut();
         });
         
+        document.getElementById('settings-btn').addEventListener('click', () => {
+            this.openSettings();
+        });
+        
+        document.getElementById('close-settings').addEventListener('click', () => {
+            this.closeSettings();
+        });
+        
         document.getElementById('font-size-up-btn').addEventListener('click', () => {
             this.increaseFontSize();
         });
         
         document.getElementById('font-size-down-btn').addEventListener('click', () => {
             this.decreaseFontSize();
+        });
+        
+        document.getElementById('theme-toggle-btn').addEventListener('click', () => {
+            this.toggleTheme();
+        });
+        
+        // 設定モーダルの外側クリックで閉じる
+        document.getElementById('settings-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'settings-modal') {
+                this.closeSettings();
+            }
         });
         
         document.addEventListener('contextmenu', (e) => {
@@ -638,6 +657,7 @@ class Minesweeper {
             this.currentFontSize = Math.min(this.currentFontSize + this.fontSizeStep, this.maxFontSize);
             this.updateFontSize();
             this.updateFontSizeButtons();
+            this.updateFontSizeDisplay();
         }
     }
     
@@ -646,6 +666,14 @@ class Minesweeper {
             this.currentFontSize = Math.max(this.currentFontSize - this.fontSizeStep, this.minFontSize);
             this.updateFontSize();
             this.updateFontSizeButtons();
+            this.updateFontSizeDisplay();
+        }
+    }
+    
+    updateFontSizeDisplay() {
+        const display = document.getElementById('font-size-display');
+        if (display) {
+            display.textContent = `${this.currentFontSize}%`;
         }
     }
     
@@ -663,8 +691,52 @@ class Minesweeper {
         upBtn.disabled = this.currentFontSize >= this.maxFontSize;
         downBtn.disabled = this.currentFontSize <= this.minFontSize;
     }
+    
+    toggleTheme() {
+        const body = document.body;
+        const themeBtn = document.getElementById('theme-toggle-btn');
+        const themeIcon = themeBtn.querySelector('.theme-icon');
+        const themeText = themeBtn.querySelector('.theme-text');
+        
+        if (body.getAttribute('data-theme') === 'dark') {
+            body.removeAttribute('data-theme');
+            themeIcon.textContent = '🌙';
+            themeText.textContent = 'ダークモード';
+            localStorage.setItem('theme', 'light');
+        } else {
+            body.setAttribute('data-theme', 'dark');
+            themeIcon.textContent = '☀️';
+            themeText.textContent = 'ライトモード';
+            localStorage.setItem('theme', 'dark');
+        }
+    }
+    
+    loadTheme() {
+        const savedTheme = localStorage.getItem('theme');
+        const themeBtn = document.getElementById('theme-toggle-btn');
+        const themeIcon = themeBtn.querySelector('.theme-icon');
+        const themeText = themeBtn.querySelector('.theme-text');
+        
+        if (savedTheme === 'dark') {
+            document.body.setAttribute('data-theme', 'dark');
+            themeIcon.textContent = '☀️';
+            themeText.textContent = 'ライトモード';
+        }
+    }
+    
+    openSettings() {
+        const modal = document.getElementById('settings-modal');
+        modal.classList.add('show');
+        this.updateFontSizeDisplay();
+    }
+    
+    closeSettings() {
+        const modal = document.getElementById('settings-modal');
+        modal.classList.remove('show');
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    new Minesweeper();
+    const game = new Minesweeper();
+    game.loadTheme();
 });

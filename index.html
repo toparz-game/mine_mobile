@@ -49,10 +49,9 @@
                 <button id="zoom-out-btn" class="zoom-btn">－</button>
                 <button id="zoom-in-btn" class="zoom-btn">＋</button>
             </div>
-            <div class="font-size-controls">
-                <button id="font-size-down-btn" class="font-btn">文字小</button>
-                <button id="font-size-up-btn" class="font-btn">文字大</button>
-            </div>
+            <button id="settings-btn" class="control-btn">
+                <span class="settings-icon">⚙️</span>
+            </button>
         </div>
 
         <div class="game-over-modal" id="game-over-modal">
@@ -60,6 +59,32 @@
                 <h2 id="modal-title"></h2>
                 <p id="modal-message"></p>
                 <button id="modal-reset" class="modal-btn">もう一度プレイ</button>
+            </div>
+        </div>
+
+        <div class="settings-modal" id="settings-modal">
+            <div class="settings-modal-content">
+                <div class="settings-header">
+                    <h2>設定</h2>
+                    <button id="close-settings" class="close-btn">✕</button>
+                </div>
+                <div class="settings-body">
+                    <div class="settings-section">
+                        <h3>文字サイズ</h3>
+                        <div class="settings-controls">
+                            <button id="font-size-down-btn" class="settings-btn">小</button>
+                            <span id="font-size-display" class="settings-value">100%</span>
+                            <button id="font-size-up-btn" class="settings-btn">大</button>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>テーマ</h3>
+                        <button id="theme-toggle-btn" class="settings-toggle-btn">
+                            <span class="theme-icon">🌙</span>
+                            <span class="theme-text">ダークモード</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
