@@ -393,7 +393,32 @@ class PCMinesweeper extends MinesweeperCore {
         
         if (this.flagMode === 1) {
             // 旗モード
-            if (!this.flagged[row][col] && !this.questioned[row][col]) {
+            if (this.flagged[row][col]) {
+                // 既に旗がある場合は取り消し
+                this.createRisingFlag(cell);
+                cell.classList.add('unflag-animation');
+                setTimeout(() => {
+                    cell.classList.remove('unflag-animation');
+                }, 200);
+                this.flagged[row][col] = false;
+                cell.classList.remove('flagged');
+                cell.textContent = '';
+                this.updateMineCount();
+            } else if (this.questioned[row][col]) {
+                // ?マークがある場合は旗に変更
+                this.questioned[row][col] = false;
+                cell.classList.remove('questioned');
+                this.flagged[row][col] = true;
+                cell.classList.add('flagged');
+                cell.classList.add('flag-animation');
+                this.createFallingFlag(cell);
+                setTimeout(() => {
+                    cell.classList.remove('flag-animation');
+                }, 300);
+                this.updateMineCount();
+                this.checkWin();
+            } else {
+                // 何もない場合は旗を立てる
                 this.flagged[row][col] = true;
                 cell.classList.add('flagged');
                 cell.classList.add('flag-animation');
@@ -406,7 +431,31 @@ class PCMinesweeper extends MinesweeperCore {
             }
         } else if (this.flagMode === 2) {
             // ?モード
-            if (!this.flagged[row][col] && !this.questioned[row][col]) {
+            if (this.questioned[row][col]) {
+                // 既に?がある場合は取り消し
+                this.createRisingQuestion(cell);
+                cell.classList.add('unflag-animation');
+                setTimeout(() => {
+                    cell.classList.remove('unflag-animation');
+                }, 200);
+                this.questioned[row][col] = false;
+                cell.classList.remove('questioned');
+                cell.textContent = '';
+            } else if (this.flagged[row][col]) {
+                // 旗がある場合は?に変更
+                this.createRisingFlag(cell);
+                cell.classList.add('unflag-animation');
+                setTimeout(() => {
+                    cell.classList.remove('unflag-animation');
+                }, 200);
+                this.flagged[row][col] = false;
+                cell.classList.remove('flagged');
+                this.questioned[row][col] = true;
+                cell.classList.add('questioned');
+                cell.textContent = '?';
+                this.updateMineCount();
+            } else {
+                // 何もない場合は?を付ける
                 this.questioned[row][col] = true;
                 cell.classList.add('questioned');
                 cell.textContent = '?';
@@ -721,7 +770,7 @@ class PCMinesweeper extends MinesweeperCore {
         
         const rect = cell.getBoundingClientRect();
         const question = document.createElement('div');
-        question.className = 'rising-flag';
+        question.className = 'rising-question';
         question.textContent = '?';
         question.style.left = `${rect.left + rect.width / 2}px`;
         question.style.top = `${rect.top + rect.height / 2}px`;
