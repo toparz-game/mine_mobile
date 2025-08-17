@@ -517,6 +517,19 @@ class Minesweeper {
                     const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
                     if (this.flagged[row][col] || this.questioned[row][col]) {
                         // 旗または?がある場合は消去
+                        if (this.flagged[row][col]) {
+                            this.createRisingFlag(cell);
+                            cell.classList.add('unflag-animation');
+                            setTimeout(() => {
+                                cell.classList.remove('unflag-animation');
+                            }, 200);
+                        } else if (this.questioned[row][col]) {
+                            this.createRisingQuestion(cell);
+                            cell.classList.add('unflag-animation');
+                            setTimeout(() => {
+                                cell.classList.remove('unflag-animation');
+                            }, 200);
+                        }
                         this.flagged[row][col] = false;
                         this.questioned[row][col] = false;
                         cell.classList.remove('flagged', 'questioned');
@@ -536,7 +549,7 @@ class Minesweeper {
                     }
                     this.isLongPress = true;
                 }
-            }, 300); // 300ms長押しで旗
+            }, 200); // 200ms長押しで旗
             
                 // preventDefaultを削除してスクロールを可能にする
                 // e.preventDefault();
@@ -706,6 +719,13 @@ class Minesweeper {
         
         if (this.flagged[row][col] || this.questioned[row][col]) {
             // 旗または?がある場合は消去
+            if (this.flagged[row][col]) {
+                this.createRisingFlag(cell);
+                cell.classList.add('unflag-animation');
+                setTimeout(() => {
+                    cell.classList.remove('unflag-animation');
+                }, 200);
+            }
             this.flagged[row][col] = false;
             this.questioned[row][col] = false;
             cell.classList.remove('flagged', 'questioned');
@@ -733,6 +753,11 @@ class Minesweeper {
         
         if (this.flagged[row][col]) {
             // 旗 → ?
+            this.createRisingFlag(cell);
+            cell.classList.add('unflag-animation');
+            setTimeout(() => {
+                cell.classList.remove('unflag-animation');
+            }, 200);
             this.flagged[row][col] = false;
             this.questioned[row][col] = true;
             cell.classList.remove('flagged');
@@ -740,6 +765,11 @@ class Minesweeper {
             cell.textContent = '?';
         } else if (this.questioned[row][col]) {
             // ? → なし
+            this.createRisingQuestion(cell);
+            cell.classList.add('unflag-animation');
+            setTimeout(() => {
+                cell.classList.remove('unflag-animation');
+            }, 200);
             this.questioned[row][col] = false;
             cell.classList.remove('questioned');
             cell.textContent = '';
@@ -771,6 +801,13 @@ class Minesweeper {
             // 旗モード
             if (this.flagged[row][col] || this.questioned[row][col]) {
                 // 既に旗か?がある場合は消す
+                if (this.flagged[row][col]) {
+                    this.createRisingFlag(cell);
+                    cell.classList.add('unflag-animation');
+                    setTimeout(() => {
+                        cell.classList.remove('unflag-animation');
+                    }, 200);
+                }
                 this.flagged[row][col] = false;
                 this.questioned[row][col] = false;
                 cell.classList.remove('flagged', 'questioned');
@@ -791,6 +828,13 @@ class Minesweeper {
             // ?モード
             if (this.questioned[row][col] || this.flagged[row][col]) {
                 // 既に?か旗がある場合は消す
+                if (this.flagged[row][col]) {
+                    this.createRisingFlag(cell);
+                    cell.classList.add('unflag-animation');
+                    setTimeout(() => {
+                        cell.classList.remove('unflag-animation');
+                    }, 200);
+                }
                 this.questioned[row][col] = false;
                 this.flagged[row][col] = false;
                 cell.classList.remove('questioned', 'flagged');
@@ -804,6 +848,13 @@ class Minesweeper {
         } else if (this.flagMode === 3) {
             // 取り消しモード
             if (this.flagged[row][col] || this.questioned[row][col]) {
+                if (this.flagged[row][col]) {
+                    this.createRisingFlag(cell);
+                    cell.classList.add('unflag-animation');
+                    setTimeout(() => {
+                        cell.classList.remove('unflag-animation');
+                    }, 200);
+                }
                 this.flagged[row][col] = false;
                 this.questioned[row][col] = false;
                 cell.classList.remove('flagged', 'questioned');
@@ -1042,6 +1093,65 @@ class Minesweeper {
         // アニメーション終了後に要素を削除
         setTimeout(() => {
             flag.remove();
+        }, 400);
+    }
+    
+    createRisingFlag(targetCell) {
+        // アニメーションが無効の場合は実行しない
+        if (!this.flagAnimationEnabled) return;
+        
+        const container = document.getElementById('flag-animation-container');
+        if (!container) return;
+        
+        // セルの位置を取得
+        const cellRect = targetCell.getBoundingClientRect();
+        const cellCenterX = cellRect.left + cellRect.width / 2;
+        const cellCenterY = cellRect.top + cellRect.height / 2;
+        
+        // 旗要素を作成
+        const flag = document.createElement('div');
+        flag.className = 'rising-flag';
+        flag.textContent = '🚩';
+        
+        // 開始位置（セルの中心）に配置
+        flag.style.left = (cellCenterX - 25) + 'px';
+        flag.style.top = cellCenterY + 'px';
+        
+        container.appendChild(flag);
+        
+        // アニメーション終了後に要素を削除
+        setTimeout(() => {
+            flag.remove();
+        }, 400);
+    }
+    
+    createRisingQuestion(targetCell) {
+        // アニメーションが無効の場合は実行しない
+        if (!this.flagAnimationEnabled) return;
+        
+        const container = document.getElementById('flag-animation-container');
+        if (!container) return;
+        
+        // セルの位置を取得
+        const cellRect = targetCell.getBoundingClientRect();
+        const cellCenterX = cellRect.left + cellRect.width / 2;
+        const cellCenterY = cellRect.top + cellRect.height / 2;
+        
+        // ？要素を作成
+        const question = document.createElement('div');
+        question.className = 'rising-question';
+        question.textContent = '?';
+        question.style.fontWeight = 'bold';
+        
+        // 開始位置（セルの中心）に配置
+        question.style.left = (cellCenterX - 25) + 'px';
+        question.style.top = cellCenterY + 'px';
+        
+        container.appendChild(question);
+        
+        // アニメーション終了後に要素を削除
+        setTimeout(() => {
+            question.remove();
         }, 400);
     }
     

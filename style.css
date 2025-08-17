@@ -701,6 +701,23 @@ body {
     z-index: 10000;
 }
 
+.rising-flag {
+    position: absolute;
+    font-size: 50px;
+    animation: riseFromTarget 0.4s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+    pointer-events: none;
+    z-index: 10000;
+}
+
+.rising-question {
+    position: absolute;
+    font-size: 50px;
+    animation: riseFromTarget 0.4s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards;
+    pointer-events: none;
+    z-index: 10000;
+    color: var(--text-primary);
+}
+
 @keyframes fallToTarget {
     0% {
         transform: translateY(-200px) rotate(0deg) scale(3);
@@ -719,6 +736,28 @@ body {
     }
     100% {
         transform: translateY(0) rotate(720deg) scale(1);
+        opacity: 0;
+    }
+}
+
+@keyframes riseFromTarget {
+    0% {
+        transform: translateY(0) rotate(0deg) scale(1);
+        opacity: 1;
+    }
+    15% {
+        transform: translateY(0) rotate(-180deg) scale(1.2);
+        opacity: 1;
+    }
+    40% {
+        transform: translateY(-50px) rotate(-360deg) scale(1.5);
+    }
+    70% {
+        opacity: 1;
+        transform: translateY(-100px) rotate(-540deg) scale(2);
+    }
+    100% {
+        transform: translateY(-200px) rotate(-720deg) scale(3);
         opacity: 0;
     }
 }
