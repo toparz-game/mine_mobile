@@ -1067,6 +1067,20 @@ class MobileMinesweeper extends MinesweeperCore {
         const modal = document.getElementById('help-modal');
         if (modal) {
             modal.classList.add('show');
+            
+            // デバイスに応じて適切な説明を表示
+            const mobileHelp = document.getElementById('mobile-help');
+            const pcHelp = document.getElementById('pc-help');
+            
+            if (this.isTouchDevice) {
+                // スマホ・タブレットの場合
+                if (mobileHelp) mobileHelp.style.display = 'block';
+                if (pcHelp) pcHelp.style.display = 'none';
+            } else {
+                // PCの場合
+                if (mobileHelp) mobileHelp.style.display = 'none';
+                if (pcHelp) pcHelp.style.display = 'block';
+            }
         }
     }
     
