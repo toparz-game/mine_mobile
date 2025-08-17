@@ -19,6 +19,8 @@ class Minesweeper {
         this.flagMode = false;
         this.longPressTimer = null;
         this.isLongPress = false;
+        this.isPinching = false;
+        this.touchCount = 0;
         
         this.init();
     }
@@ -159,28 +161,46 @@ class Minesweeper {
         let touchMoved = false;
         
         cell.addEventListener('touchstart', (e) => {
+            // マルチタッチの場合はピンチ操作と判断
+            if (e.touches.length > 1) {
+                this.isPinching = true;
+                if (this.longPressTimer) {
+                    clearTimeout(this.longPressTimer);
+                }
+                return;
+            }
+            
             e.preventDefault();
             touchStartTime = Date.now();
             touchMoved = false;
             this.isLongPress = false;
+            this.isPinching = false;
             
             this.longPressTimer = setTimeout(() => {
                 this.isLongPress = true;
-                if (!touchMoved && !this.gameOver) {
+                if (!touchMoved && !this.gameOver && !this.isPinching) {
                     navigator.vibrate && navigator.vibrate(50);
                     this.toggleFlag(row, col);
                 }
             }, 500);
-        });
+        }, { passive: false });
         
         cell.addEventListener('touchmove', (e) => {
             touchMoved = true;
+            if (e.touches.length > 1) {
+                this.isPinching = true;
+            }
             if (this.longPressTimer) {
                 clearTimeout(this.longPressTimer);
             }
         });
         
         cell.addEventListener('touchend', (e) => {
+            if (this.isPinching) {
+                this.isPinching = false;
+                return;
+            }
+            
             e.preventDefault();
             if (this.longPressTimer) {
                 clearTimeout(this.longPressTimer);
@@ -195,7 +215,7 @@ class Minesweeper {
                     this.revealCell(row, col);
                 }
             }
-        });
+        }, { passive: false });
         
         cell.addEventListener('click', (e) => {
             e.preventDefault();
@@ -275,6 +295,31 @@ class Minesweeper {
         }
         
         this.updateMineCount();
+    }
+    
+    zoomIn() {
+        if (this.zoomLevel < this.maxZoom) {
+            this.zoomLevel = Math.min(this.zoomLevel + this.zoomStep, this.maxZoom);
+            this.updateZoom();
+        }
+    }
+    
+    zoomOut() {
+        if (this.zoomLevel > this.minZoom) {
+            this.zoomLevel = Math.max(this.zoomLevel - this.zoomStep, this.minZoom);
+            this.updateZoom();
+        }
+    }
+    
+    updateZoom() {
+        const board = document.getElementById('game-board');
+        board.style.transform = `scale(${this.zoomLevel})`;
+        
+        const zoomInBtn = document.getElementById('zoom-in-btn');
+        const zoomOutBtn = document.getElementById('zoom-out-btn');
+        
+        zoomInBtn.disabled = this.zoomLevel >= this.maxZoom;
+        zoomOutBtn.disabled = this.zoomLevel <= this.minZoom;
     }
     
     checkWin() {
