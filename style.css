@@ -137,7 +137,7 @@ body {
     position: relative;
     width: fit-content;
     margin: 0 auto;
-    transform-origin: center center;
+    transform-origin: top left;
     transition: transform 0.3s ease;
 }
 
