@@ -55,7 +55,9 @@ class Minesweeper {
         
         // 省電力モード設定
         this.powerSaveMode = false;
-        this.reducedMotion = false;
+        
+        // リバース操作設定
+        this.reverseMode = false;
         
         // ページ表示状態の監視
         this.wasTimerRunning = false;
@@ -169,12 +171,13 @@ class Minesweeper {
             });
         }
         
-        const reducedMotionToggleBtn = document.getElementById('reduced-motion-toggle-btn');
-        if (reducedMotionToggleBtn) {
-            reducedMotionToggleBtn.addEventListener('click', () => {
-                this.toggleReducedMotion();
+        const reverseToggleBtn = document.getElementById('reverse-toggle-btn');
+        if (reverseToggleBtn) {
+            reverseToggleBtn.addEventListener('click', () => {
+                this.toggleReverseMode();
             });
         }
+        
         
         // 設定モーダルの外側クリックで閉じる
         const settingsModal = document.getElementById('settings-modal');
@@ -243,10 +246,8 @@ class Minesweeper {
             });
         }
         
-        // PC用ドラッグイベントの設定（PCのみ）
-        if (this.isPC) {
-            this.setupDragEvents();
-        }
+        // ドラッグイベントの設定
+        this.setupDragEvents();
     }
     
     setupDragEvents() {
@@ -256,8 +257,10 @@ class Minesweeper {
         // 設定の読み込み
         this.loadFlagAnimationSetting();
         this.loadPowerSaveSettings();
+        this.loadReverseModeSetting();
         
         let isDraggingWithMiddleButton = false;
+        let isDraggingTouch = false;
         
         // 中ボタン（スクロールボタン）でのドラッグ処理
         wrapper.addEventListener('mousedown', (e) => {
@@ -283,8 +286,14 @@ class Minesweeper {
             const deltaX = e.clientX - this.dragStartX;
             const deltaY = e.clientY - this.dragStartY;
             
-            wrapper.scrollLeft = this.scrollStartX - deltaX;
-            wrapper.scrollTop = this.scrollStartY - deltaY;
+            // リバースモードの場合、スクロール方向を反転
+            if (this.reverseMode) {
+                wrapper.scrollLeft = this.scrollStartX + deltaX;
+                wrapper.scrollTop = this.scrollStartY + deltaY;
+            } else {
+                wrapper.scrollLeft = this.scrollStartX - deltaX;
+                wrapper.scrollTop = this.scrollStartY - deltaY;
+            }
             
             e.preventDefault();
         });
@@ -310,6 +319,52 @@ class Minesweeper {
                 wrapper.style.cursor = 'grab';
             }
         });
+        
+        // タッチデバイス向けのスワイプ実装
+        if (this.isTouchDevice) {
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let scrollStartX = 0;
+            let scrollStartY = 0;
+            
+            wrapper.addEventListener('touchstart', (e) => {
+                // シングルタッチの場合のみ処理
+                if (e.touches.length === 1) {
+                    isDraggingTouch = true;
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
+                    scrollStartX = wrapper.scrollLeft;
+                    scrollStartY = wrapper.scrollTop;
+                }
+            }, { passive: true });
+            
+            wrapper.addEventListener('touchmove', (e) => {
+                if (!isDraggingTouch || e.touches.length !== 1) return;
+                
+                const touch = e.touches[0];
+                const deltaX = touch.clientX - touchStartX;
+                const deltaY = touch.clientY - touchStartY;
+                
+                // リバースモードの場合、スクロール方向を反転
+                if (this.reverseMode) {
+                    wrapper.scrollLeft = scrollStartX + deltaX;
+                    wrapper.scrollTop = scrollStartY + deltaY;
+                } else {
+                    wrapper.scrollLeft = scrollStartX - deltaX;
+                    wrapper.scrollTop = scrollStartY - deltaY;
+                }
+                
+                e.preventDefault();
+            }, { passive: false });
+            
+            wrapper.addEventListener('touchend', () => {
+                isDraggingTouch = false;
+            });
+            
+            wrapper.addEventListener('touchcancel', () => {
+                isDraggingTouch = false;
+            });
+        }
     }
     
     toggleFlagMode() {
@@ -1040,18 +1095,20 @@ class Minesweeper {
             }
         }
         
-        // トランジション効果の設定読み込み（デフォルトON）
-        const savedReducedMotion = localStorage.getItem('reducedMotion');
-        const motionBtn = document.getElementById('reduced-motion-toggle-btn');
-        if (motionBtn) {
-            const motionText = motionBtn.querySelector('.reduced-motion-text');
-            if (savedReducedMotion === 'off') {
-                this.reducedMotion = true;
-                if (motionText) motionText.textContent = 'OFF';
-                document.body.classList.add('reduced-motion');
+    }
+    
+    loadReverseModeSetting() {
+        // リバース操作設定の読み込み（デフォルトOFF）
+        const savedReverse = localStorage.getItem('reverseMode');
+        const reverseBtn = document.getElementById('reverse-toggle-btn');
+        if (reverseBtn) {
+            const reverseText = reverseBtn.querySelector('.reverse-text');
+            if (savedReverse === 'on') {
+                this.reverseMode = true;
+                if (reverseText) reverseText.textContent = 'ON';
             } else {
-                this.reducedMotion = false;
-                if (motionText) motionText.textContent = 'ON';
+                this.reverseMode = false;
+                if (reverseText) reverseText.textContent = 'OFF';
             }
         }
     }
@@ -1075,23 +1132,21 @@ class Minesweeper {
         localStorage.setItem('powerSaveMode', this.powerSaveMode ? 'off' : 'on');
     }
     
-    toggleReducedMotion() {
-        this.reducedMotion = !this.reducedMotion;
-        const btn = document.getElementById('reduced-motion-toggle-btn');
+    toggleReverseMode() {
+        this.reverseMode = !this.reverseMode;
+        const btn = document.getElementById('reverse-toggle-btn');
         if (!btn) return;
         
-        const motionText = btn.querySelector('.reduced-motion-text');
+        const reverseText = btn.querySelector('.reverse-text');
         
-        if (this.reducedMotion) {
-            if (motionText) motionText.textContent = 'OFF';
-            document.body.classList.add('reduced-motion');
+        if (this.reverseMode) {
+            if (reverseText) reverseText.textContent = 'ON';
         } else {
-            if (motionText) motionText.textContent = 'ON';
-            document.body.classList.remove('reduced-motion');
+            if (reverseText) reverseText.textContent = 'OFF';
         }
         
-        // 設定を保存（逆転：OFFが省電力モード）
-        localStorage.setItem('reducedMotion', this.reducedMotion ? 'off' : 'on');
+        // 設定を保存
+        localStorage.setItem('reverseMode', this.reverseMode ? 'on' : 'off');
     }
     
     setupVisibilityHandler() {
@@ -1184,6 +1239,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const game = new Minesweeper();
         game.loadTheme();
         game.loadPowerSaveSettings();
+        game.loadReverseModeSetting();
     } catch (error) {
         console.error('Error during initialization:', error);
     }

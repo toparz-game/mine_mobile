@@ -55,7 +55,6 @@ body {
     touch-action: pan-y;
     overflow: auto;
     overscroll-behavior-y: contain;
-    transition: background 0.3s ease;
 }
 
 .container {
@@ -70,7 +69,6 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    transition: background 0.3s ease;
 }
 
 .game-header {
@@ -84,7 +82,6 @@ body {
     background: var(--panel-bg);
     border-radius: 10px;
     padding: 10px;
-    transition: background 0.3s ease;
 }
 
 .info-item-group {
@@ -100,7 +97,6 @@ body {
     font-weight: bold;
     color: var(--text-primary);
     min-width: 70px;
-    transition: color 0.3s ease;
 }
 
 .emoji {
@@ -115,7 +111,6 @@ body {
     border-radius: 50%;
     font-size: 30px;
     cursor: pointer;
-    transition: all 0.3s ease;
     box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
     display: flex;
     align-items: center;
@@ -140,7 +135,6 @@ body {
     font-weight: 600;
     color: var(--text-primary);
     cursor: pointer;
-    transition: all 0.3s ease;
     box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
     text-align: center;
     appearance: none;
@@ -197,7 +191,6 @@ body {
     width: fit-content;
     margin: 0;
     transform-origin: top left;
-    transition: transform 0.3s ease;
 }
 
 .cell {
@@ -210,7 +203,6 @@ body {
     justify-content: center;
     font-weight: bold;
     cursor: pointer;
-    transition: all 0.1s ease;
     position: relative;
     width: 35px;
     height: 35px;
@@ -303,7 +295,6 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    transition: all 0.3s ease;
     box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
 }
 
@@ -335,7 +326,6 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s ease;
     box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
 }
 
@@ -363,7 +353,6 @@ body {
     font-weight: 600;
     color: var(--text-primary);
     cursor: pointer;
-    transition: all 0.3s ease;
     box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
 }
 
@@ -435,7 +424,6 @@ body {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    transition: background 0.3s ease;
 }
 
 .close-btn:hover {
@@ -477,7 +465,6 @@ body {
     font-weight: 600;
     color: var(--text-primary);
     cursor: pointer;
-    transition: all 0.3s ease;
     box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
 }
 
@@ -513,7 +500,6 @@ body {
     align-items: center;
     justify-content: center;
     gap: 10px;
-    transition: all 0.3s ease;
     box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
 }
 
@@ -784,35 +770,3 @@ body.power-save-mode .control-btn.active {
     background: var(--bg-gradient-start) !important;
 }
 
-/* アニメーション削減モード */
-body.reduced-motion * {
-    transition: none !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-}
-
-body.reduced-motion .cell:active:not(.revealed):not(.flagged) {
-    transform: none !important;
-}
-
-body.reduced-motion .reset-btn:active,
-body.reduced-motion .control-btn:active,
-body.reduced-motion .zoom-btn:active,
-body.reduced-motion .settings-btn:active,
-body.reduced-motion .font-btn:active,
-body.reduced-motion .settings-toggle-btn:active {
-    transform: none !important;
-}
-
-body.reduced-motion .falling-flag {
-    display: none !important;
-}
-
-body.reduced-motion .cell.flag-animation,
-body.reduced-motion .cell.unflag-animation {
-    animation: none !important;
-}
-
-body.reduced-motion .game-board {
-    transition: none !important;
-}
