@@ -117,6 +117,11 @@ body {
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 3px 3px 6px var(--shadow-dark), -3px -3px 6px var(--shadow-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
 }
 
 .reset-btn:active {
@@ -238,6 +243,13 @@ body {
     font-size: 16px;
 }
 
+.cell.questioned {
+    background: var(--cell-bg);
+    color: var(--text-primary);
+    font-weight: bold;
+    font-size: 18px;
+}
+
 .cell.mine.revealed::after {
     content: '💣';
     position: absolute;
@@ -247,6 +259,10 @@ body {
 .cell.wrong-flag {
     background: #ffaaaa;
     border: 1px solid var(--cell-border);
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .cell[data-count="1"] { color: #0000ff; }
