@@ -21,6 +21,12 @@ class Minesweeper {
         this.isLongPress = false;
         this.isPinching = false;
         this.touchCount = 0;
+        this.zoomLevel = 1.0;
+        this.minZoom = 0.5;
+        this.maxZoom = 2.0;
+        this.zoomStep = 0.1;
+        this.lastTapTime = 0;
+        this.doubleTapDelay = 300;
         
         this.init();
     }
@@ -48,6 +54,14 @@ class Minesweeper {
                 this.currentDifficulty = e.target.dataset.level;
                 this.newGame();
             });
+        });
+        
+        document.getElementById('zoom-in-btn').addEventListener('click', () => {
+            this.zoomIn();
+        });
+        
+        document.getElementById('zoom-out-btn').addEventListener('click', () => {
+            this.zoomOut();
         });
         
         document.addEventListener('contextmenu', (e) => {
@@ -78,6 +92,7 @@ class Minesweeper {
         this.gameOver = false;
         this.gameWon = false;
         this.flagMode = false;
+        this.zoomLevel = 1.0;
         
         const btn = document.getElementById('flag-mode-btn');
         const text = btn.querySelector('.mode-text');
@@ -94,6 +109,7 @@ class Minesweeper {
         this.initBoard();
         this.renderBoard();
         this.updateMineCount();
+        this.updateZoom();
     }
     
     initBoard() {
@@ -159,6 +175,8 @@ class Minesweeper {
     setupCellListeners(cell, row, col) {
         let touchStartTime = 0;
         let touchMoved = false;
+        let tapCount = 0;
+        let tapTimer = null;
         
         cell.addEventListener('touchstart', (e) => {
             // マルチタッチの場合はピンチ操作と判断
@@ -209,10 +227,19 @@ class Minesweeper {
             const touchDuration = Date.now() - touchStartTime;
             
             if (!touchMoved && !this.isLongPress && touchDuration < 500 && !this.gameOver) {
-                if (this.flagMode) {
-                    this.toggleFlag(row, col);
+                const currentTime = Date.now();
+                const timeSinceLastTap = currentTime - this.lastTapTime;
+                
+                if (this.revealed[row][col] && this.board[row][col] > 0 && timeSinceLastTap < this.doubleTapDelay) {
+                    this.chordReveal(row, col);
+                    this.lastTapTime = 0;
                 } else {
-                    this.revealCell(row, col);
+                    this.lastTapTime = currentTime;
+                    if (this.flagMode) {
+                        this.toggleFlag(row, col);
+                    } else {
+                        this.revealCell(row, col);
+                    }
                 }
             }
         }, { passive: false });
@@ -225,6 +252,13 @@ class Minesweeper {
                 } else {
                     this.revealCell(row, col);
                 }
+            }
+        });
+        
+        cell.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            if (!this.gameOver && this.revealed[row][col] && this.board[row][col] > 0) {
+                this.chordReveal(row, col);
             }
         });
         
@@ -295,6 +329,48 @@ class Minesweeper {
         }
         
         this.updateMineCount();
+    }
+    
+    countFlagsAround(row, col) {
+        let flagCount = 0;
+        for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                const newRow = row + dr;
+                const newCol = col + dc;
+                
+                if (newRow >= 0 && newRow < this.rows && 
+                    newCol >= 0 && newCol < this.cols && 
+                    this.flagged[newRow][newCol]) {
+                    flagCount++;
+                }
+            }
+        }
+        return flagCount;
+    }
+    
+    chordReveal(row, col) {
+        if (!this.revealed[row][col] || this.board[row][col] <= 0) return;
+        
+        const mineCount = this.board[row][col];
+        const flagCount = this.countFlagsAround(row, col);
+        
+        if (mineCount === flagCount) {
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    const newRow = row + dr;
+                    const newCol = col + dc;
+                    
+                    if (newRow >= 0 && newRow < this.rows && 
+                        newCol >= 0 && newCol < this.cols && 
+                        !this.revealed[newRow][newCol] && 
+                        !this.flagged[newRow][newCol]) {
+                        this.revealCell(newRow, newCol);
+                    }
+                }
+            }
+        }
     }
     
     zoomIn() {
@@ -379,7 +455,7 @@ class Minesweeper {
                 if (this.flagged[row][col]) flagCount++;
             }
         }
-        document.getElementById('mine-count').textContent = this.mineCount - flagCount;
+        document.getElementById('flag-count').textContent = `${flagCount}/${this.mineCount}`;
     }
     
     startTimer() {
