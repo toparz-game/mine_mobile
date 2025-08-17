@@ -60,7 +60,7 @@ body {
 .help-btn-floating {
     position: absolute;
     bottom: 15px;
-    right: 15px;
+    left: 15px;
     width: 45px;
     height: 45px;
     border: none;
@@ -85,6 +85,7 @@ body {
 .help-btn-floating .help-icon {
     font-weight: bold;
 }
+
 
 .container {
     width: 100%;

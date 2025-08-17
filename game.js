@@ -777,11 +777,7 @@ class Minesweeper {
         
         if (this.flagged[row][col]) {
             // 旗 → ?
-            this.createRisingFlag(cell);
-            cell.classList.add('unflag-animation');
-            setTimeout(() => {
-                cell.classList.remove('unflag-animation');
-            }, 200);
+            // アニメーションなしで直接切り替え
             this.flagged[row][col] = false;
             this.questioned[row][col] = true;
             cell.classList.remove('flagged');
