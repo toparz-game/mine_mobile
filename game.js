@@ -730,15 +730,17 @@ class Minesweeper {
     }
     
     zoomIn() {
-        if (this.zoomLevel < this.maxZoom) {
-            this.zoomLevel = Math.min(this.zoomLevel + this.zoomStep, this.maxZoom);
+        const newZoom = this.zoomLevel + this.zoomStep;
+        if (newZoom <= this.maxZoom) {
+            this.zoomLevel = newZoom;
             this.updateZoom();
         }
     }
     
     zoomOut() {
-        if (this.zoomLevel > this.minZoom) {
-            this.zoomLevel = Math.max(this.zoomLevel - this.zoomStep, this.minZoom);
+        const newZoom = this.zoomLevel - this.zoomStep;
+        if (newZoom >= this.minZoom) {
+            this.zoomLevel = newZoom;
             this.updateZoom();
         }
     }
@@ -755,8 +757,14 @@ class Minesweeper {
         const zoomInBtn = document.getElementById('zoom-in-btn');
         const zoomOutBtn = document.getElementById('zoom-out-btn');
         
-        if (zoomInBtn) zoomInBtn.disabled = this.zoomLevel >= this.maxZoom;
-        if (zoomOutBtn) zoomOutBtn.disabled = this.zoomLevel <= this.minZoom;
+        if (zoomInBtn) {
+            const isMaxZoom = Math.abs(this.zoomLevel - this.maxZoom) < 0.001;
+            zoomInBtn.disabled = isMaxZoom;
+        }
+        if (zoomOutBtn) {
+            const isMinZoom = Math.abs(this.zoomLevel - this.minZoom) < 0.001;
+            zoomOutBtn.disabled = isMinZoom;
+        }
     }
     
     openSettings() {
