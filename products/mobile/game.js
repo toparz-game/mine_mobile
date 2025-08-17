@@ -232,18 +232,16 @@ class MobileMinesweeper extends MinesweeperCore {
                 
                 themeToggleBtn.addEventListener('touchmove', (e) => {
                     const touchY = e.touches[0].clientY;
-                    if (Math.abs(touchY - touchStartY) > 10) {
+                    if (Math.abs(touchY - touchStartY) > 5) {
                         touchMoved = true;
                     }
                 }, { passive: true });
                 
                 themeToggleBtn.addEventListener('touchend', (e) => {
                     if (!touchMoved) {
-                        e.preventDefault();
-                        e.stopPropagation();
                         this.toggleTheme();
                     }
-                }, { passive: false });
+                }, { passive: true });
             } else {
                 themeToggleBtn.addEventListener('click', () => {
                     this.toggleTheme();
@@ -264,18 +262,16 @@ class MobileMinesweeper extends MinesweeperCore {
                 
                 flagAnimationToggleBtn.addEventListener('touchmove', (e) => {
                     const touchY = e.touches[0].clientY;
-                    if (Math.abs(touchY - touchStartY) > 10) {
+                    if (Math.abs(touchY - touchStartY) > 5) {
                         touchMoved = true;
                     }
                 }, { passive: true });
                 
                 flagAnimationToggleBtn.addEventListener('touchend', (e) => {
                     if (!touchMoved) {
-                        e.preventDefault();
-                        e.stopPropagation();
                         this.toggleFlagAnimation();
                     }
-                }, { passive: false });
+                }, { passive: true });
             } else {
                 flagAnimationToggleBtn.addEventListener('click', () => {
                     this.toggleFlagAnimation();
@@ -296,18 +292,16 @@ class MobileMinesweeper extends MinesweeperCore {
                 
                 powerSaveToggleBtn.addEventListener('touchmove', (e) => {
                     const touchY = e.touches[0].clientY;
-                    if (Math.abs(touchY - touchStartY) > 10) {
+                    if (Math.abs(touchY - touchStartY) > 5) {
                         touchMoved = true;
                     }
                 }, { passive: true });
                 
                 powerSaveToggleBtn.addEventListener('touchend', (e) => {
                     if (!touchMoved) {
-                        e.preventDefault();
-                        e.stopPropagation();
                         this.togglePowerSaveMode();
                     }
-                }, { passive: false });
+                }, { passive: true });
             } else {
                 powerSaveToggleBtn.addEventListener('click', () => {
                     this.togglePowerSaveMode();
@@ -328,18 +322,16 @@ class MobileMinesweeper extends MinesweeperCore {
                 
                 reverseToggleBtn.addEventListener('touchmove', (e) => {
                     const touchY = e.touches[0].clientY;
-                    if (Math.abs(touchY - touchStartY) > 10) {
+                    if (Math.abs(touchY - touchStartY) > 5) {
                         touchMoved = true;
                     }
                 }, { passive: true });
                 
                 reverseToggleBtn.addEventListener('touchend', (e) => {
                     if (!touchMoved) {
-                        e.preventDefault();
-                        e.stopPropagation();
                         this.toggleReverseMode();
                     }
-                }, { passive: false });
+                }, { passive: true });
             } else {
                 reverseToggleBtn.addEventListener('click', () => {
                     this.toggleReverseMode();
