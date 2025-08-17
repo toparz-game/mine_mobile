@@ -10,7 +10,7 @@ class Minesweeper {
             extreme: { rows: 64, cols: 64, mines: 999 }
         };
         
-        this.currentDifficulty = 'medium';
+        this.currentDifficulty = 'easy';
         this.board = [];
         this.revealed = [];
         this.flagged = [];
