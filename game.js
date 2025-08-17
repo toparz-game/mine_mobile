@@ -98,15 +98,28 @@ class Minesweeper {
         const wrapper = document.querySelector('.game-board-wrapper');
         let clickedCell = null;
         let hasMoved = false;
+        let mouseDownX = 0;
+        let mouseDownY = 0;
+        let initialScrollLeft = 0;
+        let initialScrollTop = 0;
         
-        // マウスダウンイベント
+        // マウスダウンイベント（キャプチャフェーズで処理）
         wrapper.addEventListener('mousedown', (e) => {
             // 右クリックは無視
             if (e.button !== 0) return;
             
+            // マウスダウン位置とスクロール位置を正確に記録
+            mouseDownX = e.clientX;
+            mouseDownY = e.clientY;
+            initialScrollLeft = wrapper.scrollLeft;
+            initialScrollTop = wrapper.scrollTop;
+            
             // セルをクリックした場合、後でクリック処理するために記録
             if (e.target.classList.contains('cell')) {
                 clickedCell = e.target;
+                hasMoved = false;
+            } else {
+                clickedCell = null;
                 hasMoved = false;
             }
             
@@ -118,34 +131,46 @@ class Minesweeper {
             
             wrapper.style.cursor = 'grabbing';
             e.preventDefault();
-        });
+            e.stopPropagation();
+        }, true); // キャプチャフェーズで処理
         
         // マウス移動イベント
         wrapper.addEventListener('mousemove', (e) => {
             if (!this.isDragging) return;
             
+            // マウスが1ピクセルでも動いたらドラッグとみなす
+            if (e.clientX !== mouseDownX || e.clientY !== mouseDownY) {
+                hasMoved = true;
+            }
+            
             const deltaX = e.clientX - this.dragStartX;
             const deltaY = e.clientY - this.dragStartY;
-            
-            // 移動量が閾値を超えたらドラッグとみなす
-            if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
-                hasMoved = true;
-                clickedCell = null; // ドラッグ中はセルクリックをキャンセル
-            }
             
             wrapper.scrollLeft = this.scrollStartX - deltaX;
             wrapper.scrollTop = this.scrollStartY - deltaY;
             
+            // スクロール位置が変わった場合もドラッグとみなす
+            if (wrapper.scrollLeft !== initialScrollLeft || wrapper.scrollTop !== initialScrollTop) {
+                hasMoved = true;
+            }
+            
             e.preventDefault();
+            e.stopPropagation();
         });
         
-        // マウスアップイベント
+        // マウスアップイベント（キャプチャフェーズで処理）
         const handleMouseUp = (e) => {
             if (this.isDragging) {
                 this.isDragging = false;
                 wrapper.style.cursor = '';
                 
-                // ドラッグせずにセルをクリックした場合、クリック処理を実行
+                // マウスアップ位置がダウン位置と異なる、またはスクロール位置が変わった場合
+                if (e.clientX !== mouseDownX || e.clientY !== mouseDownY || 
+                    wrapper.scrollLeft !== initialScrollLeft || wrapper.scrollTop !== initialScrollTop) {
+                    hasMoved = true;
+                }
+                
+                // 完全に静止していた場合のみセルを開く
                 if (clickedCell && !hasMoved && !this.gameOver) {
                     const row = parseInt(clickedCell.dataset.row);
                     const col = parseInt(clickedCell.dataset.col);
@@ -159,11 +184,14 @@ class Minesweeper {
                 
                 clickedCell = null;
                 hasMoved = false;
+                
+                e.preventDefault();
+                e.stopPropagation();
             }
         };
         
-        wrapper.addEventListener('mouseup', handleMouseUp);
-        document.addEventListener('mouseup', handleMouseUp);
+        wrapper.addEventListener('mouseup', handleMouseUp, true); // キャプチャフェーズで処理
+        document.addEventListener('mouseup', handleMouseUp, true);
         
         // マウスがウィンドウ外に出た場合
         wrapper.addEventListener('mouseleave', () => {
@@ -283,6 +311,7 @@ class Minesweeper {
         let touchStartX = 0;
         let touchStartY = 0;
         const moveThreshold = 10;
+        let isProcessed = false; // タッチ操作が処理済みかどうかのフラグ
         
         cell.addEventListener('touchstart', (e) => {
             // マルチタッチの場合はピンチ操作と判断
@@ -301,10 +330,12 @@ class Minesweeper {
             touchMoved = false;
             this.isLongPress = false;
             this.isPinching = false;
+            isProcessed = false; // 新しいタッチ開始時にリセット
             
             this.longPressTimer = setTimeout(() => {
-                this.isLongPress = true;
                 if (!touchMoved && !this.gameOver && !this.isPinching) {
+                    this.isLongPress = true;
+                    isProcessed = true; // 長押し処理済みとマーク
                     navigator.vibrate && navigator.vibrate(50);
                     this.toggleFlag(row, col);
                     // 長押しが成功したらデフォルト動作を防ぐ
@@ -344,8 +375,15 @@ class Minesweeper {
                 clearTimeout(this.longPressTimer);
             }
             
+            // すでに処理済み（長押しで旗操作済み）の場合は何もしない
+            if (isProcessed) {
+                e.preventDefault();
+                return;
+            }
+            
             const touchDuration = Date.now() - touchStartTime;
             
+            // 移動していない、長押しではない、短いタップ、ゲームオーバーでない場合のみ処理
             if (!touchMoved && !this.isLongPress && touchDuration < 300 && !this.gameOver) {
                 // タップ操作の場合のみpreventDefaultを呼ぶ
                 e.preventDefault();
@@ -367,15 +405,11 @@ class Minesweeper {
             }
         });
         
+        // PCのクリックイベントを無効化（ドラッグイベントで処理するため）
         cell.addEventListener('click', (e) => {
             e.preventDefault();
-            if (!this.gameOver) {
-                if (e.shiftKey || e.ctrlKey || this.flagMode) {
-                    this.toggleFlag(row, col);
-                } else {
-                    this.revealCell(row, col);
-                }
-            }
+            e.stopPropagation();
+            // クリック処理はsetupDragEventsで行う
         });
         
         cell.addEventListener('dblclick', (e) => {
