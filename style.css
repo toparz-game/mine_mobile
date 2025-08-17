@@ -54,6 +54,7 @@ body {
     padding: 10px;
     touch-action: pan-y;
     overflow: auto;
+    overscroll-behavior-y: contain;
     transition: background 0.3s ease;
 }
 

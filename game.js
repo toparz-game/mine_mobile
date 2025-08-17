@@ -160,6 +160,26 @@ class Minesweeper {
             }
         }, { passive: false });
         
+        // プルトゥリフレッシュを防止
+        document.addEventListener('touchstart', (e) => {
+            // スクロール位置が最上部の場合のタッチ開始を記録
+            if (window.pageYOffset === 0) {
+                this.touchStartY = e.touches[0].clientY;
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+            // スクロール位置が最上部で下方向にスワイプしている場合
+            if (window.pageYOffset === 0 && this.touchStartY !== undefined) {
+                const touchY = e.touches[0].clientY;
+                const touchDiff = touchY - this.touchStartY;
+                if (touchDiff > 0) {
+                    // 下方向へのスワイプを防止
+                    e.preventDefault();
+                }
+            }
+        }, { passive: false });
+        
         // ダブルタップズーム防止
         document.addEventListener('touchend', (e) => {
             const now = new Date().getTime();
