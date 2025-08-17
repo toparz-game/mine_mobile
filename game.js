@@ -54,58 +54,123 @@ class Minesweeper {
     }
     
     setupEventListeners() {
-        document.getElementById('reset-btn').addEventListener('click', () => this.newGame());
-        document.getElementById('modal-reset').addEventListener('click', () => {
-            document.getElementById('game-over-modal').classList.remove('show');
-            this.newGame();
-        });
+        const resetBtn = document.getElementById('reset-btn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => this.newGame());
+        }
         
-        document.getElementById('flag-mode-btn').addEventListener('click', () => {
-            this.toggleFlagMode();
-        });
+        const modalResetBtn = document.getElementById('modal-reset');
+        if (modalResetBtn) {
+            modalResetBtn.addEventListener('click', () => {
+                const modal = document.getElementById('game-over-modal');
+                if (modal) modal.classList.remove('show');
+                this.newGame();
+            });
+        }
         
-        document.getElementById('difficulty-select').addEventListener('change', (e) => {
-            this.currentDifficulty = e.target.value;
-            this.newGame();
-            this.closeSettings();
-        });
+        const flagModeBtn = document.getElementById('flag-mode-btn');
+        if (flagModeBtn) {
+            flagModeBtn.addEventListener('click', () => {
+                this.toggleFlagMode();
+            });
+        }
         
-        document.getElementById('zoom-in-btn').addEventListener('click', () => {
-            this.zoomIn();
-        });
+        const difficultySelect = document.getElementById('difficulty-select');
+        if (difficultySelect) {
+            difficultySelect.addEventListener('change', (e) => {
+                this.currentDifficulty = e.target.value;
+                this.newGame();
+                this.closeSettings();
+            });
+        }
         
-        document.getElementById('zoom-out-btn').addEventListener('click', () => {
-            this.zoomOut();
-        });
+        const zoomInBtn = document.getElementById('zoom-in-btn');
+        if (zoomInBtn) {
+            zoomInBtn.addEventListener('click', () => {
+                this.zoomIn();
+            });
+        }
         
-        document.getElementById('settings-btn').addEventListener('click', () => {
-            this.openSettings();
-        });
+        const zoomOutBtn = document.getElementById('zoom-out-btn');
+        if (zoomOutBtn) {
+            zoomOutBtn.addEventListener('click', () => {
+                this.zoomOut();
+            });
+        }
         
-        document.getElementById('close-settings').addEventListener('click', () => {
-            this.closeSettings();
-        });
+        const settingsBtn = document.getElementById('settings-btn');
+        if (settingsBtn) {
+            settingsBtn.addEventListener('click', () => {
+                this.openSettings();
+            });
+        }
         
-        document.getElementById('font-size-up-btn').addEventListener('click', () => {
-            this.increaseFontSize();
-        });
+        const closeSettingsBtn = document.getElementById('close-settings');
+        if (closeSettingsBtn) {
+            closeSettingsBtn.addEventListener('click', () => {
+                this.closeSettings();
+            });
+        }
         
-        document.getElementById('font-size-down-btn').addEventListener('click', () => {
-            this.decreaseFontSize();
-        });
+        const fontSizeUpBtn = document.getElementById('font-size-up-btn');
+        if (fontSizeUpBtn) {
+            fontSizeUpBtn.addEventListener('click', () => {
+                this.increaseFontSize();
+            });
+        }
         
-        document.getElementById('theme-toggle-btn').addEventListener('click', () => {
-            this.toggleTheme();
-        });
+        const fontSizeDownBtn = document.getElementById('font-size-down-btn');
+        if (fontSizeDownBtn) {
+            fontSizeDownBtn.addEventListener('click', () => {
+                this.decreaseFontSize();
+            });
+        }
+        
+        const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                this.toggleTheme();
+            });
+        }
         
         // 設定モーダルの外側クリックで閉じる
-        document.getElementById('settings-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'settings-modal') {
-                this.closeSettings();
-            }
-        });
+        const settingsModal = document.getElementById('settings-modal');
+        if (settingsModal) {
+            settingsModal.addEventListener('click', (e) => {
+                if (e.target === settingsModal) {
+                    this.closeSettings();
+                }
+            });
+        }
         
-        document.addEventListener('contextmenu', (e) => {
+        // ゲームボードのピンチイベントを防止
+        const gameBoard = document.getElementById('game-board');
+        if (gameBoard) {
+            gameBoard.addEventListener('touchstart', (e) => {
+                if (e.touches.length > 1) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        }
+        
+        // グローバルなピンチズーム防止
+        document.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // ダブルタップズーム防止
+        document.addEventListener('touchend', (e) => {
+            const now = new Date().getTime();
+            if (now - this.lastTapTime < 500) {
+                e.preventDefault();
+            }
+            this.lastTapTime = now;
+        }, false);
+        
+        // iOS Safari用のジェスチャーイベント防止
+        document.addEventListener('gesturestart', (e) => {
             e.preventDefault();
             return false;
         });
@@ -116,52 +181,30 @@ class Minesweeper {
     
     setupDragEvents() {
         const wrapper = document.querySelector('.game-board-wrapper');
-        let clickedCell = null;
-        let hasMoved = false;
-        let mouseDownX = 0;
-        let mouseDownY = 0;
-        let initialScrollLeft = 0;
-        let initialScrollTop = 0;
+        if (!wrapper) return;
         
-        // マウスダウンイベント（キャプチャフェーズで処理）
+        let isDraggingWithMiddleButton = false;
+        
+        // 中ボタン（スクロールボタン）でのドラッグ処理
         wrapper.addEventListener('mousedown', (e) => {
-            // 右クリックは無視
-            if (e.button !== 0) return;
-            
-            // マウスダウン位置とスクロール位置を正確に記録
-            mouseDownX = e.clientX;
-            mouseDownY = e.clientY;
-            initialScrollLeft = wrapper.scrollLeft;
-            initialScrollTop = wrapper.scrollTop;
-            
-            // セルをクリックした場合、後でクリック処理するために記録
-            if (e.target.classList.contains('cell')) {
-                clickedCell = e.target;
-                hasMoved = false;
-            } else {
-                clickedCell = null;
-                hasMoved = false;
+            // 中ボタンの場合のみドラッグ開始
+            if (e.button === 1) {
+                isDraggingWithMiddleButton = true;
+                this.isDragging = true;
+                this.dragStartX = e.clientX;
+                this.dragStartY = e.clientY;
+                this.scrollStartX = wrapper.scrollLeft;
+                this.scrollStartY = wrapper.scrollTop;
+                
+                wrapper.style.cursor = 'move';
+                e.preventDefault();
+                e.stopPropagation();
             }
-            
-            this.isDragging = true;
-            this.dragStartX = e.clientX;
-            this.dragStartY = e.clientY;
-            this.scrollStartX = wrapper.scrollLeft;
-            this.scrollStartY = wrapper.scrollTop;
-            
-            wrapper.style.cursor = 'grabbing';
-            e.preventDefault();
-            e.stopPropagation();
-        }, true); // キャプチャフェーズで処理
+        });
         
-        // マウス移動イベント
+        // マウス移動イベント（中ボタンドラッグ時のみ）
         wrapper.addEventListener('mousemove', (e) => {
-            if (!this.isDragging) return;
-            
-            // マウスが1ピクセルでも動いたらドラッグとみなす
-            if (e.clientX !== mouseDownX || e.clientY !== mouseDownY) {
-                hasMoved = true;
-            }
+            if (!this.isDragging || !isDraggingWithMiddleButton) return;
             
             const deltaX = e.clientX - this.dragStartX;
             const deltaY = e.clientY - this.dragStartY;
@@ -169,54 +212,28 @@ class Minesweeper {
             wrapper.scrollLeft = this.scrollStartX - deltaX;
             wrapper.scrollTop = this.scrollStartY - deltaY;
             
-            // スクロール位置が変わった場合もドラッグとみなす
-            if (wrapper.scrollLeft !== initialScrollLeft || wrapper.scrollTop !== initialScrollTop) {
-                hasMoved = true;
-            }
-            
             e.preventDefault();
-            e.stopPropagation();
         });
         
-        // マウスアップイベント（キャプチャフェーズで処理）
+        // マウスアップイベント
         const handleMouseUp = (e) => {
-            if (this.isDragging) {
+            if (isDraggingWithMiddleButton && e.button === 1) {
                 this.isDragging = false;
-                wrapper.style.cursor = '';
-                
-                // マウスアップ位置がダウン位置と異なる、またはスクロール位置が変わった場合
-                if (e.clientX !== mouseDownX || e.clientY !== mouseDownY || 
-                    wrapper.scrollLeft !== initialScrollLeft || wrapper.scrollTop !== initialScrollTop) {
-                    hasMoved = true;
-                }
-                
-                // 完全に静止していた場合のみセルを開く
-                if (clickedCell && !hasMoved && !this.gameOver) {
-                    const row = parseInt(clickedCell.dataset.row);
-                    const col = parseInt(clickedCell.dataset.col);
-                    
-                    if (e.shiftKey || this.flagMode) {
-                        this.toggleFlag(row, col);
-                    } else {
-                        this.revealCell(row, col);
-                    }
-                }
-                
-                clickedCell = null;
-                hasMoved = false;
-                
+                isDraggingWithMiddleButton = false;
+                wrapper.style.cursor = 'grab';
                 e.preventDefault();
-                e.stopPropagation();
             }
         };
         
-        wrapper.addEventListener('mouseup', handleMouseUp, true); // キャプチャフェーズで処理
-        document.addEventListener('mouseup', handleMouseUp, true);
+        wrapper.addEventListener('mouseup', handleMouseUp);
+        document.addEventListener('mouseup', handleMouseUp);
         
         // マウスがウィンドウ外に出た場合
         wrapper.addEventListener('mouseleave', () => {
             if (this.isDragging) {
-                wrapper.style.cursor = '';
+                this.isDragging = false;
+                isDraggingWithMiddleButton = false;
+                wrapper.style.cursor = 'grab';
             }
         });
     }
@@ -224,14 +241,16 @@ class Minesweeper {
     toggleFlagMode() {
         this.flagMode = !this.flagMode;
         const btn = document.getElementById('flag-mode-btn');
+        if (!btn) return;
+        
         const text = btn.querySelector('.mode-text');
         
         if (this.flagMode) {
             btn.classList.add('active');
-            text.textContent = '旗モード: ON';
+            if (text) text.textContent = '旗モード: ON';
         } else {
             btn.classList.remove('active');
-            text.textContent = '旗モード: OFF';
+            if (text) text.textContent = '旗モード: OFF';
         }
     }
     
@@ -239,34 +258,40 @@ class Minesweeper {
         this.stopTimer();
         this.timer = 0;
         this.updateTimer();
-        this.firstClick = true;
         this.gameOver = false;
         this.gameWon = false;
-        this.flagMode = false;
+        this.firstClick = true;
         
-        const btn = document.getElementById('flag-mode-btn');
-        const text = btn.querySelector('.mode-text');
-        btn.classList.remove('active');
-        text.textContent = '旗モード: OFF';
-        
-        document.getElementById('reset-btn').textContent = '😊';
-        
-        const diff = this.difficulties[this.currentDifficulty];
-        this.rows = diff.rows;
-        this.cols = diff.cols;
-        this.mineCount = diff.mines;
+        const difficulty = this.difficulties[this.currentDifficulty];
+        this.rows = difficulty.rows;
+        this.cols = difficulty.cols;
+        this.mineCount = difficulty.mines;
         
         this.initBoard();
         this.renderBoard();
         this.updateMineCount();
-        this.updateZoom();
-        this.updateFontSizeButtons();
+        
+        const resetBtn = document.getElementById('reset-btn');
+        if (resetBtn) {
+            resetBtn.textContent = '😊';
+        }
     }
     
     initBoard() {
-        this.board = Array(this.rows).fill().map(() => Array(this.cols).fill(0));
-        this.revealed = Array(this.rows).fill().map(() => Array(this.cols).fill(false));
-        this.flagged = Array(this.rows).fill().map(() => Array(this.cols).fill(false));
+        this.board = [];
+        this.revealed = [];
+        this.flagged = [];
+        
+        for (let row = 0; row < this.rows; row++) {
+            this.board[row] = [];
+            this.revealed[row] = [];
+            this.flagged[row] = [];
+            for (let col = 0; col < this.cols; col++) {
+                this.board[row][col] = 0;
+                this.revealed[row][col] = false;
+                this.flagged[row][col] = false;
+            }
+        }
     }
     
     placeMines(excludeRow, excludeCol) {
@@ -276,21 +301,22 @@ class Minesweeper {
             const row = Math.floor(Math.random() * this.rows);
             const col = Math.floor(Math.random() * this.cols);
             
-            if (this.board[row][col] !== -1 && !(row === excludeRow && col === excludeCol)) {
-                this.board[row][col] = -1;
-                minesPlaced++;
-                
-                for (let dr = -1; dr <= 1; dr++) {
-                    for (let dc = -1; dc <= 1; dc++) {
-                        if (dr === 0 && dc === 0) continue;
-                        const newRow = row + dr;
-                        const newCol = col + dc;
-                        
-                        if (newRow >= 0 && newRow < this.rows && 
-                            newCol >= 0 && newCol < this.cols && 
-                            this.board[newRow][newCol] !== -1) {
-                            this.board[newRow][newCol]++;
-                        }
+            if (row === excludeRow && col === excludeCol) continue;
+            if (this.board[row][col] === -1) continue;
+            
+            this.board[row][col] = -1;
+            minesPlaced++;
+            
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    const newRow = row + dr;
+                    const newCol = col + dc;
+                    
+                    if (newRow >= 0 && newRow < this.rows && 
+                        newCol >= 0 && newCol < this.cols && 
+                        this.board[newRow][newCol] !== -1) {
+                        this.board[newRow][newCol]++;
                     }
                 }
             }
@@ -300,14 +326,7 @@ class Minesweeper {
     renderBoard() {
         const boardElement = document.getElementById('game-board');
         boardElement.innerHTML = '';
-        
-        // CSSカスタムプロパティを設定
-        document.documentElement.style.setProperty('--cols', this.cols);
-        document.documentElement.style.setProperty('--rows', this.rows);
-        
-        // グリッドを動的に設定
         boardElement.style.gridTemplateColumns = `repeat(${this.cols}, 1fr)`;
-        boardElement.style.gridTemplateRows = `repeat(${this.rows}, 1fr)`;
         
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
@@ -316,120 +335,94 @@ class Minesweeper {
                 cell.dataset.row = row;
                 cell.dataset.col = col;
                 
-                this.setupCellListeners(cell, row, col);
+                this.setupCellEventListeners(cell, row, col);
                 
                 boardElement.appendChild(cell);
             }
         }
+        
+        // 現在のズームレベルとフォントサイズを適用
+        this.updateZoom();
+        this.updateFontSize();
     }
     
-    setupCellListeners(cell, row, col) {
-        let touchStartTime = 0;
-        let touchMoved = false;
-        let tapCount = 0;
-        let tapTimer = null;
-        let touchStartX = 0;
-        let touchStartY = 0;
-        const moveThreshold = 10;
-        let isProcessed = false; // タッチ操作が処理済みかどうかのフラグ
+    setupCellEventListeners(cell, row, col) {
+        let touchTimer;
+        let touchStartX, touchStartY;
+        let hasMoved = false;
         
+        // タッチ開始
         cell.addEventListener('touchstart', (e) => {
-            // マルチタッチの場合はピンチ操作と判断
-            if (e.touches.length > 1) {
-                this.isPinching = true;
-                if (this.longPressTimer) {
-                    clearTimeout(this.longPressTimer);
-                }
-                return;
-            }
+            if (this.gameOver) return;
             
-            // e.preventDefault()を削除してスクロールを許可
-            touchStartTime = Date.now();
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
-            touchMoved = false;
-            this.isLongPress = false;
-            this.isPinching = false;
-            isProcessed = false; // 新しいタッチ開始時にリセット
+            hasMoved = false;
             
-            this.longPressTimer = setTimeout(() => {
-                if (!touchMoved && !this.gameOver && !this.isPinching) {
-                    this.isLongPress = true;
-                    isProcessed = true; // 長押し処理済みとマーク
-                    navigator.vibrate && navigator.vibrate(50);
+            // 長押し検出用タイマー
+            touchTimer = setTimeout(() => {
+                if (!hasMoved && !this.gameOver) {
                     this.toggleFlag(row, col);
-                    // 長押しが成功したらデフォルト動作を防ぐ
-                    e.preventDefault();
-                }
-            }, 300);
-        });
-        
-        cell.addEventListener('touchmove', (e) => {
-            if (e.touches.length > 1) {
-                this.isPinching = true;
-                touchMoved = true;
-                if (this.longPressTimer) {
-                    clearTimeout(this.longPressTimer);
-                }
-                return;
-            }
-            
-            const deltaX = Math.abs(e.touches[0].clientX - touchStartX);
-            const deltaY = Math.abs(e.touches[0].clientY - touchStartY);
-            
-            if (deltaX > moveThreshold || deltaY > moveThreshold) {
-                touchMoved = true;
-                if (this.longPressTimer) {
-                    clearTimeout(this.longPressTimer);
-                }
-            }
-        });
-        
-        cell.addEventListener('touchend', (e) => {
-            if (this.isPinching) {
-                this.isPinching = false;
-                return;
-            }
-            
-            if (this.longPressTimer) {
-                clearTimeout(this.longPressTimer);
-            }
-            
-            // すでに処理済み（長押しで旗操作済み）の場合は何もしない
-            if (isProcessed) {
-                e.preventDefault();
-                return;
-            }
-            
-            const touchDuration = Date.now() - touchStartTime;
-            
-            // 移動していない、長押しではない、短いタップ、ゲームオーバーでない場合のみ処理
-            if (!touchMoved && !this.isLongPress && touchDuration < 300 && !this.gameOver) {
-                // タップ操作の場合のみpreventDefaultを呼ぶ
-                e.preventDefault();
-                
-                const currentTime = Date.now();
-                const timeSinceLastTap = currentTime - this.lastTapTime;
-                
-                if (this.revealed[row][col] && this.board[row][col] > 0 && timeSinceLastTap < this.doubleTapDelay) {
-                    this.chordReveal(row, col);
-                    this.lastTapTime = 0;
-                } else {
-                    this.lastTapTime = currentTime;
-                    if (this.flagMode) {
-                        this.toggleFlag(row, col);
-                    } else {
-                        this.revealCell(row, col);
+                    this.isLongPress = true;
+                    
+                    // 振動フィードバック（対応デバイスのみ）
+                    if (navigator.vibrate) {
+                        navigator.vibrate(50);
                     }
                 }
+            }, 500); // 500ms長押しで旗
+            
+            e.preventDefault();
+        });
+        
+        // タッチ移動（長押し判定のキャンセル用）
+        cell.addEventListener('touchmove', (e) => {
+            const moveX = e.touches[0].clientX;
+            const moveY = e.touches[0].clientY;
+            const distance = Math.sqrt(
+                Math.pow(moveX - touchStartX, 2) + 
+                Math.pow(moveY - touchStartY, 2)
+            );
+            
+            // 10ピクセル以上動いたら移動とみなす
+            if (distance > 10) {
+                hasMoved = true;
+                clearTimeout(touchTimer);
             }
         });
         
-        // PCのクリックイベントを無効化（ドラッグイベントで処理するため）
-        cell.addEventListener('click', (e) => {
+        // タッチ終了
+        cell.addEventListener('touchend', (e) => {
+            clearTimeout(touchTimer);
+            
+            if (!hasMoved && !this.isLongPress && !this.gameOver) {
+                if (this.flagMode) {
+                    this.toggleFlag(row, col);
+                } else {
+                    this.revealCell(row, col);
+                }
+            }
+            
+            this.isLongPress = false;
             e.preventDefault();
-            e.stopPropagation();
-            // クリック処理はsetupDragEventsで行う
+        });
+        
+        // タッチキャンセル
+        cell.addEventListener('touchcancel', () => {
+            clearTimeout(touchTimer);
+            this.isLongPress = false;
+            hasMoved = false;
+        });
+        
+        // PCのクリックイベント
+        cell.addEventListener('click', (e) => {
+            if (!this.gameOver) {
+                if (e.shiftKey || this.flagMode) {
+                    this.toggleFlag(row, col);
+                } else {
+                    this.revealCell(row, col);
+                }
+            }
         });
         
         cell.addEventListener('dblclick', (e) => {
@@ -480,6 +473,8 @@ class Minesweeper {
     revealEmpty(row, col) {
         for (let dr = -1; dr <= 1; dr++) {
             for (let dc = -1; dc <= 1; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                
                 const newRow = row + dr;
                 const newCol = col + dc;
                 
@@ -496,8 +491,8 @@ class Minesweeper {
     toggleFlag(row, col) {
         if (this.revealed[row][col]) return;
         
-        this.flagged[row][col] = !this.flagged[row][col];
         const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+        this.flagged[row][col] = !this.flagged[row][col];
         
         if (this.flagged[row][col]) {
             cell.classList.add('flagged');
@@ -506,9 +501,12 @@ class Minesweeper {
         }
         
         this.updateMineCount();
+        this.checkWin();
     }
     
-    countFlagsAround(row, col) {
+    chordReveal(row, col) {
+        if (!this.revealed[row][col]) return;
+        
         let flagCount = 0;
         for (let dr = -1; dr <= 1; dr++) {
             for (let dc = -1; dc <= 1; dc++) {
@@ -523,16 +521,8 @@ class Minesweeper {
                 }
             }
         }
-        return flagCount;
-    }
-    
-    chordReveal(row, col) {
-        if (!this.revealed[row][col] || this.board[row][col] <= 0) return;
         
-        const mineCount = this.board[row][col];
-        const flagCount = this.countFlagsAround(row, col);
-        
-        if (mineCount === flagCount) {
+        if (flagCount === this.board[row][col]) {
             for (let dr = -1; dr <= 1; dr++) {
                 for (let dc = -1; dc <= 1; dc++) {
                     if (dr === 0 && dc === 0) continue;
@@ -541,7 +531,6 @@ class Minesweeper {
                     
                     if (newRow >= 0 && newRow < this.rows && 
                         newCol >= 0 && newCol < this.cols && 
-                        !this.revealed[newRow][newCol] && 
                         !this.flagged[newRow][newCol]) {
                         this.revealCell(newRow, newCol);
                     }
@@ -550,43 +539,21 @@ class Minesweeper {
         }
     }
     
-    zoomIn() {
-        if (this.zoomLevel < this.maxZoom) {
-            this.zoomLevel = Math.min(this.zoomLevel + this.zoomStep, this.maxZoom);
-            this.updateZoom();
-        }
-    }
-    
-    zoomOut() {
-        if (this.zoomLevel > this.minZoom) {
-            this.zoomLevel = Math.max(this.zoomLevel - this.zoomStep, this.minZoom);
-            this.updateZoom();
-        }
-    }
-    
-    updateZoom() {
-        const board = document.getElementById('game-board');
-        board.style.transform = `scale(${this.zoomLevel})`;
-        
-        const zoomInBtn = document.getElementById('zoom-in-btn');
-        const zoomOutBtn = document.getElementById('zoom-out-btn');
-        
-        zoomInBtn.disabled = this.zoomLevel >= this.maxZoom;
-        zoomOutBtn.disabled = this.zoomLevel <= this.minZoom;
-    }
-    
     checkWin() {
         let revealedCount = 0;
+        let correctFlags = 0;
         
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
-                if (this.revealed[row][col]) {
-                    revealedCount++;
+                if (this.revealed[row][col]) revealedCount++;
+                if (this.flagged[row][col] && this.board[row][col] === -1) {
+                    correctFlags++;
                 }
             }
         }
         
-        if (revealedCount === this.rows * this.cols - this.mineCount) {
+        if (revealedCount === this.rows * this.cols - this.mineCount || 
+            correctFlags === this.mineCount) {
             this.endGame(true);
         }
     }
@@ -596,32 +563,41 @@ class Minesweeper {
         this.gameWon = won;
         this.stopTimer();
         
-        if (won) {
-            document.getElementById('reset-btn').textContent = '😎';
-        } else {
-            document.getElementById('reset-btn').textContent = '😵';
-            this.revealAllMines();
+        const resetBtn = document.getElementById('reset-btn');
+        if (resetBtn) {
+            resetBtn.textContent = won ? '😎' : '😵';
         }
-    }
-    
-    revealAllMines() {
+        
+        // すべての地雷を表示
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
                 const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-                
-                if (this.flagged[row][col]) {
-                    if (this.board[row][col] !== -1) {
-                        // 間違った場所に旗を立てていた場合
-                        cell.classList.add('wrong-flag');
-                        cell.textContent = '❌';
-                    }
-                    // 正しい場所に旗を立てていた場合は何もしない（旗のまま表示）
-                } else if (this.board[row][col] === -1) {
-                    // 旗を立てていない地雷を表示
-                    cell.classList.add('revealed', 'mine');
+                if (this.board[row][col] === -1 && !this.flagged[row][col]) {
+                    cell.classList.add('mine', 'revealed');
+                } else if (this.flagged[row][col] && this.board[row][col] !== -1) {
+                    cell.classList.add('wrong-flag');
                 }
             }
         }
+        
+        // 結果モーダルを表示
+        setTimeout(() => {
+            const modal = document.getElementById('game-over-modal');
+            const title = document.getElementById('modal-title');
+            const message = document.getElementById('modal-message');
+            
+            if (modal && title && message) {
+                if (won) {
+                    title.textContent = '🎉 クリア！';
+                    message.textContent = `時間: ${this.timer}秒`;
+                } else {
+                    title.textContent = '💣 ゲームオーバー';
+                    message.textContent = 'もう一度挑戦しましょう！';
+                }
+                
+                modal.classList.add('show');
+            }
+        }, 500);
     }
     
     
@@ -632,7 +608,10 @@ class Minesweeper {
                 if (this.flagged[row][col]) flagCount++;
             }
         }
-        document.getElementById('flag-count').textContent = `${flagCount}/${this.mineCount}`;
+        const flagCountElement = document.getElementById('flag-count');
+        if (flagCountElement) {
+            flagCountElement.textContent = `${flagCount}/${this.mineCount}`;
+        }
     }
     
     startTimer() {
@@ -650,7 +629,10 @@ class Minesweeper {
     }
     
     updateTimer() {
-        document.getElementById('timer').textContent = String(this.timer).padStart(3, '0');
+        const timerElement = document.getElementById('timer');
+        if (timerElement) {
+            timerElement.textContent = String(this.timer).padStart(3, '0');
+        }
     }
     
     increaseFontSize() {
@@ -689,25 +671,27 @@ class Minesweeper {
         const upBtn = document.getElementById('font-size-up-btn');
         const downBtn = document.getElementById('font-size-down-btn');
         
-        upBtn.disabled = this.currentFontSize >= this.maxFontSize;
-        downBtn.disabled = this.currentFontSize <= this.minFontSize;
+        if (upBtn) upBtn.disabled = this.currentFontSize >= this.maxFontSize;
+        if (downBtn) downBtn.disabled = this.currentFontSize <= this.minFontSize;
     }
     
     toggleTheme() {
         const body = document.body;
         const themeBtn = document.getElementById('theme-toggle-btn');
+        if (!themeBtn) return;
+        
         const themeIcon = themeBtn.querySelector('.theme-icon');
         const themeText = themeBtn.querySelector('.theme-text');
         
         if (body.getAttribute('data-theme') === 'dark') {
             body.removeAttribute('data-theme');
-            themeIcon.textContent = '🌙';
-            themeText.textContent = 'ダークモード';
+            if (themeIcon) themeIcon.textContent = '🌙';
+            if (themeText) themeText.textContent = 'ダークモード';
             localStorage.setItem('theme', 'light');
         } else {
             body.setAttribute('data-theme', 'dark');
-            themeIcon.textContent = '☀️';
-            themeText.textContent = 'ライトモード';
+            if (themeIcon) themeIcon.textContent = '☀️';
+            if (themeText) themeText.textContent = 'ライトモード';
             localStorage.setItem('theme', 'dark');
         }
     }
@@ -715,33 +699,66 @@ class Minesweeper {
     loadTheme() {
         const savedTheme = localStorage.getItem('theme');
         const themeBtn = document.getElementById('theme-toggle-btn');
+        if (!themeBtn) return;
+        
         const themeIcon = themeBtn.querySelector('.theme-icon');
         const themeText = themeBtn.querySelector('.theme-text');
         
-        // デフォルトはダークモード（未設定またはdarkの場合）
-        if (savedTheme !== 'light') {
+        if (savedTheme === 'dark') {
             document.body.setAttribute('data-theme', 'dark');
-            themeIcon.textContent = '☀️';
-            themeText.textContent = 'ライトモード';
-        } else {
-            themeIcon.textContent = '🌙';
-            themeText.textContent = 'ダークモード';
+            if (themeIcon) themeIcon.textContent = '☀️';
+            if (themeText) themeText.textContent = 'ライトモード';
         }
+    }
+    
+    zoomIn() {
+        if (this.zoomLevel < this.maxZoom) {
+            this.zoomLevel = Math.min(this.zoomLevel + this.zoomStep, this.maxZoom);
+            this.updateZoom();
+        }
+    }
+    
+    zoomOut() {
+        if (this.zoomLevel > this.minZoom) {
+            this.zoomLevel = Math.max(this.zoomLevel - this.zoomStep, this.minZoom);
+            this.updateZoom();
+        }
+    }
+    
+    updateZoom() {
+        const gameBoard = document.getElementById('game-board');
+        if (gameBoard) {
+            gameBoard.style.transform = `scale(${this.zoomLevel})`;
+        }
+        this.updateZoomButtons();
+    }
+    
+    updateZoomButtons() {
+        const zoomInBtn = document.getElementById('zoom-in-btn');
+        const zoomOutBtn = document.getElementById('zoom-out-btn');
+        
+        if (zoomInBtn) zoomInBtn.disabled = this.zoomLevel >= this.maxZoom;
+        if (zoomOutBtn) zoomOutBtn.disabled = this.zoomLevel <= this.minZoom;
     }
     
     openSettings() {
         const modal = document.getElementById('settings-modal');
-        modal.classList.add('show');
+        if (modal) modal.classList.add('show');
         this.updateFontSizeDisplay();
+        this.updateFontSizeButtons();
     }
     
     closeSettings() {
         const modal = document.getElementById('settings-modal');
-        modal.classList.remove('show');
+        if (modal) modal.classList.remove('show');
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const game = new Minesweeper();
-    game.loadTheme();
+    try {
+        const game = new Minesweeper();
+        game.loadTheme();
+    } catch (error) {
+        console.error('Error during initialization:', error);
+    }
 });
