@@ -297,6 +297,12 @@ class Minesweeper {
         this.renderBoard();
         this.updateMineCount();
         
+        // 残りの地雷数を初期化
+        const mineRemainingElement = document.getElementById('mine-remaining');
+        if (mineRemainingElement) {
+            mineRemainingElement.textContent = this.mineCount;
+        }
+        
         const resetBtn = document.getElementById('reset-btn');
         if (resetBtn) {
             resetBtn.textContent = '😊';
@@ -392,11 +398,6 @@ class Minesweeper {
                 if (!hasMoved && !this.gameOver) {
                     this.toggleFlag(row, col);
                     this.isLongPress = true;
-                    
-                    // 振動フィードバック（対応デバイスのみ）
-                    if (navigator.vibrate) {
-                        navigator.vibrate(50);
-                    }
                 }
             }, 300); // 300ms長押しで旗
             
@@ -543,16 +544,18 @@ class Minesweeper {
         
         if (this.flagged[row][col]) {
             cell.classList.add('flagged');
-            // 旗を立てた時に振動（50ms）
-            if (navigator.vibrate) {
-                navigator.vibrate(50);
-            }
+            // ビジュアルフィードバック：旗を立てた時のアニメーション
+            cell.classList.add('flag-animation');
+            setTimeout(() => {
+                cell.classList.remove('flag-animation');
+            }, 300);
         } else {
             cell.classList.remove('flagged');
-            // 旗を外した時に短い振動（20ms）
-            if (navigator.vibrate) {
-                navigator.vibrate(20);
-            }
+            // 旗を外した時のアニメーション
+            cell.classList.add('unflag-animation');
+            setTimeout(() => {
+                cell.classList.remove('unflag-animation');
+            }, 200);
         }
         
         this.updateMineCount();
@@ -628,7 +631,12 @@ class Minesweeper {
             for (let col = 0; col < this.cols; col++) {
                 const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
                 if (this.board[row][col] === -1 && !this.flagged[row][col]) {
-                    cell.classList.add('mine', 'revealed');
+                    // 勝利時は赤背景なしで爆弾マークのみ表示
+                    if (won) {
+                        cell.classList.add('revealed', 'mine-won');
+                    } else {
+                        cell.classList.add('mine', 'revealed');
+                    }
                 } else if (this.flagged[row][col] && this.board[row][col] !== -1) {
                     cell.classList.add('wrong-flag');
                 }
@@ -647,6 +655,13 @@ class Minesweeper {
         const flagCountElement = document.getElementById('flag-count');
         if (flagCountElement) {
             flagCountElement.textContent = `${flagCount}/${this.mineCount}`;
+        }
+        
+        // 残りの地雷数を更新
+        const mineRemainingElement = document.getElementById('mine-remaining');
+        if (mineRemainingElement) {
+            const remaining = Math.max(0, this.mineCount - flagCount);
+            mineRemainingElement.textContent = remaining;
         }
     }
     

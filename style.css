@@ -87,6 +87,11 @@ body {
     transition: background 0.3s ease;
 }
 
+.info-item-group {
+    display: flex;
+    gap: 15px;
+}
+
 .info-item {
     display: flex;
     align-items: center;
@@ -219,6 +224,12 @@ body {
 
 .cell.mine {
     background: #ff4444;
+}
+
+.cell.mine-won.revealed::after {
+    content: '💣';
+    position: absolute;
+    font-size: 16px;
 }
 
 .cell.flagged::after {
@@ -517,6 +528,10 @@ body {
         padding: 8px;
     }
     
+    .info-item-group {
+        gap: 10px;
+    }
+    
     .info-item {
         font-size: 14px;
         min-width: 45px;
@@ -549,7 +564,8 @@ body {
     }
     
     .cell.flagged::after,
-    .cell.mine.revealed::after {
+    .cell.mine.revealed::after,
+    .cell.mine-won.revealed::after {
         font-size: 12px;
     }
     
@@ -587,7 +603,8 @@ body {
     }
     
     .cell.flagged::after,
-    .cell.mine.revealed::after {
+    .cell.mine.revealed::after,
+    .cell.mine-won.revealed::after {
         font-size: 16px;
     }
 }
@@ -608,5 +625,63 @@ body {
         margin: 0;
         width: 100%;
         height: 100%;
+    }
+}
+
+/* 旗を立てた時のアニメーション */
+@keyframes flagAnimation {
+    0% {
+        transform: scale(1);
+    }
+    30% {
+        transform: scale(1.15);
+        background-color: rgba(255, 0, 0, 0.1);
+    }
+    60% {
+        transform: scale(0.95);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* 旗を外した時のアニメーション */
+@keyframes unflagAnimation {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(0.9);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* アニメーションクラス */
+.cell.flag-animation {
+    animation: flagAnimation 0.3s ease;
+}
+
+.cell.unflag-animation {
+    animation: unflagAnimation 0.2s ease;
+}
+
+/* 旗アイコン自体のアニメーション */
+.cell.flagged::after {
+    animation: flagIconPop 0.3s ease;
+}
+
+@keyframes flagIconPop {
+    0% {
+        transform: scale(0);
+    }
+    60% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
     }
 }
