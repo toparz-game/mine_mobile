@@ -59,14 +59,6 @@ class Minesweeper {
             resetBtn.addEventListener('click', () => this.newGame());
         }
         
-        const modalResetBtn = document.getElementById('modal-reset');
-        if (modalResetBtn) {
-            modalResetBtn.addEventListener('click', () => {
-                const modal = document.getElementById('game-over-modal');
-                if (modal) modal.classList.remove('show');
-                this.newGame();
-            });
-        }
         
         const flagModeBtn = document.getElementById('flag-mode-btn');
         if (flagModeBtn) {
@@ -629,25 +621,6 @@ class Minesweeper {
                 }
             }
         }
-        
-        // 結果モーダルを表示
-        setTimeout(() => {
-            const modal = document.getElementById('game-over-modal');
-            const title = document.getElementById('modal-title');
-            const message = document.getElementById('modal-message');
-            
-            if (modal && title && message) {
-                if (won) {
-                    title.textContent = '🎉 クリア！';
-                    message.textContent = `時間: ${this.timer}秒`;
-                } else {
-                    title.textContent = '💣 ゲームオーバー';
-                    message.textContent = 'もう一度挑戦しましょう！';
-                }
-                
-                modal.classList.add('show');
-            }
-        }, 500);
     }
     
     
