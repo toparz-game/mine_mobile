@@ -190,7 +190,7 @@ class Minesweeper {
                 return;
             }
             
-            e.preventDefault();
+            // e.preventDefault()を削除してスクロールを許可
             touchStartTime = Date.now();
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
@@ -203,9 +203,11 @@ class Minesweeper {
                 if (!touchMoved && !this.gameOver && !this.isPinching) {
                     navigator.vibrate && navigator.vibrate(50);
                     this.toggleFlag(row, col);
+                    // 長押しが成功したらデフォルト動作を防ぐ
+                    e.preventDefault();
                 }
-            }, 700);
-        }, { passive: false });
+            }, 300);
+        });
         
         cell.addEventListener('touchmove', (e) => {
             if (e.touches.length > 1) {
@@ -234,14 +236,16 @@ class Minesweeper {
                 return;
             }
             
-            e.preventDefault();
             if (this.longPressTimer) {
                 clearTimeout(this.longPressTimer);
             }
             
             const touchDuration = Date.now() - touchStartTime;
             
-            if (!touchMoved && !this.isLongPress && touchDuration < 700 && !this.gameOver) {
+            if (!touchMoved && !this.isLongPress && touchDuration < 300 && !this.gameOver) {
+                // タップ操作の場合のみpreventDefaultを呼ぶ
+                e.preventDefault();
+                
                 const currentTime = Date.now();
                 const timeSinceLastTap = currentTime - this.lastTapTime;
                 
@@ -257,7 +261,7 @@ class Minesweeper {
                     }
                 }
             }
-        }, { passive: false });
+        });
         
         cell.addEventListener('click', (e) => {
             e.preventDefault();
