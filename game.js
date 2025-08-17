@@ -72,6 +72,15 @@ class Minesweeper {
     }
     
     setupEventListeners() {
+        // ゲームボード全体で右クリックメニューを無効化
+        document.addEventListener('contextmenu', (e) => {
+            const gameBoard = document.getElementById('game-board');
+            if (gameBoard && gameBoard.contains(e.target)) {
+                e.preventDefault();
+                return false;
+            }
+        });
+        
         const resetBtn = document.getElementById('reset-btn');
         if (resetBtn) {
             resetBtn.addEventListener('click', () => this.newGame());
