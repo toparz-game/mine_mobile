@@ -206,9 +206,15 @@ class CSPSolver {
         const simpleSolution = this.trySolveSingleConstraint(group);
         if (simpleSolution) {
             for (let i = 0; i < group.length; i++) {
-                this.probabilities[group[i].row][group[i].col] = simpleSolution[i];
+                if (simpleSolution[i] !== null && simpleSolution[i] !== undefined) {
+                    this.probabilities[group[i].row][group[i].col] = simpleSolution[i];
+                }
             }
-            return;
+            // 部分的な解決の場合は続行
+            const hasUnresolved = simpleSolution.some(p => p === null || p === undefined);
+            if (!hasUnresolved) {
+                return;
+            }
         }
         
         const constraints = this.getConstraintsForGroup(group);
@@ -284,6 +290,22 @@ class CSPSolver {
         const safe = new Set();    // 0%安全
         let changed = true;
         
+        // まず、単純な制約から確定セルを見つける（最初のパス）
+        for (const constraint of constraints) {
+            // 制約に関わるすべてのセルを確認
+            if (constraint.requiredMines === constraint.cells.length) {
+                // すべてのセルが地雷
+                for (const cellIdx of constraint.cells) {
+                    certain.add(cellIdx);
+                }
+            } else if (constraint.requiredMines === 0) {
+                // すべてのセルが安全
+                for (const cellIdx of constraint.cells) {
+                    safe.add(cellIdx);
+                }
+            }
+        }
+        
         // 制約を繰り返し適用して確定セルを見つける
         while (changed) {
             changed = false;
@@ -291,17 +313,26 @@ class CSPSolver {
             for (const constraint of constraints) {
                 const unknownInConstraint = [];
                 let minesInConstraint = 0; // 旗は既にrequiredMinesから引かれているので0から開始
+                let safesInConstraint = 0;
                 
                 // この制約に関わるセルの状態を確認
                 for (const cellIdx of constraint.cells) {
                     if (certain.has(cellIdx)) {
                         minesInConstraint++;
-                    } else if (!safe.has(cellIdx)) {
+                    } else if (safe.has(cellIdx)) {
+                        safesInConstraint++;
+                    } else {
                         unknownInConstraint.push(cellIdx);
                     }
                 }
                 
                 const remainingMines = constraint.requiredMines - minesInConstraint;
+                const remainingCells = constraint.cells.length - minesInConstraint - safesInConstraint;
+                
+                // 制約違反のチェック
+                if (remainingMines < 0 || remainingMines > unknownInConstraint.length) {
+                    continue;
+                }
                 
                 // すべて地雷の場合
                 if (remainingMines === unknownInConstraint.length && unknownInConstraint.length > 0) {
@@ -569,46 +600,63 @@ class CSPSolver {
     
     // 単一制約の簡単なケースを処理
     trySolveSingleConstraint(group) {
-        // すべてのセルが同じ数字セルに隣接しているかチェック
+        // 各セルに対して、単一制約で確定できるかチェック
         if (group.length === 0) return null;
         
-        let commonConstraint = null;
+        const probabilities = new Array(group.length);
+        let hasSimpleSolution = false;
+        
+        // 各数字セルからの制約を個別にチェック
+        const numberCells = new Set();
         for (const cell of group) {
             const constraints = this.getConstrainingCells(cell);
-            if (constraints.length !== 1) return null; // 複数の制約がある場合はスキップ
-            
-            if (!commonConstraint) {
-                commonConstraint = constraints[0];
-            } else if (commonConstraint.row !== constraints[0].row || 
-                      commonConstraint.col !== constraints[0].col) {
-                return null; // 異なる制約セルの場合はスキップ
+            for (const constraint of constraints) {
+                numberCells.add(`${constraint.row},${constraint.col},${constraint.value}`);
             }
         }
         
-        if (!commonConstraint) return null;
-        
-        // 共通の制約セルの周囲の状態を確認
-        const flaggedCount = this.countFlaggedNeighbors(commonConstraint.row, commonConstraint.col);
-        const unknownCount = this.countUnknownNeighbors(commonConstraint.row, commonConstraint.col);
-        const remainingMines = commonConstraint.value - flaggedCount;
-        
-        const probabilities = new Array(group.length);
-        
-        if (remainingMines === 0) {
-            // すべて安全
-            probabilities.fill(0);
-        } else if (remainingMines === unknownCount) {
-            // すべて地雷
-            probabilities.fill(100);
-        } else if (remainingMines > 0 && remainingMines < unknownCount) {
-            // 確率計算
-            const probability = Math.round((remainingMines / unknownCount) * 100);
-            probabilities.fill(probability);
-        } else {
-            return null; // 不正な状態
+        // 各数字セルについて、その周囲のセルが確定できるかチェック
+        for (const numberCellStr of numberCells) {
+            const [row, col, value] = numberCellStr.split(',').map(Number);
+            const flaggedCount = this.countFlaggedNeighbors(row, col);
+            const unknownCount = this.countUnknownNeighbors(row, col);
+            const remainingMines = value - flaggedCount;
+            
+            // この数字セルの周囲のグループ内セルのインデックスを取得
+            const affectedIndices = [];
+            for (let i = 0; i < group.length; i++) {
+                const cell = group[i];
+                // セルがこの数字セルに隣接しているかチェック
+                if (Math.abs(cell.row - row) <= 1 && Math.abs(cell.col - col) <= 1) {
+                    affectedIndices.push(i);
+                }
+            }
+            
+            // 確定できる条件をチェック
+            if (affectedIndices.length === unknownCount) {
+                // この数字セルの周囲の未開示セルがすべてグループ内にある
+                if (remainingMines === 0) {
+                    // すべて安全
+                    for (const idx of affectedIndices) {
+                        probabilities[idx] = 0;
+                        hasSimpleSolution = true;
+                    }
+                } else if (remainingMines === unknownCount) {
+                    // すべて地雷（100%）
+                    for (const idx of affectedIndices) {
+                        probabilities[idx] = 100;
+                        hasSimpleSolution = true;
+                    }
+                }
+            }
         }
         
-        return probabilities;
+        if (hasSimpleSolution) {
+            // 未設定のセルはnullのままにする（後で通常の処理で計算）
+            return probabilities;
+        }
+        
+        return null;
     }
     
     

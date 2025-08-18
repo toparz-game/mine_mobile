@@ -1083,16 +1083,23 @@ class PCProMinesweeper extends PCMinesweeper {
     
     // オーバーライド: セルが更新されたら確率を再計算
     revealCell(row, col) {
+        // 既に開いているセルの場合は何もしない
+        if (!this.isValidCell(row, col) || this.revealed[row][col] || 
+            this.gameOver || this.gameWon) {
+            return;
+        }
+        
         // 再帰的な開示処理中は確率計算を延期
         const wasRevealing = this.isRevealing;
         if (!wasRevealing) {
             this.isRevealing = true;
         }
         
+        const wasRevealed = this.revealed[row][col];
         super.revealCell(row, col);
         
-        // 最初の呼び出しの場合のみ確率を再計算
-        if (!wasRevealing) {
+        // 最初の呼び出しの場合、かつ実際に新しいセルが開いた場合のみ確率を再計算
+        if (!wasRevealing && !wasRevealed && this.revealed[row][col]) {
             this.isRevealing = false;
             if (this.probabilityMode) {
                 this.calculateAndDisplayProbabilities();
@@ -1100,6 +1107,8 @@ class PCProMinesweeper extends PCMinesweeper {
             if (this.assistMode) {
                 this.calculateAndDisplayAssist();
             }
+        } else if (!wasRevealing) {
+            this.isRevealing = false;
         }
     }
     
@@ -1108,7 +1117,7 @@ class PCProMinesweeper extends PCMinesweeper {
         
         // 旗を立てた/外した時に確率を再計算
         if (this.probabilityMode && this.cspSolver && !this.isRevealing) {
-            this.updateProbabilities();
+            this.calculateAndDisplayProbabilities();
         }
     }
 }
