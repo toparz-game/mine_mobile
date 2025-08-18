@@ -942,7 +942,7 @@ class MobileMinesweeper extends MinesweeperCore {
             
             if (this.board[row][col] === -1) {
                 // 既に地雷が表示されている場合は更新しない
-                if (!cell.classList.contains('mine')) {
+                if (!cell.textContent || cell.textContent !== '💣') {
                     cell.classList.add('mine');
                     cell.textContent = '💣';
                 }
