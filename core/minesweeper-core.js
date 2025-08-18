@@ -233,3 +233,8 @@ class MinesweeperCore {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = MinesweeperCore;
 }
+
+// ブラウザ環境でグローバルに公開
+if (typeof window !== 'undefined') {
+    window.MinesweeperCore = MinesweeperCore;
+}

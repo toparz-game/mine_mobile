@@ -629,16 +629,43 @@ class PCMinesweeper extends MinesweeperCore {
     // ズーム機能
     zoomIn() {
         if (this.zoomLevel < this.maxZoom) {
+            const oldZoom = this.zoomLevel;
             this.zoomLevel = Math.min(this.zoomLevel + this.zoomStep, this.maxZoom);
-            this.updateZoom();
+            this.updateZoomWithCenter(oldZoom, this.zoomLevel);
         }
     }
     
     zoomOut() {
         if (this.zoomLevel > this.minZoom) {
+            const oldZoom = this.zoomLevel;
             this.zoomLevel = Math.max(this.zoomLevel - this.zoomStep, this.minZoom);
-            this.updateZoom();
+            this.updateZoomWithCenter(oldZoom, this.zoomLevel);
         }
+    }
+    
+    updateZoomWithCenter(oldZoom, newZoom) {
+        const wrapper = document.querySelector('.game-board-wrapper');
+        const boardElement = document.getElementById('game-board');
+        if (!wrapper || !boardElement) return;
+        
+        // 現在のビューポートの中心位置を取得
+        const viewportCenterX = wrapper.scrollLeft + wrapper.clientWidth / 2;
+        const viewportCenterY = wrapper.scrollTop + wrapper.clientHeight / 2;
+        
+        // ボード上での実際の位置（ズーム前）
+        const boardX = viewportCenterX / oldZoom;
+        const boardY = viewportCenterY / oldZoom;
+        
+        // ズームを適用
+        boardElement.style.transform = `scale(${newZoom})`;
+        boardElement.style.transformOrigin = 'top left';
+        
+        // ズーム後の同じ位置が中心に来るようにスクロール位置を調整
+        const newScrollLeft = (boardX * newZoom) - wrapper.clientWidth / 2;
+        const newScrollTop = (boardY * newZoom) - wrapper.clientHeight / 2;
+        
+        wrapper.scrollLeft = Math.max(0, newScrollLeft);
+        wrapper.scrollTop = Math.max(0, newScrollTop);
     }
     
     updateZoom() {

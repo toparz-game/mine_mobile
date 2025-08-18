@@ -697,6 +697,10 @@ class MobileMinesweeper extends MinesweeperCore {
     
     renderBoard() {
         const boardElement = document.getElementById('game-board');
+        if (!boardElement) {
+            console.error('renderBoard: game-board element not found!');
+            return;
+        }
         boardElement.innerHTML = '';
         boardElement.style.gridTemplateColumns = `repeat(${this.cols}, 1fr)`;
         
