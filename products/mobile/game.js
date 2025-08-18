@@ -461,16 +461,23 @@ class MobileMinesweeper extends MinesweeperCore {
             let scrollStartY = 0;
             let touchStartTime = 0;
             let dragThreshold = 10; // ドラッグと判定する最小移動量
+            let touchStartTarget = null;
             
             wrapper.addEventListener('touchstart', (e) => {
-                // wrapperの直接のタッチのみ処理（セルのタッチは除外）
-                if (e.target === wrapper && e.touches.length === 1) {
-                    isDraggingTouch = true;
-                    touchStartX = e.touches[0].clientX;
-                    touchStartY = e.touches[0].clientY;
-                    scrollStartX = wrapper.scrollLeft;
-                    scrollStartY = wrapper.scrollTop;
-                    touchStartTime = Date.now();
+                // セル以外のタッチ、またはゲームボードの空き領域のタッチを処理
+                if (e.touches.length === 1) {
+                    touchStartTarget = e.target;
+                    const isCell = e.target.classList && e.target.classList.contains('cell');
+                    
+                    // セルではない場合、またはwrapper自体へのタッチの場合のみドラッグを開始
+                    if (!isCell) {
+                        isDraggingTouch = true;
+                        touchStartX = e.touches[0].clientX;
+                        touchStartY = e.touches[0].clientY;
+                        scrollStartX = wrapper.scrollLeft;
+                        scrollStartY = wrapper.scrollTop;
+                        touchStartTime = Date.now();
+                    }
                 }
             }, { passive: true });
             
@@ -499,10 +506,68 @@ class MobileMinesweeper extends MinesweeperCore {
             
             wrapper.addEventListener('touchend', () => {
                 isDraggingTouch = false;
+                touchStartTarget = null;
             });
             
             wrapper.addEventListener('touchcancel', () => {
                 isDraggingTouch = false;
+                touchStartTarget = null;
+            });
+        }
+        
+        // セルのタッチイベントでもドラッグを有効にする
+        const gameBoard = document.getElementById('game-board');
+        if (gameBoard) {
+            let isDraggingFromCell = false;
+            let cellTouchStartX = 0;
+            let cellTouchStartY = 0;
+            let cellScrollStartX = 0;
+            let cellScrollStartY = 0;
+            let cellTouchStartTime = 0;
+            let cellDragThreshold = 15; // セルからのドラッグ判定閾値
+            let hasMoved = false;
+            
+            gameBoard.addEventListener('touchstart', (e) => {
+                if (e.target.classList && e.target.classList.contains('cell') && e.touches.length === 1) {
+                    cellTouchStartX = e.touches[0].clientX;
+                    cellTouchStartY = e.touches[0].clientY;
+                    cellScrollStartX = wrapper.scrollLeft;
+                    cellScrollStartY = wrapper.scrollTop;
+                    cellTouchStartTime = Date.now();
+                    hasMoved = false;
+                }
+            }, { passive: true });
+            
+            gameBoard.addEventListener('touchmove', (e) => {
+                if (e.target.classList && e.target.classList.contains('cell') && e.touches.length === 1) {
+                    const touch = e.touches[0];
+                    const deltaX = touch.clientX - cellTouchStartX;
+                    const deltaY = touch.clientY - cellTouchStartY;
+                    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                    
+                    // セルからのドラッグ判定
+                    if (distance > cellDragThreshold) {
+                        hasMoved = true;
+                        isDraggingFromCell = true;
+                        
+                        // リバースモードの場合、スクロール方向を反転
+                        if (this.reverseMode) {
+                            wrapper.scrollLeft = cellScrollStartX + deltaX;
+                            wrapper.scrollTop = cellScrollStartY + deltaY;
+                        } else {
+                            wrapper.scrollLeft = cellScrollStartX - deltaX;
+                            wrapper.scrollTop = cellScrollStartY - deltaY;
+                        }
+                        
+                        // セルの操作をキャンセル
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                }
+            }, { passive: false });
+            
+            gameBoard.addEventListener('touchend', () => {
+                isDraggingFromCell = false;
             });
         }
     }
@@ -596,10 +661,10 @@ class MobileMinesweeper extends MinesweeperCore {
             let hasMoved = false;
             let lastTapTime = 0;
             const doubleTapThreshold = 300;
+            const dragThreshold = 15; // ドラッグと判定する最小移動量
             
             // タッチ開始
             cell.addEventListener('touchstart', (e) => {
-                e.preventDefault();
                 if (this.gameOver) return;
                 
                 touchStartX = e.touches[0].clientX;
@@ -645,7 +710,7 @@ class MobileMinesweeper extends MinesweeperCore {
                         this.isLongPress = true;
                     }
                 }, 200);
-            }, { passive: false });
+            }, { passive: true });
             
             // タッチ移動
             cell.addEventListener('touchmove', (e) => {
@@ -656,7 +721,7 @@ class MobileMinesweeper extends MinesweeperCore {
                     Math.pow(moveY - touchStartY, 2)
                 );
                 
-                if (distance > 10) {
+                if (distance > dragThreshold) {
                     hasMoved = true;
                     clearTimeout(touchTimer);
                 }
@@ -664,7 +729,6 @@ class MobileMinesweeper extends MinesweeperCore {
             
             // タッチ終了
             cell.addEventListener('touchend', (e) => {
-                e.preventDefault();
                 clearTimeout(touchTimer);
                 
                 if (this.isLongPress) {
@@ -707,7 +771,7 @@ class MobileMinesweeper extends MinesweeperCore {
                         lastTapTime = currentTime;
                     }
                 }
-            }, { passive: false });
+            }, { passive: true });
             
             // タッチキャンセル
             cell.addEventListener('touchcancel', () => {
