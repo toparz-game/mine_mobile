@@ -1556,7 +1556,7 @@ class MobileMinesweeper extends MinesweeperCore {
                         select.value = nextDifficulty;
                     }
                     this.newGame();
-                    modal.classList.remove('active');
+                    modal.classList.remove('show');
                 };
                 
                 if (this.isTouchDevice) {
@@ -1593,7 +1593,7 @@ class MobileMinesweeper extends MinesweeperCore {
             }
         }
         
-        modal.classList.add('active');
+        modal.classList.add('show');
     }
     
     // ページ表示状態の監視

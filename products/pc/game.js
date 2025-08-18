@@ -994,7 +994,7 @@ class PCMinesweeper extends MinesweeperCore {
                         select.value = nextDifficulty;
                     }
                     this.newGame();
-                    modal.classList.remove('active');
+                    modal.classList.remove('show');
                 };
             }
         } else {
@@ -1011,7 +1011,7 @@ class PCMinesweeper extends MinesweeperCore {
             };
         }
         
-        modal.classList.add('active');
+        modal.classList.add('show');
     }
     
     // ページ表示状態の監視
