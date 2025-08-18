@@ -45,6 +45,10 @@ class PCProMinesweeper extends PCMinesweeper {
         this.soundEnabled = false;
         this.sounds = {};
         
+        // CSPソルバー
+        this.cspSolver = null;
+        this.probabilityMode = false;
+        
         this.initPro();
     }
     
@@ -53,6 +57,7 @@ class PCProMinesweeper extends PCMinesweeper {
         this.loadSettings();
         this.setupProEventListeners();
         this.initSounds();
+        this.initCSPSolver();
     }
     
     setupProEventListeners() {
@@ -101,6 +106,12 @@ class PCProMinesweeper extends PCMinesweeper {
         const soundToggle = document.getElementById('sound-toggle');
         if (soundToggle) {
             soundToggle.addEventListener('click', () => this.toggleSound());
+        }
+        
+        // 確率表示ボタン
+        const probabilityBtn = document.getElementById('probability-btn');
+        if (probabilityBtn) {
+            probabilityBtn.addEventListener('click', () => this.toggleProbabilityMode());
         }
         
         // キーボードショートカット
@@ -754,11 +765,148 @@ class PCProMinesweeper extends PCMinesweeper {
         this.updateHintButton();
         this.updateUndoRedoButtons();
         
+        // 確率表示をクリア
+        this.clearProbabilityDisplay();
+        
         // 録画開始
         this.startRecording();
         
         // 基本的なnewGame処理
         super.newGame();
+    }
+    
+    // CSPソルバー関連メソッド
+    initCSPSolver() {
+        if (typeof CSPSolver !== 'undefined') {
+            this.cspSolver = new CSPSolver(this);
+        }
+    }
+    
+    toggleProbabilityMode() {
+        this.probabilityMode = !this.probabilityMode;
+        const btn = document.getElementById('probability-btn');
+        const boardElement = document.getElementById('game-board');
+        
+        if (this.probabilityMode) {
+            btn.classList.add('active');
+            boardElement.classList.add('probability-mode');
+            this.calculateAndDisplayProbabilities();
+        } else {
+            btn.classList.remove('active');
+            boardElement.classList.remove('probability-mode');
+            this.clearProbabilityDisplay();
+        }
+    }
+    
+    calculateAndDisplayProbabilities() {
+        if (!this.cspSolver) return;
+        
+        // 計算中インジケーターを表示
+        this.showCalculatingIndicator();
+        
+        // 非同期で計算を実行
+        setTimeout(() => {
+            const probabilities = this.cspSolver.calculateProbabilities();
+            this.displayProbabilities(probabilities);
+            this.hideCalculatingIndicator();
+        }, 10);
+    }
+    
+    displayProbabilities(probabilities) {
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                if (!cell) continue;
+                
+                // 既存の確率表示を削除
+                const existingOverlay = cell.querySelector('.probability-overlay');
+                if (existingOverlay) {
+                    existingOverlay.remove();
+                }
+                
+                // 確率クラスをクリア
+                cell.classList.remove('probability-safe', 'probability-low', 
+                                    'probability-medium', 'probability-high', 'probability-certain');
+                
+                const probability = probabilities[row][col];
+                
+                // 開示済みまたは旗付きのセルはスキップ
+                if (this.revealed[row][col] || this.flagged[row][col]) {
+                    continue;
+                }
+                
+                if (probability >= 0) {
+                    // 確率オーバーレイを作成
+                    const overlay = document.createElement('div');
+                    overlay.className = 'probability-overlay';
+                    overlay.textContent = `${probability}%`;
+                    
+                    // 確率に応じてクラスを設定
+                    if (probability === 0) {
+                        cell.classList.add('probability-safe');
+                    } else if (probability <= 25) {
+                        cell.classList.add('probability-low');
+                    } else if (probability <= 50) {
+                        cell.classList.add('probability-medium');
+                    } else if (probability < 100) {
+                        cell.classList.add('probability-high');
+                    } else {
+                        cell.classList.add('probability-certain');
+                    }
+                    
+                    cell.appendChild(overlay);
+                }
+            }
+        }
+    }
+    
+    clearProbabilityDisplay() {
+        const cells = document.querySelectorAll('.cell');
+        cells.forEach(cell => {
+            const overlay = cell.querySelector('.probability-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
+            cell.classList.remove('probability-safe', 'probability-low', 
+                                'probability-medium', 'probability-high', 'probability-certain');
+        });
+    }
+    
+    showCalculatingIndicator() {
+        let indicator = document.querySelector('.calculating-indicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.className = 'calculating-indicator';
+            indicator.innerHTML = '<span>確率を計算中<span class="calculating-spinner"></span></span>';
+            document.body.appendChild(indicator);
+        }
+        indicator.classList.add('show');
+    }
+    
+    hideCalculatingIndicator() {
+        const indicator = document.querySelector('.calculating-indicator');
+        if (indicator) {
+            indicator.classList.remove('show');
+        }
+    }
+    
+    // オーバーライド: セルが更新されたら確率を再計算
+    revealCell(row, col) {
+        super.revealCell(row, col);
+        
+        // 確率モードの場合、自動的に再計算
+        if (this.probabilityMode) {
+            this.calculateAndDisplayProbabilities();
+        }
+    }
+    
+    toggleFlag(row, col) {
+        super.toggleFlag(row, col);
+        
+        // 確率モードの場合、自動的に再計算
+        if (this.probabilityMode) {
+            this.calculateAndDisplayProbabilities();
+        }
     }
 }
 
