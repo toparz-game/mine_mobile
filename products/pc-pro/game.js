@@ -837,20 +837,33 @@ class PCProMinesweeper extends PCMinesweeper {
     }
     
     displayAssist(probabilities) {
-        // 最低確率を見つける（平均確率は無視）
+        // 最低確率を見つけ、100%のセルがあるかチェック
         let minProbability = 101; // 100%より大きい値で初期化
+        let hasUnflaggedCertainMine = false; // 旗が立っていない100%のセルがあるかどうか
         
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
-                // 開示済みまたは旗付きのセルはスキップ
-                if (this.revealed[row][col] || this.flagged[row][col]) {
+                // 開示済みのセルはスキップ
+                if (this.revealed[row][col]) {
                     continue;
                 }
                 
                 const probability = probabilities[row][col];
+                
+                // 旗付きのセルはスキップ（最低確率の計算から除外）
+                if (this.flagged[row][col]) {
+                    continue;
+                }
+                
                 // 制約ベースの確率のみ考慮（-2は平均確率なので無視）
-                if (probability >= 0 && probability < minProbability) {
-                    minProbability = probability;
+                if (probability >= 0) {
+                    if (probability < minProbability) {
+                        minProbability = probability;
+                    }
+                    // 旗が立っていない100%のセルをチェック
+                    if (probability === 100 && !this.flagged[row][col]) {
+                        hasUnflaggedCertainMine = true;
+                    }
                 }
             }
         }
@@ -873,10 +886,10 @@ class PCProMinesweeper extends PCMinesweeper {
         }
         
         // 補助情報表示のみ（セルへのクラス適用は削除）
-        this.updateAssistDisplay(minProbability, assistClass);
+        this.updateAssistDisplay(minProbability, assistClass, hasUnflaggedCertainMine);
     }
     
-    updateAssistDisplay(minProbability, assistClass) {
+    updateAssistDisplay(minProbability, assistClass, hasCertainMine) {
         let display = document.querySelector('.assist-display');
         if (!display) {
             display = document.createElement('div');
@@ -885,31 +898,19 @@ class PCProMinesweeper extends PCMinesweeper {
         }
         
         let statusText = '';
-        let statusIcon = '';
         
         if (minProbability === 101) {
             statusText = '計算中...';
-            statusIcon = '⏳';
-        } else if (minProbability === 0) {
-            statusText = '安全 (0%)';
-            statusIcon = '✅';
-        } else if (minProbability <= 25) {
-            statusText = `低リスク (${minProbability}%)`;
-            statusIcon = '🟢';
-        } else if (minProbability <= 50) {
-            statusText = `中リスク (${minProbability}%)`;
-            statusIcon = '🟡';
-        } else if (minProbability < 100) {
-            statusText = `高リスク (${minProbability}%)`;
-            statusIcon = '🔴';
         } else {
-            statusText = '地雷確定 (100%)';
-            statusIcon = '💣';
+            statusText = `${minProbability}%`;
+            // 盤面上に100%のセルがある場合は💣を追加
+            if (hasCertainMine) {
+                statusText += ' 💣';
+            }
         }
         
         display.innerHTML = `
             <div class="assist-content ${assistClass}">
-                <span class="assist-icon">${statusIcon}</span>
                 <span class="assist-text">${statusText}</span>
             </div>
         `;
