@@ -375,6 +375,19 @@ class PCMinesweeper extends MinesweeperCore {
         if (resetBtn) {
             resetBtn.textContent = '😎';
         }
+        // 勝利時に全ての地雷を表示（旗が立っていない場所のみ）
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                if (this.board[row][col] === -1 && !this.flagged[row][col]) {
+                    const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                    if (cell) {
+                        cell.classList.add('revealed');
+                        cell.classList.add('mine');
+                        cell.textContent = '💣';
+                    }
+                }
+            }
+        }
         this.showClearModal();
     }
     

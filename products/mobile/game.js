@@ -731,6 +731,19 @@ class MobileMinesweeper extends MinesweeperCore {
         if (resetBtn) {
             resetBtn.textContent = '😎';
         }
+        // 勝利時に全ての地雷を表示（旗が立っていない場所のみ）
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                if (this.board[row][col] === -1 && !this.flagged[row][col]) {
+                    const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                    if (cell) {
+                        cell.classList.add('revealed');
+                        cell.classList.add('mine');
+                        cell.textContent = '💣';
+                    }
+                }
+            }
+        }
         this.showClearModal();
     }
     
@@ -928,8 +941,11 @@ class MobileMinesweeper extends MinesweeperCore {
             cell.classList.add('revealed');
             
             if (this.board[row][col] === -1) {
-                cell.classList.add('mine');
-                cell.textContent = '💣';
+                // 既に地雷が表示されている場合は更新しない
+                if (!cell.classList.contains('mine')) {
+                    cell.classList.add('mine');
+                    cell.textContent = '💣';
+                }
             } else if (this.board[row][col] > 0) {
                 cell.textContent = this.board[row][col];
                 cell.setAttribute('data-count', this.board[row][col]);
