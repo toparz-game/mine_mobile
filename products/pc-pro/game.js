@@ -48,6 +48,7 @@ class PCProMinesweeper extends PCMinesweeper {
         // CSPソルバー
         this.cspSolver = null;
         this.probabilityMode = false;
+        this.assistMode = false; // 補助モード
         this.isRevealing = false; // 再帰的な開示処理中フラグ
         
         this.initPro();
@@ -113,6 +114,12 @@ class PCProMinesweeper extends PCMinesweeper {
         const probabilityBtn = document.getElementById('probability-btn');
         if (probabilityBtn) {
             probabilityBtn.addEventListener('click', () => this.toggleProbabilityMode());
+        }
+        
+        // 補助モードボタン
+        const assistBtn = document.getElementById('assist-btn');
+        if (assistBtn) {
+            assistBtn.addEventListener('click', () => this.toggleAssistMode());
         }
         
         // キーボードショートカット
@@ -799,6 +806,154 @@ class PCProMinesweeper extends PCMinesweeper {
         }
     }
     
+    toggleAssistMode() {
+        this.assistMode = !this.assistMode;
+        const btn = document.getElementById('assist-btn');
+        const boardElement = document.getElementById('game-board');
+        
+        if (this.assistMode) {
+            btn.classList.add('active');
+            boardElement.classList.add('assist-mode');
+            this.calculateAndDisplayAssist();
+        } else {
+            btn.classList.remove('active');
+            boardElement.classList.remove('assist-mode');
+            this.clearAssistDisplay();
+        }
+    }
+    
+    calculateAndDisplayAssist() {
+        if (!this.cspSolver) return;
+        
+        // 計算中インジケーターを表示
+        this.showCalculatingIndicator();
+        
+        // 非同期で計算を実行
+        setTimeout(() => {
+            const result = this.cspSolver.calculateProbabilities();
+            this.displayAssist(result.probabilities);
+            this.hideCalculatingIndicator();
+        }, 10);
+    }
+    
+    displayAssist(probabilities) {
+        // 最低確率を見つける（平均確率は無視）
+        let minProbability = 101; // 100%より大きい値で初期化
+        
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                // 開示済みまたは旗付きのセルはスキップ
+                if (this.revealed[row][col] || this.flagged[row][col]) {
+                    continue;
+                }
+                
+                const probability = probabilities[row][col];
+                // 制約ベースの確率のみ考慮（-2は平均確率なので無視）
+                if (probability >= 0 && probability < minProbability) {
+                    minProbability = probability;
+                }
+            }
+        }
+        
+        // 最低確率に基づいて色分けクラスを決定
+        let assistClass = '';
+        if (minProbability === 101) {
+            // 計算できる確率がない場合
+            assistClass = 'assist-unknown';
+        } else if (minProbability === 0) {
+            assistClass = 'assist-safe';
+        } else if (minProbability <= 25) {
+            assistClass = 'assist-low';
+        } else if (minProbability <= 50) {
+            assistClass = 'assist-medium';
+        } else if (minProbability < 100) {
+            assistClass = 'assist-high';
+        } else {
+            assistClass = 'assist-certain';
+        }
+        
+        // すべてのセルに補助クラスを適用
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                if (!cell) continue;
+                
+                // 既存の補助クラスを削除
+                cell.classList.remove('assist-safe', 'assist-low', 
+                                    'assist-medium', 'assist-high', 'assist-certain',
+                                    'assist-unknown');
+                
+                // 開示済みまたは旗付きのセルはスキップ
+                if (this.revealed[row][col] || this.flagged[row][col]) {
+                    continue;
+                }
+                
+                // 補助クラスを追加
+                cell.classList.add(assistClass);
+            }
+        }
+        
+        // 補助情報表示
+        this.updateAssistDisplay(minProbability, assistClass);
+    }
+    
+    updateAssistDisplay(minProbability, assistClass) {
+        let display = document.querySelector('.assist-display');
+        if (!display) {
+            display = document.createElement('div');
+            display.className = 'assist-display';
+            document.body.appendChild(display);
+        }
+        
+        let statusText = '';
+        let statusIcon = '';
+        
+        if (minProbability === 101) {
+            statusText = '計算中...';
+            statusIcon = '⏳';
+        } else if (minProbability === 0) {
+            statusText = '安全 (0%)';
+            statusIcon = '✅';
+        } else if (minProbability <= 25) {
+            statusText = `低リスク (${minProbability}%)`;
+            statusIcon = '🟢';
+        } else if (minProbability <= 50) {
+            statusText = `中リスク (${minProbability}%)`;
+            statusIcon = '🟡';
+        } else if (minProbability < 100) {
+            statusText = `高リスク (${minProbability}%)`;
+            statusIcon = '🔴';
+        } else {
+            statusText = '地雷確定 (100%)';
+            statusIcon = '💣';
+        }
+        
+        display.innerHTML = `
+            <div class="assist-title">補助モード</div>
+            <div class="assist-content ${assistClass}">
+                <span class="assist-icon">${statusIcon}</span>
+                <span class="assist-text">${statusText}</span>
+            </div>
+        `;
+        display.classList.add('show');
+    }
+    
+    clearAssistDisplay() {
+        // セルから補助クラスを削除
+        const cells = document.querySelectorAll('.cell');
+        cells.forEach(cell => {
+            cell.classList.remove('assist-safe', 'assist-low', 
+                                'assist-medium', 'assist-high', 'assist-certain',
+                                'assist-unknown');
+        });
+        
+        // 補助表示を非表示
+        const display = document.querySelector('.assist-display');
+        if (display) {
+            display.classList.remove('show');
+        }
+    }
+    
     calculateAndDisplayProbabilities() {
         if (!this.cspSolver) return;
         
@@ -971,6 +1126,9 @@ class PCProMinesweeper extends PCMinesweeper {
             this.isRevealing = false;
             if (this.probabilityMode) {
                 this.calculateAndDisplayProbabilities();
+            }
+            if (this.assistMode) {
+                this.calculateAndDisplayAssist();
             }
         }
     }
