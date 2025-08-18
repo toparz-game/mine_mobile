@@ -986,7 +986,7 @@ class PCMinesweeper extends MinesweeperCore {
             
             if (nextBtn) {
                 nextBtn.style.display = 'block';
-                nextBtn.textContent = `次の難易度へ (${difficultyNames[nextDifficulty]})`;
+                nextBtn.innerHTML = `次の難易度へ<br>(${difficultyNames[nextDifficulty]})`;
                 nextBtn.onclick = () => {
                     this.currentDifficulty = nextDifficulty;
                     const select = document.getElementById('difficulty-select');
@@ -1006,8 +1006,8 @@ class PCMinesweeper extends MinesweeperCore {
         
         if (replayBtn) {
             replayBtn.onclick = () => {
+                modal.classList.remove('show');
                 this.newGame();
-                modal.classList.remove('active');
             };
         }
         

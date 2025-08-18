@@ -1547,7 +1547,7 @@ class MobileMinesweeper extends MinesweeperCore {
             
             if (nextBtn) {
                 nextBtn.style.display = 'block';
-                nextBtn.textContent = `次の難易度へ (${difficultyNames[nextDifficulty]})`;
+                nextBtn.innerHTML = `次の難易度へ<br>(${difficultyNames[nextDifficulty]})`;
                 // タッチデバイス用とマウス用のイベントハンドラ
                 const nextHandler = () => {
                     this.currentDifficulty = nextDifficulty;
@@ -1578,8 +1578,8 @@ class MobileMinesweeper extends MinesweeperCore {
         
         if (replayBtn) {
             const replayHandler = () => {
+                modal.classList.remove('show');
                 this.newGame();
-                modal.classList.remove('active');
             };
             
             if (this.isTouchDevice) {
