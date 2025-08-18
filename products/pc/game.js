@@ -1035,8 +1035,24 @@ class PCMinesweeper extends MinesweeperCore {
         super.revealAllMines();
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
+                const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                if (!cell) continue;
+                
                 if (this.board[row][col] === -1) {
-                    this.updateCell(row, col);
+                    if (this.flagged[row][col]) {
+                        // 正しく旗が立てられていた地雷はそのまま表示
+                        cell.classList.add('revealed');
+                        cell.classList.add('flagged');
+                        cell.textContent = '🚩';
+                    } else {
+                        // 旗が立てられていない地雷は爆弾を表示
+                        this.updateCell(row, col);
+                    }
+                } else if (this.flagged[row][col]) {
+                    // 地雷でない場所に旗が立っていた場合は×印を表示
+                    cell.classList.add('revealed');
+                    cell.classList.add('wrong-flag');
+                    cell.textContent = '❌';
                 }
             }
         }
