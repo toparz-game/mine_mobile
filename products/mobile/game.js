@@ -59,15 +59,12 @@ class MobileMinesweeper extends MinesweeperCore {
         // リバース操作設定
         this.reverseMode = false;
         
-        // ページ表示状態の監視
-        this.wasTimerRunning = false;
         
         this.init();
     }
     
     init() {
         this.setupEventListeners();
-        this.setupVisibilityHandler();
         this.newGame();
     }
     
@@ -1596,51 +1593,46 @@ class MobileMinesweeper extends MinesweeperCore {
         modal.classList.add('show');
     }
     
-    // ページ表示状態の監視
-    setupVisibilityHandler() {
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                // ページが非表示になった
-                if (this.timerInterval) {
-                    this.wasTimerRunning = true;
-                    this.stopTimer();
-                }
-                // 長押しタイマーをクリア
-                if (this.longPressTimer) {
-                    clearTimeout(this.longPressTimer);
-                    this.longPressTimer = null;
-                }
-                this.isLongPress = false;
-                this.isDragging = false;
-                this.multiTouchDetected = false;
-            } else {
-                // ページが表示された
-                if (this.wasTimerRunning && !this.gameOver && !this.gameWon && !this.firstClick) {
-                    this.wasTimerRunning = false;
-                    this.startTimer();
-                }
-                // タッチ状態をリセット
-                this.isLongPress = false;
-                this.isDragging = false;
-                this.multiTouchDetected = false;
-                this.touchCount = 0;
-            }
-        });
+    // コアのinitVisibilityHandlersをオーバーライドして、モバイル固有の処理を追加
+    initVisibilityHandlers() {
+        super.initVisibilityHandlers();
         
-        // iOSのページ復帰時の問題対策
-        window.addEventListener('pageshow', (event) => {
-            if (event.persisted) {
-                // bfcacheから復元された場合
-                this.isLongPress = false;
-                this.isDragging = false;
-                this.multiTouchDetected = false;
-                this.touchCount = 0;
-                if (this.longPressTimer) {
-                    clearTimeout(this.longPressTimer);
-                    this.longPressTimer = null;
+        // モバイル固有の処理を追加
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    // 長押しタイマーをクリア
+                    if (this.longPressTimer) {
+                        clearTimeout(this.longPressTimer);
+                        this.longPressTimer = null;
+                    }
+                    this.isLongPress = false;
+                    this.isDragging = false;
+                    this.multiTouchDetected = false;
+                } else {
+                    // タッチ状態をリセット
+                    this.isLongPress = false;
+                    this.isDragging = false;
+                    this.multiTouchDetected = false;
+                    this.touchCount = 0;
                 }
-            }
-        });
+            });
+            
+            // iOSのページ復帰時の問題対策
+            window.addEventListener('pageshow', (event) => {
+                if (event.persisted) {
+                    // bfcacheから復元された場合
+                    this.isLongPress = false;
+                    this.isDragging = false;
+                    this.multiTouchDetected = false;
+                    this.touchCount = 0;
+                    if (this.longPressTimer) {
+                        clearTimeout(this.longPressTimer);
+                        this.longPressTimer = null;
+                    }
+                }
+            });
+        }
     }
     
     // コアのrevealCellメソッドをオーバーライドして、UI更新を追加

@@ -43,15 +43,12 @@ class PCMinesweeper extends MinesweeperCore {
         // リバース操作設定
         this.reverseMode = false;
         
-        // ページ表示状態の監視
-        this.wasTimerRunning = false;
         
         this.init();
     }
     
     init() {
         this.setupEventListeners();
-        this.setupVisibilityHandler();
         this.newGame();
     }
     
@@ -1012,25 +1009,6 @@ class PCMinesweeper extends MinesweeperCore {
         }
         
         modal.classList.add('show');
-    }
-    
-    // ページ表示状態の監視
-    setupVisibilityHandler() {
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                // ページが非表示になった
-                if (this.timerInterval) {
-                    this.wasTimerRunning = true;
-                    this.stopTimer();
-                }
-            } else {
-                // ページが表示された
-                if (this.wasTimerRunning && !this.gameOver && !this.gameWon && !this.firstClick) {
-                    this.wasTimerRunning = false;
-                    this.startTimer();
-                }
-            }
-        });
     }
     
     // コアのrevealCellメソッドをオーバーライドして、UI更新を追加

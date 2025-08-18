@@ -15,6 +15,9 @@ class MinesweeperCore {
         this.mineCount = 0;
         this.timer = 0;
         this.timerInterval = null;
+        this.isPaused = false;
+        this.pausedTime = 0;
+        this.initVisibilityHandlers();
     }
 
     /**
@@ -194,9 +197,13 @@ class MinesweeperCore {
      */
     startTimer() {
         this.timer = 0;
+        this.isPaused = false;
+        this.pausedTime = 0;
         this.timerInterval = setInterval(() => {
-            this.timer++;
-            this.onTimerUpdate(this.timer);
+            if (!this.isPaused) {
+                this.timer++;
+                this.onTimerUpdate(this.timer);
+            }
         }, 1000);
     }
 
@@ -211,11 +218,62 @@ class MinesweeperCore {
     }
 
     /**
+     * タイマー一時停止
+     */
+    pauseTimer() {
+        if (!this.isPaused && this.timerInterval && !this.gameOver && !this.gameWon) {
+            this.isPaused = true;
+            this.pausedTime = Date.now();
+        }
+    }
+
+    /**
+     * タイマー再開
+     */
+    resumeTimer() {
+        if (this.isPaused && this.timerInterval && !this.gameOver && !this.gameWon) {
+            this.isPaused = false;
+            const pauseDuration = Date.now() - this.pausedTime;
+            // 一時停止していた時間分を補正（1秒以上の場合）
+            if (pauseDuration > 1000) {
+                const secondsPaused = Math.floor(pauseDuration / 1000);
+                // タイマーの表示を更新
+                this.onTimerUpdate(this.timer);
+            }
+        }
+    }
+
+    /**
+     * ページ表示状態の変更を検出してタイマーを制御
+     */
+    initVisibilityHandlers() {
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    this.pauseTimer();
+                } else {
+                    this.resumeTimer();
+                }
+            });
+
+            window.addEventListener('blur', () => {
+                this.pauseTimer();
+            });
+
+            window.addEventListener('focus', () => {
+                this.resumeTimer();
+            });
+        }
+    }
+
+    /**
      * リセット
      */
     reset() {
         this.stopTimer();
         this.timer = 0;
+        this.isPaused = false;
+        this.pausedTime = 0;
         this.gameOver = false;
         this.gameWon = false;
         this.firstClick = true;
