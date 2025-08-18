@@ -105,6 +105,7 @@ class CSPSolver {
     partitionIntoConstraintGroups(borderCells) {
         const groups = [];
         const visited = new Set();
+        const borderCellsSet = new Set(borderCells.map(c => `${c.row},${c.col}`));
         
         for (const cell of borderCells) {
             const key = `${cell.row},${cell.col}`;
@@ -112,6 +113,7 @@ class CSPSolver {
             
             const group = [];
             const queue = [cell];
+            const groupSet = new Set([key]);
             visited.add(key);
             
             while (queue.length > 0) {
@@ -121,8 +123,9 @@ class CSPSolver {
                 // この境界セルに制約を与える数字セルを見つける
                 const constrainingCells = this.getConstrainingCells(current);
                 
-                // 制約セルの周りの他の境界セルも同じグループに追加
+                // 各制約セルから、その周りの境界セルを探す
                 for (const constraining of constrainingCells) {
+                    // 制約セルの周りのすべての境界セルを同じグループに追加
                     for (let dr = -1; dr <= 1; dr++) {
                         for (let dc = -1; dc <= 1; dc++) {
                             if (dr === 0 && dc === 0) continue;
@@ -130,9 +133,10 @@ class CSPSolver {
                             const newCol = constraining.col + dc;
                             const newKey = `${newRow},${newCol}`;
                             
-                            if (!visited.has(newKey) &&
-                                borderCells.some(c => c.row === newRow && c.col === newCol)) {
+                            // 境界セルであり、まだ訪問していない場合
+                            if (borderCellsSet.has(newKey) && !groupSet.has(newKey)) {
                                 visited.add(newKey);
+                                groupSet.add(newKey);
                                 queue.push({ row: newRow, col: newCol });
                             }
                         }
@@ -181,6 +185,19 @@ class CSPSolver {
     // 完全探索による確率計算
     solveExact(group) {
         const constraints = this.getConstraintsForGroup(group);
+        
+        // 制約がない場合は均等確率を割り当て
+        if (constraints.length === 0) {
+            const remainingMines = this.game.mineCount - this.countFlags();
+            const unknownCount = this.getUnknownCells().length;
+            const probability = Math.min(100, Math.round((remainingMines / unknownCount) * 100));
+            
+            for (const cell of group) {
+                this.probabilities[cell.row][cell.col] = probability;
+            }
+            return;
+        }
+        
         const validConfigurations = [];
         const totalConfigs = Math.pow(2, group.length);
         
@@ -210,12 +227,31 @@ class CSPSolver {
                 const probability = (mineCount / validConfigurations.length) * 100;
                 this.probabilities[group[i].row][group[i].col] = Math.round(probability);
             }
+        } else {
+            // 有効な配置がない場合（矛盾がある場合）
+            console.warn('No valid configurations found for group');
+            for (const cell of group) {
+                this.probabilities[cell.row][cell.col] = 50; // デフォルト値
+            }
         }
     }
     
     // モンテカルロ法による確率計算
     solveMonteCarlo(group) {
         const constraints = this.getConstraintsForGroup(group);
+        
+        // 制約がない場合は均等確率を割り当て
+        if (constraints.length === 0) {
+            const remainingMines = this.game.mineCount - this.countFlags();
+            const unknownCount = this.getUnknownCells().length;
+            const probability = Math.min(100, Math.round((remainingMines / unknownCount) * 100));
+            
+            for (const cell of group) {
+                this.probabilities[cell.row][cell.col] = probability;
+            }
+            return;
+        }
+        
         const samples = [];
         let validSamples = 0;
         
@@ -245,6 +281,11 @@ class CSPSolver {
                 }
                 const probability = (mineCount / validSamples) * 100;
                 this.probabilities[group[i].row][group[i].col] = Math.round(probability);
+            }
+        } else {
+            // 有効なサンプルがない場合
+            for (const cell of group) {
+                this.probabilities[cell.row][cell.col] = 50; // デフォルト値
             }
         }
     }
@@ -360,21 +401,55 @@ class CSPSolver {
     // 境界外のセルの確率を計算
     calculateRemainingProbabilities(unknownCells, borderCells) {
         const borderSet = new Set(borderCells.map(c => `${c.row},${c.col}`));
-        const remainingUnknown = unknownCells.filter(c => !borderSet.has(`${c.row},${c.col}`));
-        
-        if (remainingUnknown.length === 0) return;
         
         // 残り地雷数を計算
         const flaggedCount = this.countFlags();
         const borderMineEstimate = this.estimateBorderMines(borderCells);
         const remainingMines = Math.max(0, this.game.mineCount - flaggedCount - borderMineEstimate);
         
-        // 均等確率を割り当て
-        const probability = Math.min(100, Math.round((remainingMines / remainingUnknown.length) * 100));
-        
-        for (const cell of remainingUnknown) {
+        // 境界セル以外のすべての未開示セルに確率を割り当て
+        for (const cell of unknownCells) {
+            // 既に確率が計算されていない場合のみ
             if (this.probabilities[cell.row][cell.col] === -1) {
-                this.probabilities[cell.row][cell.col] = probability;
+                // 境界セルかどうかチェック
+                if (borderSet.has(`${cell.row},${cell.col}`)) {
+                    // 境界セルだが確率が計算されていない場合
+                    // これは制約グループに含まれなかったセルなので、デフォルト値を設定
+                    const localConstraints = this.getConstrainingCells(cell);
+                    if (localConstraints.length > 0) {
+                        // 局所的な制約から簡単な推定
+                        let sumProbability = 0;
+                        let count = 0;
+                        
+                        for (const constraint of localConstraints) {
+                            const unknownNeighbors = this.countUnknownNeighbors(constraint.row, constraint.col);
+                            const flaggedNeighbors = this.countFlaggedNeighbors(constraint.row, constraint.col);
+                            const remainingLocalMines = constraint.value - flaggedNeighbors;
+                            
+                            if (unknownNeighbors > 0) {
+                                sumProbability += (remainingLocalMines / unknownNeighbors) * 100;
+                                count++;
+                            }
+                        }
+                        
+                        if (count > 0) {
+                            this.probabilities[cell.row][cell.col] = Math.round(sumProbability / count);
+                        } else {
+                            this.probabilities[cell.row][cell.col] = 25; // デフォルト値
+                        }
+                    } else {
+                        this.probabilities[cell.row][cell.col] = 25; // デフォルト値
+                    }
+                } else {
+                    // 境界外のセル
+                    const remainingUnknownCount = unknownCells.length - borderCells.length;
+                    if (remainingUnknownCount > 0) {
+                        const probability = Math.min(100, Math.round((remainingMines / remainingUnknownCount) * 100));
+                        this.probabilities[cell.row][cell.col] = probability;
+                    } else {
+                        this.probabilities[cell.row][cell.col] = 0;
+                    }
+                }
             }
         }
     }
