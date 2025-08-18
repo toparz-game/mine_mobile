@@ -235,8 +235,16 @@ class PCProMinesweeper extends PCMinesweeper {
                     </div>
                 </div>
                 ${bestTimesHTML}
-                <button onclick="game.closeStatsModal()">閉じる</button>
+                <button id="close-stats-btn">閉じる</button>
             `;
+            
+            // イベントリスナーを追加（setTimeoutを使用して確実にDOMが更新された後に追加）
+            setTimeout(() => {
+                const closeBtn = document.getElementById('close-stats-btn');
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', () => this.closeStatsModal());
+                }
+            }, 0);
         }
         
         modal.classList.add('show');
@@ -471,13 +479,28 @@ class PCProMinesweeper extends PCMinesweeper {
             content.innerHTML = `
                 <h2>チャレンジモード</h2>
                 <div class="challenge-options">
-                    <button onclick="game.startDailyChallenge()">🗓 デイリーチャレンジ</button>
-                    <button onclick="game.startTimeAttack()">⏱ タイムアタック</button>
-                    <button onclick="game.startNoFlagMode()">🚫 ノーフラグモード</button>
-                    <button onclick="game.startSpeedRun()">🏃 スピードラン</button>
+                    <button id="daily-challenge-btn">🗓 デイリーチャレンジ</button>
+                    <button id="time-attack-btn">⏱ タイムアタック</button>
+                    <button id="no-flag-btn">🚫 ノーフラグモード</button>
+                    <button id="speed-run-btn">🏃 スピードラン</button>
                 </div>
-                <button onclick="game.closeChallengeModal()">閉じる</button>
+                <button id="close-challenge-btn">閉じる</button>
             `;
+            
+            // イベントリスナーを追加（setTimeoutを使用して確実にDOMが更新された後に追加）
+            setTimeout(() => {
+                const dailyBtn = document.getElementById('daily-challenge-btn');
+                const timeBtn = document.getElementById('time-attack-btn');
+                const noFlagBtn = document.getElementById('no-flag-btn');
+                const speedBtn = document.getElementById('speed-run-btn');
+                const closeBtn = document.getElementById('close-challenge-btn');
+                
+                if (dailyBtn) dailyBtn.addEventListener('click', () => this.startDailyChallenge());
+                if (timeBtn) timeBtn.addEventListener('click', () => this.startTimeAttack());
+                if (noFlagBtn) noFlagBtn.addEventListener('click', () => this.startNoFlagMode());
+                if (speedBtn) speedBtn.addEventListener('click', () => this.startSpeedRun());
+                if (closeBtn) closeBtn.addEventListener('click', () => this.closeChallengeModal());
+            }, 0);
         }
         
         modal.classList.add('show');
@@ -750,8 +773,11 @@ class PCProMinesweeper extends PCMinesweeper {
             content.innerHTML = `
                 <h2>スピードラン完了！</h2>
                 <p>総合タイム: ${timeStr}</p>
-                <button onclick="game.closeSpeedRunModal()">閉じる</button>
+                <button id="close-speedrun-btn">閉じる</button>
             `;
+            
+            // イベントリスナーを追加
+            document.getElementById('close-speedrun-btn')?.addEventListener('click', () => this.closeSpeedRunModal());
         }
         
         modal.classList.add('show');
@@ -1028,21 +1054,13 @@ class PCProMinesweeper extends PCMinesweeper {
     }
     
     showCalculatingIndicator() {
-        let indicator = document.querySelector('.calculating-indicator');
-        if (!indicator) {
-            indicator = document.createElement('div');
-            indicator.className = 'calculating-indicator';
-            indicator.innerHTML = '<span>確率を計算中<span class="calculating-spinner"></span></span>';
-            document.body.appendChild(indicator);
-        }
-        indicator.classList.add('show');
+        // 計算中インジケーターは表示しない
+        return;
     }
     
     hideCalculatingIndicator() {
-        const indicator = document.querySelector('.calculating-indicator');
-        if (indicator) {
-            indicator.classList.remove('show');
-        }
+        // 計算中インジケーターは表示しない
+        return;
     }
     
     updateGlobalProbabilityDisplay(globalProbability) {

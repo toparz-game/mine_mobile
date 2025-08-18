@@ -940,6 +940,30 @@ body.power-save-mode .control-btn.active {
     50% { box-shadow: 0 0 20px var(--pro-accent), 0 0 40px var(--pro-accent); }
 }
 
+/* PRO版モーダル共通スタイル */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--modal-bg);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--container-bg);
+    border-radius: 20px;
+    animation: slideUp 0.3s ease;
+}
+
 /* 統計モーダル */
 .stats-modal-content {
     max-width: 600px;
