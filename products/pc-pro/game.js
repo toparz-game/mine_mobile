@@ -837,9 +837,11 @@ class PCProMinesweeper extends PCMinesweeper {
     }
     
     displayAssist(probabilities) {
-        // 最低確率を見つけ、100%のセルがあるかチェック
-        let minProbability = 101; // 100%より大きい値で初期化
-        let hasUnflaggedCertainMine = false; // 旗が立っていない100%のセルがあるかどうか
+        // 優先順位: 0% > 100% > その他の最低確率
+        let hasSafeCell = false; // 0%のセルがあるか
+        let hasUnflaggedCertainMine = false; // 旗が立っていない100%のセルがあるか
+        let minProbability = 101; // その他の確率の最小値（100%より大きい値で初期化）
+        let displayProbability = 101; // 実際に表示する確率
         
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
@@ -857,36 +859,50 @@ class PCProMinesweeper extends PCMinesweeper {
                 
                 // 制約ベースの確率のみ考慮（-2は平均確率なので無視）
                 if (probability >= 0) {
-                    if (probability < minProbability) {
-                        minProbability = probability;
+                    // 0%のセルをチェック（最優先）
+                    if (probability === 0) {
+                        hasSafeCell = true;
                     }
-                    // 旗が立っていない100%のセルをチェック
-                    if (probability === 100 && !this.flagged[row][col]) {
+                    // 旗が立っていない100%のセルをチェック（2番目の優先度）
+                    else if (probability === 100 && !this.flagged[row][col]) {
                         hasUnflaggedCertainMine = true;
+                    }
+                    // その他の確率の最小値を更新
+                    else if (probability < minProbability) {
+                        minProbability = probability;
                     }
                 }
             }
         }
         
-        // 最低確率に基づいて色分けクラスを決定
+        // 優先順位に従って表示する確率を決定
+        if (hasSafeCell) {
+            displayProbability = 0; // 最優先: 0%
+        } else if (hasUnflaggedCertainMine) {
+            displayProbability = 100; // 2番目: 100%
+        } else if (minProbability !== 101) {
+            displayProbability = minProbability; // 3番目: その他の最低確率
+        }
+        
+        // 表示確率に基づいて色分けクラスを決定
         let assistClass = '';
-        if (minProbability === 101) {
+        if (displayProbability === 101) {
             // 計算できる確率がない場合
             assistClass = 'assist-unknown';
-        } else if (minProbability === 0) {
+        } else if (displayProbability === 0) {
             assistClass = 'assist-safe';
-        } else if (minProbability <= 25) {
+        } else if (displayProbability <= 25) {
             assistClass = 'assist-low';
-        } else if (minProbability <= 50) {
+        } else if (displayProbability <= 50) {
             assistClass = 'assist-medium';
-        } else if (minProbability < 100) {
+        } else if (displayProbability < 100) {
             assistClass = 'assist-high';
         } else {
             assistClass = 'assist-certain';
         }
         
         // 補助情報表示のみ（セルへのクラス適用は削除）
-        this.updateAssistDisplay(minProbability, assistClass, hasUnflaggedCertainMine);
+        this.updateAssistDisplay(displayProbability, assistClass, hasUnflaggedCertainMine);
     }
     
     updateAssistDisplay(minProbability, assistClass, hasCertainMine) {

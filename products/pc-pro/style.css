@@ -1203,16 +1203,16 @@ body.power-save-mode .control-btn.active {
 /* 補助表示パネル */
 .assist-display {
     position: absolute;
-    top: 10px;
-    left: calc(50% + 50px);
-    transform: translateX(0);
+    top: 17px;
+    left: calc(50% - 140px);
+    transform: translateX(-100%);
     background: var(--modal-content-bg);
     padding: 10px 15px;
     border-radius: 10px;
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
     z-index: 100;
     display: none;
-    min-width: 150px;
+    min-width: 90px;
 }
 
 .assist-display.show {
