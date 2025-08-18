@@ -377,12 +377,21 @@ class MobileMinesweeper extends MinesweeperCore {
             }
         }, { passive: false });
         
-        // プルトゥリフレッシュを完全に防止
+        // プルトゥリフレッシュを完全に防止（モーダル内は除外）
         let lastTouchY = 0;
         let preventPullToRefresh = false;
         
         document.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
+                // モーダル内のタッチイベントは無視
+                const settingsModal = document.getElementById('settings-modal');
+                const helpModal = document.getElementById('help-modal');
+                if ((settingsModal && settingsModal.contains(e.target)) || 
+                    (helpModal && helpModal.contains(e.target))) {
+                    preventPullToRefresh = false;
+                    return;
+                }
+                
                 lastTouchY = e.touches[0].clientY;
                 preventPullToRefresh = window.pageYOffset === 0;
             }
@@ -390,6 +399,14 @@ class MobileMinesweeper extends MinesweeperCore {
         
         document.addEventListener('touchmove', (e) => {
             if (preventPullToRefresh) {
+                // モーダル内のタッチイベントは無視
+                const settingsModal = document.getElementById('settings-modal');
+                const helpModal = document.getElementById('help-modal');
+                if ((settingsModal && settingsModal.contains(e.target)) || 
+                    (helpModal && helpModal.contains(e.target))) {
+                    return;
+                }
+                
                 const touchY = e.touches[0].clientY;
                 const touchDiff = touchY - lastTouchY;
                 

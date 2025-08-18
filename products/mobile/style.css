@@ -445,9 +445,8 @@ body {
     max-width: 90%;
     width: 400px;
     max-height: 80vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
     animation: slideUp 0.3s ease;
 }
 
@@ -457,6 +456,7 @@ body {
     align-items: center;
     padding: 20px;
     border-bottom: 1px solid var(--panel-bg);
+    flex-shrink: 0;
 }
 
 .settings-header h2, .help-header h2 {
@@ -485,6 +485,11 @@ body {
 
 .settings-body, .help-body {
     padding: 20px;
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    position: relative;
 }
 
 .help-section {
