@@ -6,6 +6,10 @@ class MobileMinesweeper extends MinesweeperCore {
         // タッチデバイス判定
         this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         
+        // ボタン連打防止用
+        this.buttonCooldown = false;
+        this.buttonCooldownTime = 100; // ミリ秒
+        
         // 難易度設定
         this.difficulties = {
             easy: { rows: 9, cols: 9, mines: 10 },
@@ -70,11 +74,14 @@ class MobileMinesweeper extends MinesweeperCore {
         if (resetBtn) {
             // タッチデバイスの場合はtouchstartを優先
             if (this.isTouchDevice) {
+                let isProcessing = false;
                 resetBtn.addEventListener('touchstart', (e) => {
+                    if (isProcessing) return;
+                    isProcessing = true;
                     e.preventDefault();
-                    e.stopPropagation();
                     this.newGame();
-                }, { passive: false });
+                    setTimeout(() => { isProcessing = false; }, 100);
+                });
             } else {
                 resetBtn.addEventListener('click', () => this.newGame());
             }
@@ -83,11 +90,14 @@ class MobileMinesweeper extends MinesweeperCore {
         const flagModeBtn = document.getElementById('flag-mode-btn');
         if (flagModeBtn) {
             if (this.isTouchDevice) {
+                let isProcessing = false;
                 flagModeBtn.addEventListener('touchstart', (e) => {
+                    if (isProcessing) return;
+                    isProcessing = true;
                     e.preventDefault();
-                    e.stopPropagation();
                     this.toggleFlagMode();
-                }, { passive: false });
+                    setTimeout(() => { isProcessing = false; }, 50);
+                });
             } else {
                 flagModeBtn.addEventListener('click', () => {
                     this.toggleFlagMode();
@@ -107,11 +117,14 @@ class MobileMinesweeper extends MinesweeperCore {
         const zoomInBtn = document.getElementById('zoom-in-btn');
         if (zoomInBtn) {
             if (this.isTouchDevice) {
+                let isProcessing = false;
                 zoomInBtn.addEventListener('touchstart', (e) => {
+                    if (isProcessing) return;
+                    isProcessing = true;
                     e.preventDefault();
-                    e.stopPropagation();
                     this.zoomIn();
-                }, { passive: false });
+                    setTimeout(() => { isProcessing = false; }, 50);
+                });
             } else {
                 zoomInBtn.addEventListener('click', () => this.zoomIn());
             }
@@ -120,11 +133,14 @@ class MobileMinesweeper extends MinesweeperCore {
         const zoomOutBtn = document.getElementById('zoom-out-btn');
         if (zoomOutBtn) {
             if (this.isTouchDevice) {
+                let isProcessing = false;
                 zoomOutBtn.addEventListener('touchstart', (e) => {
+                    if (isProcessing) return;
+                    isProcessing = true;
                     e.preventDefault();
-                    e.stopPropagation();
                     this.zoomOut();
-                }, { passive: false });
+                    setTimeout(() => { isProcessing = false; }, 50);
+                });
             } else {
                 zoomOutBtn.addEventListener('click', () => this.zoomOut());
             }
@@ -133,11 +149,14 @@ class MobileMinesweeper extends MinesweeperCore {
         const settingsBtn = document.getElementById('settings-btn');
         if (settingsBtn) {
             if (this.isTouchDevice) {
+                let isProcessing = false;
                 settingsBtn.addEventListener('touchstart', (e) => {
+                    if (isProcessing) return;
+                    isProcessing = true;
                     e.preventDefault();
-                    e.stopPropagation();
                     this.openSettings();
-                }, { passive: false });
+                    setTimeout(() => { isProcessing = false; }, 100);
+                });
             } else {
                 settingsBtn.addEventListener('click', () => {
                     this.openSettings();
@@ -148,11 +167,14 @@ class MobileMinesweeper extends MinesweeperCore {
         const helpBtn = document.getElementById('help-btn');
         if (helpBtn) {
             if (this.isTouchDevice) {
+                let isProcessing = false;
                 helpBtn.addEventListener('touchstart', (e) => {
+                    if (isProcessing) return;
+                    isProcessing = true;
                     e.preventDefault();
-                    e.stopPropagation();
                     this.openHelp();
-                }, { passive: false });
+                    setTimeout(() => { isProcessing = false; }, 100);
+                });
             } else {
                 helpBtn.addEventListener('click', () => {
                     this.openHelp();
@@ -163,11 +185,14 @@ class MobileMinesweeper extends MinesweeperCore {
         const closeSettingsBtn = document.getElementById('close-settings');
         if (closeSettingsBtn) {
             if (this.isTouchDevice) {
+                let isProcessing = false;
                 closeSettingsBtn.addEventListener('touchstart', (e) => {
+                    if (isProcessing) return;
+                    isProcessing = true;
                     e.preventDefault();
-                    e.stopPropagation();
                     this.closeSettings();
-                }, { passive: false });
+                    setTimeout(() => { isProcessing = false; }, 100);
+                });
             } else {
                 closeSettingsBtn.addEventListener('click', () => {
                     this.closeSettings();
@@ -178,11 +203,14 @@ class MobileMinesweeper extends MinesweeperCore {
         const closeHelpBtn = document.getElementById('close-help');
         if (closeHelpBtn) {
             if (this.isTouchDevice) {
+                let isProcessing = false;
                 closeHelpBtn.addEventListener('touchstart', (e) => {
+                    if (isProcessing) return;
+                    isProcessing = true;
                     e.preventDefault();
-                    e.stopPropagation();
                     this.closeHelp();
-                }, { passive: false });
+                    setTimeout(() => { isProcessing = false; }, 100);
+                });
             } else {
                 closeHelpBtn.addEventListener('click', () => {
                     this.closeHelp();
@@ -193,11 +221,14 @@ class MobileMinesweeper extends MinesweeperCore {
         const fontSizeUpBtn = document.getElementById('font-size-up-btn');
         if (fontSizeUpBtn) {
             if (this.isTouchDevice) {
+                let isProcessing = false;
                 fontSizeUpBtn.addEventListener('touchstart', (e) => {
+                    if (isProcessing) return;
+                    isProcessing = true;
                     e.preventDefault();
-                    e.stopPropagation();
                     this.increaseFontSize();
-                }, { passive: false });
+                    setTimeout(() => { isProcessing = false; }, 50);
+                });
             } else {
                 fontSizeUpBtn.addEventListener('click', () => {
                     this.increaseFontSize();
@@ -208,11 +239,14 @@ class MobileMinesweeper extends MinesweeperCore {
         const fontSizeDownBtn = document.getElementById('font-size-down-btn');
         if (fontSizeDownBtn) {
             if (this.isTouchDevice) {
+                let isProcessing = false;
                 fontSizeDownBtn.addEventListener('touchstart', (e) => {
+                    if (isProcessing) return;
+                    isProcessing = true;
                     e.preventDefault();
-                    e.stopPropagation();
                     this.decreaseFontSize();
-                }, { passive: false });
+                    setTimeout(() => { isProcessing = false; }, 50);
+                });
             } else {
                 fontSizeDownBtn.addEventListener('click', () => {
                     this.decreaseFontSize();
@@ -381,8 +415,16 @@ class MobileMinesweeper extends MinesweeperCore {
         }
         
         // タッチデバイス向けのイベント防止
-        // グローバルなピンチズーム防止
+        // グローバルなピンチズーム防止（モーダル内を除く）
         document.addEventListener('touchmove', (e) => {
+            // モーダル内のスクロールは許可
+            const settingsModal = document.getElementById('settings-modal');
+            const helpModal = document.getElementById('help-modal');
+            if ((settingsModal && settingsModal.contains(e.target)) || 
+                (helpModal && helpModal.contains(e.target))) {
+                return;
+            }
+            
             if (e.touches.length > 1) {
                 e.preventDefault();
             }
@@ -434,14 +476,17 @@ class MobileMinesweeper extends MinesweeperCore {
             preventPullToRefresh = false;
         });
         
-        // ダブルタップズーム防止
-        document.addEventListener('touchend', (e) => {
-            const now = new Date().getTime();
-            if (now - this.lastTapTime < 500) {
-                e.preventDefault();
-            }
-            this.lastTapTime = now;
-        }, { passive: false });
+        // ダブルタップズーム防止（ゲームボード内のみ）
+        const gameBoard = document.getElementById('game-board');
+        if (gameBoard) {
+            gameBoard.addEventListener('touchend', (e) => {
+                const now = new Date().getTime();
+                if (now - this.lastTapTime < 500) {
+                    e.preventDefault();
+                }
+                this.lastTapTime = now;
+            }, { passive: false });
+        }
         
         // iOS Safari用のジェスチャーイベント防止
         document.addEventListener('gesturestart', (e) => {
@@ -542,6 +587,7 @@ class MobileMinesweeper extends MinesweeperCore {
                 // 2本指以上のタッチは無視
                 if (e.touches.length > 1) {
                     hasMoved = true;
+                    isDraggingFromCell = false;
                     return;
                 }
                 
@@ -700,6 +746,12 @@ class MobileMinesweeper extends MinesweeperCore {
                 // 長押しによるiOSの拡大鏡などを防止
                 e.preventDefault();
                 
+                // 既存のタイマーをクリア
+                if (touchTimer) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                }
+                
                 touchStartX = e.touches[0].clientX;
                 touchStartY = e.touches[0].clientY;
                 hasMoved = false;
@@ -769,7 +821,10 @@ class MobileMinesweeper extends MinesweeperCore {
             
             // タッチ終了
             cell.addEventListener('touchend', (e) => {
-                clearTimeout(touchTimer);
+                if (touchTimer) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                }
                 
                 // 複数タッチが検出された場合は何もしない
                 if (e.touches.length > 0) {
@@ -821,8 +876,12 @@ class MobileMinesweeper extends MinesweeperCore {
             
             // タッチキャンセル
             cell.addEventListener('touchcancel', () => {
-                clearTimeout(touchTimer);
+                if (touchTimer) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                }
                 this.isLongPress = false;
+                hasMoved = false;
             });
         }
         
@@ -874,6 +933,12 @@ class MobileMinesweeper extends MinesweeperCore {
         if (timerElement) {
             timerElement.textContent = String(this.timer).padStart(3, '0');
         }
+    }
+    
+    // コアのタイマー更新フックをオーバーライド
+    onTimerUpdate(time) {
+        this.timer = time;
+        this.updateTimer();
     }
     
     // 以下、UI関連のメソッドを追加
@@ -1085,17 +1150,30 @@ class MobileMinesweeper extends MinesweeperCore {
     
     // ズーム機能
     zoomIn() {
+        if (this.buttonCooldown) return;
+        
         if (this.zoomLevel < this.maxZoom) {
+            this.setButtonCooldown();
             this.zoomLevel = Math.min(this.zoomLevel + this.zoomStep, this.maxZoom);
             this.updateZoom();
         }
     }
     
     zoomOut() {
+        if (this.buttonCooldown) return;
+        
         if (this.zoomLevel > this.minZoom) {
+            this.setButtonCooldown();
             this.zoomLevel = Math.max(this.zoomLevel - this.zoomStep, this.minZoom);
             this.updateZoom();
         }
+    }
+    
+    setButtonCooldown() {
+        this.buttonCooldown = true;
+        setTimeout(() => {
+            this.buttonCooldown = false;
+        }, this.buttonCooldownTime);
     }
     
     updateZoom() {
@@ -1108,7 +1186,10 @@ class MobileMinesweeper extends MinesweeperCore {
     
     // フォントサイズ機能
     increaseFontSize() {
+        if (this.buttonCooldown) return;
+        
         if (this.currentFontSize < this.maxFontSize) {
+            this.setButtonCooldown();
             this.currentFontSize = Math.min(this.currentFontSize + this.fontSizeStep, this.maxFontSize);
             this.updateFontSize();
             this.saveFontSizeSetting();
@@ -1116,7 +1197,10 @@ class MobileMinesweeper extends MinesweeperCore {
     }
     
     decreaseFontSize() {
+        if (this.buttonCooldown) return;
+        
         if (this.currentFontSize > this.minFontSize) {
+            this.setButtonCooldown();
             this.currentFontSize = Math.max(this.currentFontSize - this.fontSizeStep, this.minFontSize);
             this.updateFontSize();
             this.saveFontSizeSetting();
@@ -1468,11 +1552,39 @@ class MobileMinesweeper extends MinesweeperCore {
                     this.wasTimerRunning = true;
                     this.stopTimer();
                 }
+                // 長押しタイマーをクリア
+                if (this.longPressTimer) {
+                    clearTimeout(this.longPressTimer);
+                    this.longPressTimer = null;
+                }
+                this.isLongPress = false;
+                this.isDragging = false;
+                this.multiTouchDetected = false;
             } else {
                 // ページが表示された
                 if (this.wasTimerRunning && !this.gameOver && !this.gameWon && !this.firstClick) {
                     this.wasTimerRunning = false;
                     this.startTimer();
+                }
+                // タッチ状態をリセット
+                this.isLongPress = false;
+                this.isDragging = false;
+                this.multiTouchDetected = false;
+                this.touchCount = 0;
+            }
+        });
+        
+        // iOSのページ復帰時の問題対策
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) {
+                // bfcacheから復元された場合
+                this.isLongPress = false;
+                this.isDragging = false;
+                this.multiTouchDetected = false;
+                this.touchCount = 0;
+                if (this.longPressTimer) {
+                    clearTimeout(this.longPressTimer);
+                    this.longPressTimer = null;
                 }
             }
         });

@@ -303,6 +303,15 @@ class PCMinesweeper extends MinesweeperCore {
         if (resetBtn) {
             resetBtn.textContent = '😊';
         }
+        
+        // スクロール位置を左上にリセット（DOMの更新後に実行）
+        setTimeout(() => {
+            const wrapper = document.querySelector('.game-board-wrapper');
+            if (wrapper) {
+                wrapper.scrollLeft = 0;
+                wrapper.scrollTop = 0;
+            }
+        }, 0);
     }
     
     renderBoard() {
@@ -408,6 +417,12 @@ class PCMinesweeper extends MinesweeperCore {
         if (timerElement) {
             timerElement.textContent = String(this.timer).padStart(3, '0');
         }
+    }
+    
+    // コアのタイマー更新フックをオーバーライド
+    onTimerUpdate(time) {
+        this.timer = time;
+        this.updateTimer();
     }
     
     // 以下、UI関連のメソッドを追加
