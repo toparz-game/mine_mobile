@@ -237,10 +237,11 @@ body {
     padding: 20px;
     justify-content: center;
     touch-action: none;
+    transition: transform 0.2s ease-out;
+    transform-origin: top left;
     position: relative;
     width: fit-content;
     margin: 0;
-    transform-origin: top left;
 }
 
 .cell {

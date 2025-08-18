@@ -9,6 +9,8 @@ class MobileMinesweeper extends MinesweeperCore {
         // ボタン連打防止用
         this.buttonCooldown = false;
         this.buttonCooldownTime = 100; // ミリ秒
+        this.zoomTransitioning = false; // ズームアニメーション中フラグ
+        this.zoomDebounceTimer = null; // デバウンス用タイマー
         
         // 難易度設定
         this.difficulties = {
@@ -794,7 +796,7 @@ class MobileMinesweeper extends MinesweeperCore {
                         }
                         this.isLongPress = true;
                     }
-                }, 200);
+                }, 133);
             }, { passive: false });
             
             // タッチ移動
@@ -1150,22 +1152,50 @@ class MobileMinesweeper extends MinesweeperCore {
     
     // ズーム機能
     zoomIn() {
-        if (this.buttonCooldown) return;
+        // アニメーション中またはクールダウン中は無視
+        if (this.zoomTransitioning || this.buttonCooldown) return;
         
         if (this.zoomLevel < this.maxZoom) {
-            this.setButtonCooldown();
-            this.zoomLevel = Math.min(this.zoomLevel + this.zoomStep, this.maxZoom);
-            this.updateZoom();
+            // デバウンス処理
+            if (this.zoomDebounceTimer) {
+                clearTimeout(this.zoomDebounceTimer);
+            }
+            
+            this.zoomDebounceTimer = setTimeout(() => {
+                this.setButtonCooldown();
+                this.zoomTransitioning = true;
+                this.zoomLevel = Math.min(this.zoomLevel + this.zoomStep, this.maxZoom);
+                this.updateZoom();
+                
+                // トランジション完了後にフラグをリセット
+                setTimeout(() => {
+                    this.zoomTransitioning = false;
+                }, 200); // CSSトランジション時間に合わせる
+            }, 50); // 50ms のデバウンス
         }
     }
     
     zoomOut() {
-        if (this.buttonCooldown) return;
+        // アニメーション中またはクールダウン中は無視
+        if (this.zoomTransitioning || this.buttonCooldown) return;
         
         if (this.zoomLevel > this.minZoom) {
-            this.setButtonCooldown();
-            this.zoomLevel = Math.max(this.zoomLevel - this.zoomStep, this.minZoom);
-            this.updateZoom();
+            // デバウンス処理
+            if (this.zoomDebounceTimer) {
+                clearTimeout(this.zoomDebounceTimer);
+            }
+            
+            this.zoomDebounceTimer = setTimeout(() => {
+                this.setButtonCooldown();
+                this.zoomTransitioning = true;
+                this.zoomLevel = Math.max(this.zoomLevel - this.zoomStep, this.minZoom);
+                this.updateZoom();
+                
+                // トランジション完了後にフラグをリセット
+                setTimeout(() => {
+                    this.zoomTransitioning = false;
+                }, 200); // CSSトランジション時間に合わせる
+            }, 50); // 50ms のデバウンス
         }
     }
     
@@ -1179,8 +1209,17 @@ class MobileMinesweeper extends MinesweeperCore {
     updateZoom() {
         const boardElement = document.getElementById('game-board');
         if (boardElement) {
+            // GPUアクセラレーションのヒントを追加
+            boardElement.style.willChange = 'transform';
             boardElement.style.transform = `scale(${this.zoomLevel})`;
             boardElement.style.transformOrigin = 'top left';
+            
+            // アニメーション完了後にwill-changeを削除（パフォーマンス最適化）
+            setTimeout(() => {
+                if (!this.zoomTransitioning) {
+                    boardElement.style.willChange = 'auto';
+                }
+            }, 300);
         }
     }
     
