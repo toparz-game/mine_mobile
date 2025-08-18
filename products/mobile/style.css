@@ -273,11 +273,7 @@ body {
     background: #ff4444;
 }
 
-.cell.mine-won.revealed::after {
-    content: '💣';
-    position: absolute;
-    font-size: 16px;
-}
+/* .cell.mine-won.revealed::after を削除 - JavaScriptで管理 */
 
 .cell.flagged::after {
     content: '🚩';
@@ -292,11 +288,7 @@ body {
     font-size: 18px;
 }
 
-.cell.mine.revealed::after {
-    content: '💣';
-    position: absolute;
-    font-size: 16px;
-}
+/* .cell.mine.revealed::after を削除 - JavaScriptで管理 */
 
 .cell.wrong-flag {
     background: #ffaaaa;
@@ -661,9 +653,7 @@ body {
         font-size: 11px;
     }
     
-    .cell.flagged::after,
-    .cell.mine.revealed::after,
-    .cell.mine-won.revealed::after {
+    .cell.flagged::after {
         font-size: 12px;
     }
     
@@ -700,9 +690,7 @@ body {
         font-size: 14px;
     }
     
-    .cell.flagged::after,
-    .cell.mine.revealed::after,
-    .cell.mine-won.revealed::after {
+    .cell.flagged::after {
         font-size: 16px;
     }
 }
