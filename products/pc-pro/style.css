@@ -1088,6 +1088,12 @@ body.power-save-mode .control-btn.active {
     background: rgba(33, 150, 243, 0.15);
 }
 
+/* 制約外のセル（統計確率のみ） */
+.cell.probability-unknown {
+    opacity: 0.8;
+    background: rgba(128, 128, 128, 0.05);
+}
+
 /* 確率モード時の既存セル表示調整 */
 .probability-mode .cell.revealed {
     opacity: 0.7;
@@ -1140,5 +1146,50 @@ body.power-save-mode .control-btn.active {
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-left: 10px;
+}
+
+/* 全体統計確率表示 */
+.global-probability-display {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--modal-content-bg);
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    display: none;
+    min-width: 180px;
+}
+
+.global-probability-display.show {
+    display: block;
+}
+
+.global-prob-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--theme-primary);
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--cell-border);
+    padding-bottom: 5px;
+}
+
+.global-prob-content {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.global-prob-content div {
+    margin: 5px 0;
+}
+
+.global-prob-value {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--theme-secondary);
+    margin-top: 10px;
+    padding-top: 5px;
+    border-top: 1px solid var(--cell-border);
 }
 

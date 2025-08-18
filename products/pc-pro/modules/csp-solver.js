@@ -5,8 +5,8 @@ class CSPSolver {
     constructor(game) {
         this.game = game;
         this.probabilities = [];
-        this.maxSamples = 10000; // モンテカルロサンプリング数
-        this.maxConstraintSize = 25; // 制約グループの最大サイズ
+        this.maxConstraintSize = 40; // 完全探索の最大サイズ（パフォーマンスに注意）
+        this.warningThreshold = 25; // 警告を表示するセル数の閾値
     }
     
     // 各セルの地雷確率を計算
@@ -14,28 +14,39 @@ class CSPSolver {
         const rows = this.game.rows;
         const cols = this.game.cols;
         
-        // 確率配列を初期化
+        // 確率配列を初期化 (-1: 未計算, -2: 制約外)
         this.probabilities = Array(rows).fill(null).map(() => Array(cols).fill(-1));
         
-        // 開示されていない境界セルを収集
-        const borderCells = this.getBorderCells();
+        // 統計情報を計算
         const unknownCells = this.getUnknownCells();
+        const flaggedCount = this.countFlags();
+        const remainingMines = this.game.mineCount - flaggedCount;
+        const globalProbability = unknownCells.length > 0 
+            ? Math.round((remainingMines / unknownCells.length) * 100)
+            : 0;
         
-        // 既に開示されたセルと旗が立っているセルの確率を設定
+        // 既に開示されたセルの確率を設定（旗は無視）
         for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
                 if (this.game.revealed[row][col]) {
                     this.probabilities[row][col] = 0; // 開示済みは地雷確率0%
-                } else if (this.game.flagged[row][col]) {
-                    this.probabilities[row][col] = 100; // 旗付きは地雷確率100%
                 }
+                // 旗は無視して、後で計算する
             }
         }
         
+        // 開示されていない境界セルを収集
+        const borderCells = this.getBorderCells();
+        
         if (borderCells.length === 0) {
             // 境界セルがない場合（ゲーム開始時など）
-            this.calculateUniformProbabilities(unknownCells);
-            return this.probabilities;
+            // すべてを制約外としてマーク
+            for (const cell of unknownCells) {
+                if (this.probabilities[cell.row][cell.col] === -1) {
+                    this.probabilities[cell.row][cell.col] = -2;
+                }
+            }
+            return { probabilities: this.probabilities, globalProbability };
         }
         
         // 制約グループに分割
@@ -51,10 +62,14 @@ class CSPSolver {
             }
         }
         
-        // 境界外のセルの確率を計算
-        this.calculateRemainingProbabilities(unknownCells, borderCells);
+        // 制約で計算されなかったセルを-2でマーク
+        for (const cell of unknownCells) {
+            if (this.probabilities[cell.row][cell.col] === -1) {
+                this.probabilities[cell.row][cell.col] = -2; // 制約外
+            }
+        }
         
-        return this.probabilities;
+        return { probabilities: this.probabilities, globalProbability };
     }
     
     // 境界セル（開示されたセルに隣接する未開示セル）を取得
@@ -64,7 +79,7 @@ class CSPSolver {
         for (let row = 0; row < this.game.rows; row++) {
             for (let col = 0; col < this.game.cols; col++) {
                 if (this.game.revealed[row][col] && this.game.board[row][col] > 0) {
-                    // 数字セルの周囲の未開示セルを境界セルとして追加
+                    // 数字セルの周囲の未開示セルを境界セルとして追加（旗も含む）
                     for (let dr = -1; dr <= 1; dr++) {
                         for (let dc = -1; dc <= 1; dc++) {
                             if (dr === 0 && dc === 0) continue;
@@ -72,8 +87,8 @@ class CSPSolver {
                             const newCol = col + dc;
                             
                             if (this.game.isValidCell(newRow, newCol) &&
-                                !this.game.revealed[newRow][newCol] &&
-                                !this.game.flagged[newRow][newCol]) {
+                                !this.game.revealed[newRow][newCol]) {
+                                // 旗が立っていても境界セルとして扱う
                                 borderSet.add(`${newRow},${newCol}`);
                             }
                         }
@@ -88,12 +103,13 @@ class CSPSolver {
         });
     }
     
-    // 未開示かつ旗なしのセルを取得
+    // 未開示のセルを取得（旗も含む）
     getUnknownCells() {
         const cells = [];
         for (let row = 0; row < this.game.rows; row++) {
             for (let col = 0; col < this.game.cols; col++) {
-                if (!this.game.revealed[row][col] && !this.game.flagged[row][col]) {
+                if (!this.game.revealed[row][col]) {
+                    // 旗が立っていても未開示として扱う
                     cells.push({ row, col });
                 }
             }
@@ -171,19 +187,28 @@ class CSPSolver {
         return constraining;
     }
     
-    // 制約グループを解く（完全探索またはモンテカルロ）
+    // 制約グループを解く（完全探索のみ）
     solveConstraintGroup(group) {
-        if (group.length <= 15) {
-            // 小さいグループは完全探索
-            this.solveExact(group);
-        } else {
-            // 大きいグループはモンテカルロ法
-            this.solveMonteCarlo(group);
+        // 警告表示
+        if (group.length > this.warningThreshold) {
+            console.warn(`Large constraint group detected: ${group.length} cells. This may take some time...`);
         }
+        
+        // 完全探索で解く
+        this.solveExact(group);
     }
     
-    // 完全探索による確率計算
+    // 完全探索による確率計算（最適化版）
     solveExact(group) {
+        // まず簡単なケースを処理
+        const simpleSolution = this.trySolveSingleConstraint(group);
+        if (simpleSolution) {
+            for (let i = 0; i < group.length; i++) {
+                this.probabilities[group[i].row][group[i].col] = simpleSolution[i];
+            }
+            return;
+        }
+        
         const constraints = this.getConstraintsForGroup(group);
         
         // 制約がない場合は均等確率を割り当て
@@ -198,22 +223,308 @@ class CSPSolver {
             return;
         }
         
+        // STEP 1: 制約伝播で0%と100%のセルを確定
+        const determinedCells = this.determineCertainCells(group, constraints);
+        
+        // デバッグ情報（大きなグループの場合のみ）
+        if (group.length > 20) {
+            console.log(`Constraint propagation: ${determinedCells.certain.length} mines, ${determinedCells.safe.length} safe cells confirmed`);
+        }
+        
+        // 確定したセルの確率を設定
+        for (const cellIdx of determinedCells.certain) {
+            this.probabilities[group[cellIdx].row][group[cellIdx].col] = 100;
+        }
+        for (const cellIdx of determinedCells.safe) {
+            this.probabilities[group[cellIdx].row][group[cellIdx].col] = 0;
+        }
+        
+        // STEP 2: 確定していないセルだけを完全探索
+        const uncertainIndices = [];
+        for (let i = 0; i < group.length; i++) {
+            if (!determinedCells.certain.includes(i) && !determinedCells.safe.includes(i)) {
+                uncertainIndices.push(i);
+            }
+        }
+        
+        if (uncertainIndices.length === 0) {
+            // すべて確定した
+            return;
+        }
+        
+        // デバッグ情報（大きなグループの場合のみ）
+        if (group.length > 20) {
+            console.log(`Exact search: ${uncertainIndices.length} cells (reduced from ${group.length})`);
+        }
+        
+        // 不確定なセルのみで新しいグループと制約を作成
+        const uncertainGroup = uncertainIndices.map(i => group[i]);
+        const uncertainConstraints = this.adjustConstraintsForUncertain(
+            constraints, 
+            uncertainIndices, 
+            determinedCells.certain
+        );
+        
+        // グループが大きすぎる場合の警告と処理
+        if (uncertainIndices.length > 30) {
+            console.warn(`Large uncertain group (${uncertainIndices.length} cells). Using optimized DFS...`);
+            this.solveReducedGroupOptimized(uncertainGroup, uncertainConstraints, uncertainIndices, group);
+            return;
+        }
+        
+        // 不確定なセルのみで完全探索
+        this.solveReducedGroup(uncertainGroup, uncertainConstraints, uncertainIndices, group);
+    }
+    
+    // 制約伝播で確定できるセルを見つける
+    determineCertainCells(group, constraints) {
+        const certain = new Set(); // 100%地雷
+        const safe = new Set();    // 0%安全
+        let changed = true;
+        
+        // 制約を繰り返し適用して確定セルを見つける
+        while (changed) {
+            changed = false;
+            
+            for (const constraint of constraints) {
+                const unknownInConstraint = [];
+                let minesInConstraint = 0; // 旗は無視
+                
+                // この制約に関わるセルの状態を確認
+                for (const cellIdx of constraint.cells) {
+                    if (certain.has(cellIdx)) {
+                        minesInConstraint++;
+                    } else if (!safe.has(cellIdx)) {
+                        unknownInConstraint.push(cellIdx);
+                    }
+                }
+                
+                const remainingMines = constraint.requiredMines - minesInConstraint;
+                
+                // すべて地雷の場合
+                if (remainingMines === unknownInConstraint.length && unknownInConstraint.length > 0) {
+                    for (const idx of unknownInConstraint) {
+                        if (!certain.has(idx)) {
+                            certain.add(idx);
+                            changed = true;
+                        }
+                    }
+                }
+                
+                // すべて安全の場合
+                if (remainingMines === 0 && unknownInConstraint.length > 0) {
+                    for (const idx of unknownInConstraint) {
+                        if (!safe.has(idx)) {
+                            safe.add(idx);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        return {
+            certain: Array.from(certain),
+            safe: Array.from(safe)
+        };
+    }
+    
+    // 不確定セル用に制約を調整
+    adjustConstraintsForUncertain(constraints, uncertainIndices, certainMines) {
+        const indexMap = new Map();
+        for (let i = 0; i < uncertainIndices.length; i++) {
+            indexMap.set(uncertainIndices[i], i);
+        }
+        
+        const adjustedConstraints = [];
+        
+        for (const constraint of constraints) {
+            const newCells = [];
+            let additionalMines = 0;
+            
+            for (const cellIdx of constraint.cells) {
+                if (indexMap.has(cellIdx)) {
+                    newCells.push(indexMap.get(cellIdx));
+                } else if (certainMines.includes(cellIdx)) {
+                    additionalMines++;
+                }
+            }
+            
+            if (newCells.length > 0) {
+                adjustedConstraints.push({
+                    cells: newCells,
+                    requiredMines: constraint.requiredMines - additionalMines,
+                    flaggedCount: constraint.flaggedCount,
+                    numberCell: constraint.numberCell
+                });
+            }
+        }
+        
+        return adjustedConstraints;
+    }
+    
+    // 縮小されたグループを完全探索
+    solveReducedGroup(uncertainGroup, constraints, originalIndices, fullGroup) {
         const validConfigurations = [];
-        const totalConfigs = Math.pow(2, group.length);
+        const totalConfigs = Math.pow(2, uncertainGroup.length);
+        
+        // プログレス表示（大きなグループの場合）
+        let progressCounter = 0;
+        const progressInterval = Math.floor(totalConfigs / 100);
         
         // すべての可能な配置を試す
         for (let config = 0; config < totalConfigs; config++) {
+            if (uncertainGroup.length > 15 && progressInterval > 0 && config % progressInterval === 0) {
+                progressCounter++;
+                if (progressCounter % 10 === 0) {
+                    console.log(`Progress: ${progressCounter}%`);
+                }
+            }
+            
             const mines = [];
-            for (let i = 0; i < group.length; i++) {
+            for (let i = 0; i < uncertainGroup.length; i++) {
                 if ((config >> i) & 1) {
                     mines.push(i);
                 }
             }
             
-            if (this.isValidConfiguration(group, mines, constraints)) {
+            if (this.isValidConfiguration(uncertainGroup, mines, constraints)) {
                 validConfigurations.push(mines);
             }
         }
+        
+        // 有効な配置から確率を計算
+        if (validConfigurations.length > 0) {
+            for (let i = 0; i < uncertainGroup.length; i++) {
+                let mineCount = 0;
+                for (const config of validConfigurations) {
+                    if (config.includes(i)) {
+                        mineCount++;
+                    }
+                }
+                const probability = (mineCount / validConfigurations.length) * 100;
+                const originalIdx = originalIndices[i];
+                this.probabilities[fullGroup[originalIdx].row][fullGroup[originalIdx].col] = Math.round(probability);
+            }
+        } else {
+            // デフォルト値
+            for (let i = 0; i < uncertainGroup.length; i++) {
+                const originalIdx = originalIndices[i];
+                this.probabilities[fullGroup[originalIdx].row][fullGroup[originalIdx].col] = 50;
+            }
+        }
+    }
+    
+    // 縮小されたグループの最適化版
+    solveReducedGroupOptimized(uncertainGroup, constraints, originalIndices, fullGroup) {
+        // 枝刈りを使った深さ優先探索
+        const validConfigurations = [];
+        const currentConfig = [];
+        
+        const remainingMines = this.game.mineCount - this.countFlags();
+        const certainCount = fullGroup.length - originalIndices.length;
+        const maxMinesInUncertain = Math.min(remainingMines, uncertainGroup.length);
+        
+        const dfs = (index, minesUsed) => {
+            // 上限チェック
+            if (validConfigurations.length > 100000) {
+                console.warn("Too many valid configurations found. Stopping early.");
+                return false;
+            }
+            
+            if (index === uncertainGroup.length) {
+                if (this.isValidConfiguration(uncertainGroup, currentConfig, constraints)) {
+                    validConfigurations.push([...currentConfig]);
+                }
+                return true;
+            }
+            
+            // 残り地雷数による枝刈り
+            const remainingCells = uncertainGroup.length - index;
+            if (minesUsed + remainingCells < 0 || minesUsed > maxMinesInUncertain) {
+                return true;
+            }
+            
+            // このセルに地雷を置かない場合
+            dfs(index + 1, minesUsed);
+            
+            // このセルに地雷を置く場合
+            if (minesUsed < maxMinesInUncertain) {
+                currentConfig.push(index);
+                dfs(index + 1, minesUsed + 1);
+                currentConfig.pop();
+            }
+            
+            return true;
+        };
+        
+        dfs(0, 0);
+        
+        // 有効な配置から確率を計算
+        if (validConfigurations.length > 0) {
+            for (let i = 0; i < uncertainGroup.length; i++) {
+                let mineCount = 0;
+                for (const config of validConfigurations) {
+                    if (config.includes(i)) {
+                        mineCount++;
+                    }
+                }
+                const probability = (mineCount / validConfigurations.length) * 100;
+                const originalIdx = originalIndices[i];
+                this.probabilities[fullGroup[originalIdx].row][fullGroup[originalIdx].col] = Math.round(probability);
+            }
+        } else {
+            for (let i = 0; i < uncertainGroup.length; i++) {
+                const originalIdx = originalIndices[i];
+                this.probabilities[fullGroup[originalIdx].row][fullGroup[originalIdx].col] = 50;
+            }
+        }
+    }
+    
+    // 最適化された完全探索（巨大グループ用）
+    solveExactOptimized(group, constraints) {
+        // 枝刈りを使った深さ優先探索
+        const validConfigurations = [];
+        const currentConfig = [];
+        
+        const dfs = (index, remainingMinesGlobal) => {
+            // 上限チェック（メモリ保護）
+            if (validConfigurations.length > 100000) {
+                console.warn("Too many valid configurations found. Stopping early.");
+                return false;
+            }
+            
+            if (index === group.length) {
+                // 完全な配置が見つかった
+                if (this.isValidConfiguration(group, currentConfig, constraints)) {
+                    validConfigurations.push([...currentConfig]);
+                }
+                return true;
+            }
+            
+            // 残り地雷数による枝刈り
+            const remainingCells = group.length - index;
+            if (remainingMinesGlobal > remainingCells) {
+                return true; // 地雷が多すぎる
+            }
+            
+            // このセルに地雷を置かない場合
+            if (this.canPlaceEmpty(group, index, currentConfig, constraints)) {
+                dfs(index + 1, remainingMinesGlobal);
+            }
+            
+            // このセルに地雷を置く場合
+            if (remainingMinesGlobal > 0 && this.canPlaceMine(group, index, currentConfig, constraints)) {
+                currentConfig.push(index);
+                dfs(index + 1, remainingMinesGlobal - 1);
+                currentConfig.pop();
+            }
+            
+            return true;
+        };
+        
+        const remainingMines = this.game.mineCount - this.countFlags();
+        dfs(0, remainingMines);
         
         // 有効な配置から確率を計算
         if (validConfigurations.length > 0) {
@@ -228,67 +539,76 @@ class CSPSolver {
                 this.probabilities[group[i].row][group[i].col] = Math.round(probability);
             }
         } else {
-            // 有効な配置がない場合（矛盾がある場合）
-            console.warn('No valid configurations found for group');
+            // デフォルト値
             for (const cell of group) {
-                this.probabilities[cell.row][cell.col] = 50; // デフォルト値
+                this.probabilities[cell.row][cell.col] = 50;
             }
         }
     }
     
-    // モンテカルロ法による確率計算
-    solveMonteCarlo(group) {
-        const constraints = this.getConstraintsForGroup(group);
-        
-        // 制約がない場合は均等確率を割り当て
-        if (constraints.length === 0) {
-            const remainingMines = this.game.mineCount - this.countFlags();
-            const unknownCount = this.getUnknownCells().length;
-            const probability = Math.min(100, Math.round((remainingMines / unknownCount) * 100));
-            
-            for (const cell of group) {
-                this.probabilities[cell.row][cell.col] = probability;
-            }
-            return;
-        }
-        
-        const samples = [];
-        let validSamples = 0;
-        
-        // ランダムサンプリング
-        for (let sample = 0; sample < this.maxSamples; sample++) {
-            const mines = [];
-            for (let i = 0; i < group.length; i++) {
-                if (Math.random() < 0.5) {
-                    mines.push(i);
-                }
-            }
-            
-            if (this.isValidConfiguration(group, mines, constraints)) {
-                samples.push(mines);
-                validSamples++;
-            }
-        }
-        
-        // サンプルから確率を計算
-        if (validSamples > 0) {
-            for (let i = 0; i < group.length; i++) {
-                let mineCount = 0;
-                for (const config of samples) {
-                    if (config.includes(i)) {
-                        mineCount++;
-                    }
-                }
-                const probability = (mineCount / validSamples) * 100;
-                this.probabilities[group[i].row][group[i].col] = Math.round(probability);
-            }
-        } else {
-            // 有効なサンプルがない場合
-            for (const cell of group) {
-                this.probabilities[cell.row][cell.col] = 50; // デフォルト値
-            }
-        }
+    // 枝刈り用のヘルパー関数
+    canPlaceEmpty(group, index, currentConfig, constraints) {
+        // 簡単な制約チェック
+        return true; // より詳細な実装は必要に応じて追加
     }
+    
+    canPlaceMine(group, index, currentConfig, constraints) {
+        // 簡単な制約チェック
+        for (const constraint of constraints) {
+            if (constraint.cells.includes(index)) {
+                const currentMinesInConstraint = currentConfig.filter(i => constraint.cells.includes(i)).length;
+                if (currentMinesInConstraint + 1 > constraint.requiredMines - constraint.flaggedCount) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    
+    // 単一制約の簡単なケースを処理
+    trySolveSingleConstraint(group) {
+        // すべてのセルが同じ数字セルに隣接しているかチェック
+        if (group.length === 0) return null;
+        
+        let commonConstraint = null;
+        for (const cell of group) {
+            const constraints = this.getConstrainingCells(cell);
+            if (constraints.length !== 1) return null; // 複数の制約がある場合はスキップ
+            
+            if (!commonConstraint) {
+                commonConstraint = constraints[0];
+            } else if (commonConstraint.row !== constraints[0].row || 
+                      commonConstraint.col !== constraints[0].col) {
+                return null; // 異なる制約セルの場合はスキップ
+            }
+        }
+        
+        if (!commonConstraint) return null;
+        
+        // 共通の制約セルの周囲の状態を確認
+        const flaggedCount = this.countFlaggedNeighbors(commonConstraint.row, commonConstraint.col);
+        const unknownCount = this.countUnknownNeighbors(commonConstraint.row, commonConstraint.col);
+        const remainingMines = commonConstraint.value - flaggedCount;
+        
+        const probabilities = new Array(group.length);
+        
+        if (remainingMines === 0) {
+            // すべて安全
+            probabilities.fill(0);
+        } else if (remainingMines === unknownCount) {
+            // すべて地雷
+            probabilities.fill(100);
+        } else if (remainingMines > 0 && remainingMines < unknownCount) {
+            // 確率計算
+            const probability = Math.round((remainingMines / unknownCount) * 100);
+            probabilities.fill(probability);
+        } else {
+            return null; // 不正な状態
+        }
+        
+        return probabilities;
+    }
+    
     
     // 配置が制約を満たすかチェック
     isValidConfiguration(group, mineIndices, constraints) {
@@ -302,16 +622,19 @@ class CSPSolver {
                 }
             }
             
-            // 既に配置されている旗も考慮
-            actualMines += constraint.flaggedCount;
-            
+            // 旗を無視して純粋に地雷数をチェック
             if (actualMines !== constraint.requiredMines) {
+                return false;
+            }
+            
+            // 必要な地雷数が未開示セル数を超える場合
+            const maxPossibleMines = constraint.cells.length;
+            if (constraint.requiredMines > maxPossibleMines) {
                 return false;
             }
         }
         
         // 残り地雷数の制約もチェック
-        const totalMines = mineIndices.length + this.countFlags();
         const remainingMines = this.game.mineCount - this.countFlags();
         
         if (mineIndices.length > remainingMines) {
@@ -325,31 +648,35 @@ class CSPSolver {
     getConstraintsForGroup(group) {
         const constraints = [];
         const processedCells = new Set();
+        const groupCellSet = new Set(group.map(c => `${c.row},${c.col}`));
         
-        // グループ内の各セルに影響する数字セルから制約を作成
+        // グループに影響を与えるすべての数字セルを収集
+        const relevantNumberCells = new Set();
         for (const cell of group) {
             const constrainingCells = this.getConstrainingCells(cell);
-            
             for (const constraining of constrainingCells) {
-                const key = `${constraining.row},${constraining.col}`;
-                if (processedCells.has(key)) continue;
-                processedCells.add(key);
-                
-                // この数字セルの周囲の未開示セルを収集
-                const affectedCells = [];
-                let flaggedCount = 0;
-                
-                for (let dr = -1; dr <= 1; dr++) {
-                    for (let dc = -1; dc <= 1; dc++) {
-                        if (dr === 0 && dc === 0) continue;
-                        const newRow = constraining.row + dr;
-                        const newCol = constraining.col + dc;
-                        
-                        if (this.game.isValidCell(newRow, newCol)) {
-                            if (this.game.flagged[newRow][newCol]) {
-                                flaggedCount++;
-                            } else if (!this.game.revealed[newRow][newCol]) {
-                                // グループ内のセルのインデックスを見つける
+                relevantNumberCells.add(`${constraining.row},${constraining.col},${constraining.value}`);
+            }
+        }
+        
+        // 各数字セルから制約を作成
+        for (const numberCellStr of relevantNumberCells) {
+            const [row, col, value] = numberCellStr.split(',').map(Number);
+            
+            // この数字セルの周囲の未開示セルを収集（旗も含む）
+            const affectedCells = [];
+            
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    const newRow = row + dr;
+                    const newCol = col + dc;
+                    
+                    if (this.game.isValidCell(newRow, newCol)) {
+                        if (!this.game.revealed[newRow][newCol]) {
+                            // グループ内のセルかチェック（旗も含む）
+                            const cellKey = `${newRow},${newCol}`;
+                            if (groupCellSet.has(cellKey)) {
                                 const index = group.findIndex(c => c.row === newRow && c.col === newCol);
                                 if (index !== -1) {
                                     affectedCells.push(index);
@@ -358,14 +685,15 @@ class CSPSolver {
                         }
                     }
                 }
-                
-                if (affectedCells.length > 0) {
-                    constraints.push({
-                        cells: affectedCells,
-                        requiredMines: constraining.value,
-                        flaggedCount: flaggedCount
-                    });
-                }
+            }
+            
+            if (affectedCells.length > 0) {
+                constraints.push({
+                    cells: affectedCells,
+                    requiredMines: value, // 旗を無視した本来の地雷数
+                    flaggedCount: 0, // 旗は無視
+                    numberCell: { row, col, value }
+                });
             }
         }
         
@@ -398,60 +726,10 @@ class CSPSolver {
         }
     }
     
-    // 境界外のセルの確率を計算
-    calculateRemainingProbabilities(unknownCells, borderCells) {
-        const borderSet = new Set(borderCells.map(c => `${c.row},${c.col}`));
-        
-        // 残り地雷数を計算
-        const flaggedCount = this.countFlags();
-        const borderMineEstimate = this.estimateBorderMines(borderCells);
-        const remainingMines = Math.max(0, this.game.mineCount - flaggedCount - borderMineEstimate);
-        
-        // 境界セル以外のすべての未開示セルに確率を割り当て
-        for (const cell of unknownCells) {
-            // 既に確率が計算されていない場合のみ
-            if (this.probabilities[cell.row][cell.col] === -1) {
-                // 境界セルかどうかチェック
-                if (borderSet.has(`${cell.row},${cell.col}`)) {
-                    // 境界セルだが確率が計算されていない場合
-                    // これは制約グループに含まれなかったセルなので、デフォルト値を設定
-                    const localConstraints = this.getConstrainingCells(cell);
-                    if (localConstraints.length > 0) {
-                        // 局所的な制約から簡単な推定
-                        let sumProbability = 0;
-                        let count = 0;
-                        
-                        for (const constraint of localConstraints) {
-                            const unknownNeighbors = this.countUnknownNeighbors(constraint.row, constraint.col);
-                            const flaggedNeighbors = this.countFlaggedNeighbors(constraint.row, constraint.col);
-                            const remainingLocalMines = constraint.value - flaggedNeighbors;
-                            
-                            if (unknownNeighbors > 0) {
-                                sumProbability += (remainingLocalMines / unknownNeighbors) * 100;
-                                count++;
-                            }
-                        }
-                        
-                        if (count > 0) {
-                            this.probabilities[cell.row][cell.col] = Math.round(sumProbability / count);
-                        } else {
-                            this.probabilities[cell.row][cell.col] = 25; // デフォルト値
-                        }
-                    } else {
-                        this.probabilities[cell.row][cell.col] = 25; // デフォルト値
-                    }
-                } else {
-                    // 境界外のセル
-                    const remainingUnknownCount = unknownCells.length - borderCells.length;
-                    if (remainingUnknownCount > 0) {
-                        const probability = Math.min(100, Math.round((remainingMines / remainingUnknownCount) * 100));
-                        this.probabilities[cell.row][cell.col] = probability;
-                    } else {
-                        this.probabilities[cell.row][cell.col] = 0;
-                    }
-                }
-            }
-        }
+    // 残りのセルのマーキング（制約外としてマーク）
+    markRemainingCells(unknownCells, borderCells) {
+        // このメソッドは削除または空実装に
+        // 実際の処理はcalculateProbabilities内で完了
     }
     
     // 境界セルの地雷数を推定
@@ -468,28 +746,17 @@ class CSPSolver {
     
     // 均等確率を計算（ゲーム開始時など）
     calculateUniformProbabilities(unknownCells) {
-        const remainingMines = this.game.mineCount - this.countFlags();
-        const probability = Math.round((remainingMines / unknownCells.length) * 100);
-        
-        for (const cell of unknownCells) {
-            if (this.probabilities[cell.row][cell.col] === -1) {
-                this.probabilities[cell.row][cell.col] = probability;
-            }
-        }
+        // このメソッドは現在使用されていません
+        // 代わりに-2でマークして、全体確率を別途表示
     }
     
-    // 旗の数をカウント
+    // 旗の数をカウント（全体の地雷数計算では使わない）
     countFlags() {
-        let count = 0;
-        for (let row = 0; row < this.game.rows; row++) {
-            for (let col = 0; col < this.game.cols; col++) {
-                if (this.game.flagged[row][col]) count++;
-            }
-        }
-        return count;
+        // 旗を無視するため、常に0を返す
+        return 0;
     }
     
-    // 未開示の隣接セル数をカウント
+    // 未開示の隣接セル数をカウント（旗も含む）
     countUnknownNeighbors(row, col) {
         let count = 0;
         for (let dr = -1; dr <= 1; dr++) {
@@ -499,8 +766,8 @@ class CSPSolver {
                 const newCol = col + dc;
                 
                 if (this.game.isValidCell(newRow, newCol) &&
-                    !this.game.revealed[newRow][newCol] &&
-                    !this.game.flagged[newRow][newCol]) {
+                    !this.game.revealed[newRow][newCol]) {
+                    // 旗が立っていても未開示として数える
                     count++;
                 }
             }
@@ -508,21 +775,9 @@ class CSPSolver {
         return count;
     }
     
-    // 旗付きの隣接セル数をカウント
+    // 旗付きの隣接セル数をカウント（旗を無視するため使わない）
     countFlaggedNeighbors(row, col) {
-        let count = 0;
-        for (let dr = -1; dr <= 1; dr++) {
-            for (let dc = -1; dc <= 1; dc++) {
-                if (dr === 0 && dc === 0) continue;
-                const newRow = row + dr;
-                const newCol = col + dc;
-                
-                if (this.game.isValidCell(newRow, newCol) &&
-                    this.game.flagged[newRow][newCol]) {
-                    count++;
-                }
-            }
-        }
-        return count;
+        // 旗を無視するため、常に0を返す
+        return 0;
     }
 }

@@ -48,6 +48,7 @@ class PCProMinesweeper extends PCMinesweeper {
         // CSPソルバー
         this.cspSolver = null;
         this.probabilityMode = false;
+        this.isRevealing = false; // 再帰的な開示処理中フラグ
         
         this.initPro();
     }
@@ -806,13 +807,16 @@ class PCProMinesweeper extends PCMinesweeper {
         
         // 非同期で計算を実行
         setTimeout(() => {
-            const probabilities = this.cspSolver.calculateProbabilities();
-            this.displayProbabilities(probabilities);
+            const result = this.cspSolver.calculateProbabilities();
+            this.displayProbabilities(result.probabilities, result.globalProbability);
             this.hideCalculatingIndicator();
         }, 10);
     }
     
-    displayProbabilities(probabilities) {
+    displayProbabilities(probabilities, globalProbability) {
+        // 全体確率を表示
+        this.updateGlobalProbabilityDisplay(globalProbability);
+        
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
                 const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
@@ -826,7 +830,8 @@ class PCProMinesweeper extends PCMinesweeper {
                 
                 // 確率クラスをクリア
                 cell.classList.remove('probability-safe', 'probability-low', 
-                                    'probability-medium', 'probability-high', 'probability-certain');
+                                    'probability-medium', 'probability-high', 'probability-certain',
+                                    'probability-unknown');
                 
                 const probability = probabilities[row][col];
                 
@@ -836,7 +841,7 @@ class PCProMinesweeper extends PCMinesweeper {
                 }
                 
                 if (probability >= 0) {
-                    // 確率オーバーレイを作成
+                    // 制約ベースで計算された確率
                     const overlay = document.createElement('div');
                     overlay.className = 'probability-overlay';
                     overlay.textContent = `${probability}%`;
@@ -855,6 +860,10 @@ class PCProMinesweeper extends PCMinesweeper {
                     }
                     
                     cell.appendChild(overlay);
+                } else if (probability === -2) {
+                    // 制約外のセル（全体確率を適用）
+                    cell.classList.add('probability-unknown');
+                    // 確率は表示しない（全体確率を別途表示）
                 }
             }
         }
@@ -868,8 +877,12 @@ class PCProMinesweeper extends PCMinesweeper {
                 overlay.remove();
             }
             cell.classList.remove('probability-safe', 'probability-low', 
-                                'probability-medium', 'probability-high', 'probability-certain');
+                                'probability-medium', 'probability-high', 'probability-certain',
+                                'probability-unknown');
         });
+        
+        // 全体確率表示をクリア
+        this.hideGlobalProbabilityDisplay();
     }
     
     showCalculatingIndicator() {
@@ -890,23 +903,83 @@ class PCProMinesweeper extends PCMinesweeper {
         }
     }
     
+    updateGlobalProbabilityDisplay(globalProbability) {
+        let display = document.querySelector('.global-probability-display');
+        if (!display) {
+            display = document.createElement('div');
+            display.className = 'global-probability-display';
+            document.body.appendChild(display);
+        }
+        
+        const flaggedCount = this.countFlags();
+        const remainingMines = this.mineCount - flaggedCount;
+        const unknownCount = this.getUnknownCells().length;
+        
+        display.innerHTML = `
+            <div class="global-prob-title">全体統計</div>
+            <div class="global-prob-content">
+                <div>残り地雷: ${remainingMines}</div>
+                <div>未開示: ${unknownCount}</div>
+                <div class="global-prob-value">平均確率: ${globalProbability}%</div>
+            </div>
+        `;
+        display.classList.add('show');
+    }
+    
+    hideGlobalProbabilityDisplay() {
+        const display = document.querySelector('.global-probability-display');
+        if (display) {
+            display.classList.remove('show');
+        }
+    }
+    
+    // ヘルパーメソッド
+    countFlags() {
+        let count = 0;
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                if (this.flagged[row][col]) count++;
+            }
+        }
+        return count;
+    }
+    
+    getUnknownCells() {
+        const cells = [];
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                if (!this.revealed[row][col] && !this.flagged[row][col]) {
+                    cells.push({ row, col });
+                }
+            }
+        }
+        return cells;
+    }
+    
     // オーバーライド: セルが更新されたら確率を再計算
     revealCell(row, col) {
+        // 再帰的な開示処理中は確率計算を延期
+        const wasRevealing = this.isRevealing;
+        if (!wasRevealing) {
+            this.isRevealing = true;
+        }
+        
         super.revealCell(row, col);
         
-        // 確率モードの場合、自動的に再計算
-        if (this.probabilityMode) {
-            this.calculateAndDisplayProbabilities();
+        // 最初の呼び出しの場合のみ確率を再計算
+        if (!wasRevealing) {
+            this.isRevealing = false;
+            if (this.probabilityMode) {
+                this.calculateAndDisplayProbabilities();
+            }
         }
     }
     
     toggleFlag(row, col) {
         super.toggleFlag(row, col);
         
-        // 確率モードの場合、自動的に再計算
-        if (this.probabilityMode) {
-            this.calculateAndDisplayProbabilities();
-        }
+        // 旗を立てた時は確率を再計算しない（パフォーマンス最適化）
+        // マスを開けた時のみ再計算する
     }
 }
 
