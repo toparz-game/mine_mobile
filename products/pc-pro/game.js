@@ -1117,8 +1117,11 @@ class PCProMinesweeper extends PCMinesweeper {
         super.toggleFlag(row, col);
         
         // 旗を立てた/外した時に確率を再計算
-        if (this.probabilityMode && this.cspSolver && !this.isRevealing) {
+        if (this.probabilityMode && this.cspSolver) {
             this.calculateAndDisplayProbabilities();
+        }
+        if (this.assistMode && this.cspSolver) {
+            this.calculateAndDisplayAssist();
         }
     }
 }
