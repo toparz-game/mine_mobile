@@ -958,21 +958,35 @@ class PCMinesweeper extends MinesweeperCore {
         
         const message = document.getElementById('clear-message');
         if (message) {
-            message.textContent = `タイム: ${this.timer}秒`;
+            const minutes = Math.floor(this.timer / 60);
+            const seconds = this.timer % 60;
+            const timeText = minutes > 0 ? `${minutes}分${seconds}秒` : `${seconds}秒`;
+            message.textContent = `クリアタイム: ${timeText}`;
         }
         
         const nextBtn = document.getElementById('next-difficulty-btn');
         const replayBtn = document.getElementById('replay-difficulty-btn');
         
         // 次の難易度を決定
-        const difficultyOrder = ['easy', 'medium', 'hard'];
+        const difficultyOrder = ['easy', 'medium', 'hard', 'hiddeneasy', 'hiddenmedium', 'hiddenhard', 'extreme'];
         const currentIndex = difficultyOrder.indexOf(this.currentDifficulty);
         
-        if (currentIndex < difficultyOrder.length - 1) {
+        if (currentIndex !== -1 && currentIndex < difficultyOrder.length - 1) {
             // 次の難易度がある場合
             const nextDifficulty = difficultyOrder[currentIndex + 1];
+            const difficultyNames = {
+                'easy': '初級',
+                'medium': '中級',
+                'hard': '上級',
+                'hiddeneasy': '裏初級',
+                'hiddenmedium': '裏中級',
+                'hiddenhard': '裏上級',
+                'extreme': '極悪'
+            };
+            
             if (nextBtn) {
                 nextBtn.style.display = 'block';
+                nextBtn.textContent = `次の難易度へ (${difficultyNames[nextDifficulty]})`;
                 nextBtn.onclick = () => {
                     this.currentDifficulty = nextDifficulty;
                     const select = document.getElementById('difficulty-select');
