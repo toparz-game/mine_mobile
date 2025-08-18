@@ -377,22 +377,34 @@ class MobileMinesweeper extends MinesweeperCore {
             }
         }, { passive: false });
         
-        // プルトゥリフレッシュを防止
-        document.addEventListener('touchstart', (e) => {
-            if (window.pageYOffset === 0) {
-                this.touchStartY = e.touches[0].clientY;
-            }
-        }, { passive: true });
+        // プルトゥリフレッシュを完全に防止
+        let lastTouchY = 0;
+        let preventPullToRefresh = false;
         
-        document.addEventListener('touchmove', (e) => {
-            if (window.pageYOffset === 0 && this.touchStartY !== undefined) {
-                const touchY = e.touches[0].clientY;
-                const touchDiff = touchY - this.touchStartY;
-                if (touchDiff > 0) {
-                    e.preventDefault();
-                }
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                lastTouchY = e.touches[0].clientY;
+                preventPullToRefresh = window.pageYOffset === 0;
             }
         }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+            if (preventPullToRefresh) {
+                const touchY = e.touches[0].clientY;
+                const touchDiff = touchY - lastTouchY;
+                
+                // 下にスクロールしようとしていて、かつページが一番上にある場合
+                if (touchDiff > 0 && window.pageYOffset === 0) {
+                    e.preventDefault();
+                }
+                
+                lastTouchY = touchY;
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchend', () => {
+            preventPullToRefresh = false;
+        });
         
         // ダブルタップズーム防止
         document.addEventListener('touchend', (e) => {
@@ -1177,6 +1189,10 @@ class MobileMinesweeper extends MinesweeperCore {
         const modal = document.getElementById('settings-modal');
         if (modal) {
             modal.classList.add('show');
+            // 背景のスクロールを無効化
+            document.body.style.overflow = 'hidden';
+            document.body.style.position = 'fixed';
+            document.body.style.width = '100%';
         }
     }
     
@@ -1184,6 +1200,10 @@ class MobileMinesweeper extends MinesweeperCore {
         const modal = document.getElementById('settings-modal');
         if (modal) {
             modal.classList.remove('show');
+            // 背景のスクロールを復活
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
         }
     }
     
