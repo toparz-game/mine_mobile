@@ -5,8 +5,21 @@ class CSPSolver {
     constructor(game) {
         this.game = game;
         this.probabilities = [];
-        this.maxConstraintSize = 40; // 完全探索の最大サイズ（パフォーマンスに注意）
-        this.warningThreshold = 25; // 警告を表示するセル数の閾値
+        this.maxConstraintSize = 60; // 完全探索の最大サイズを拡大
+        this.warningThreshold = 35; // 警告を表示するセル数の閾値
+        this.maxValidConfigs = 500000; // 有効な配置の最大数を増加
+        this.useWebWorker = typeof Worker !== 'undefined' && window.location.protocol !== 'file:';
+        this.worker = null;
+        
+        // WebWorkerの初期化
+        if (this.useWebWorker) {
+            try {
+                this.worker = new Worker('./modules/csp-worker.js');
+            } catch (e) {
+                console.log('WebWorker not available, using main thread');
+                this.useWebWorker = false;
+            }
+        }
     }
     
     // 各セルの地雷確率を計算
@@ -274,7 +287,7 @@ class CSPSolver {
         );
         
         // グループが大きすぎる場合の警告と処理
-        if (uncertainIndices.length > 30) {
+        if (uncertainIndices.length > 45) {
             console.warn(`Large uncertain group (${uncertainIndices.length} cells). Using optimized DFS...`);
             this.solveReducedGroupOptimized(uncertainGroup, uncertainConstraints, uncertainIndices, group);
             return;
@@ -458,10 +471,18 @@ class CSPSolver {
         const certainCount = fullGroup.length - originalIndices.length;
         const maxMinesInUncertain = Math.min(remainingMines, uncertainGroup.length);
         
+        // 制約の前処理: 各セルが関わる制約を事前計算
+        const cellConstraints = new Array(uncertainGroup.length).fill(null).map(() => []);
+        for (let i = 0; i < constraints.length; i++) {
+            for (const cellIdx of constraints[i].cells) {
+                cellConstraints[cellIdx].push(i);
+            }
+        }
+        
         const dfs = (index, minesUsed) => {
             // 上限チェック
-            if (validConfigurations.length > 100000) {
-                console.warn("Too many valid configurations found. Stopping early.");
+            if (validConfigurations.length > this.maxValidConfigs) {
+                console.warn(`Too many valid configurations found (${validConfigurations.length}). Stopping early.`);
                 return false;
             }
             
@@ -474,15 +495,37 @@ class CSPSolver {
             
             // 残り地雷数による枝刈り
             const remainingCells = uncertainGroup.length - index;
-            if (minesUsed + remainingCells < 0 || minesUsed > maxMinesInUncertain) {
+            if (minesUsed > maxMinesInUncertain) {
                 return true;
             }
             
+            // 早期制約チェック
+            let canBeEmpty = true;
+            let canBeMine = minesUsed < maxMinesInUncertain;
+            
+            for (const constraintIdx of cellConstraints[index]) {
+                const constraint = constraints[constraintIdx];
+                const currentMinesInConstraint = currentConfig.filter(i => constraint.cells.includes(i)).length;
+                const remainingCellsInConstraint = constraint.cells.filter(i => i > index).length;
+                
+                // このセルを空にした場合のチェック
+                if (currentMinesInConstraint + remainingCellsInConstraint < constraint.requiredMines) {
+                    canBeEmpty = false;
+                }
+                
+                // このセルを地雷にした場合のチェック
+                if (currentMinesInConstraint + 1 > constraint.requiredMines) {
+                    canBeMine = false;
+                }
+            }
+            
             // このセルに地雷を置かない場合
-            dfs(index + 1, minesUsed);
+            if (canBeEmpty) {
+                dfs(index + 1, minesUsed);
+            }
             
             // このセルに地雷を置く場合
-            if (minesUsed < maxMinesInUncertain) {
+            if (canBeMine) {
                 currentConfig.push(index);
                 dfs(index + 1, minesUsed + 1);
                 currentConfig.pop();
@@ -522,8 +565,8 @@ class CSPSolver {
         
         const dfs = (index, remainingMinesGlobal) => {
             // 上限チェック（メモリ保護）
-            if (validConfigurations.length > 100000) {
-                console.warn("Too many valid configurations found. Stopping early.");
+            if (validConfigurations.length > this.maxValidConfigs) {
+                console.warn(`Too many valid configurations found (${validConfigurations.length}). Stopping early.`);
                 return false;
             }
             
@@ -581,8 +624,19 @@ class CSPSolver {
     
     // 枝刈り用のヘルパー関数
     canPlaceEmpty(group, index, currentConfig, constraints) {
-        // 簡単な制約チェック
-        return true; // より詳細な実装は必要に応じて追加
+        // 制約チェック: このセルを空にした場合に制約違反が起きないか
+        for (const constraint of constraints) {
+            if (!constraint.cells.includes(index)) continue;
+            
+            const currentMinesInConstraint = currentConfig.filter(i => constraint.cells.includes(i)).length;
+            const remainingCellsInConstraint = constraint.cells.filter(i => i > index).length;
+            
+            // 残りのセルすべてを地雷にしても必要数に足りない場合
+            if (currentMinesInConstraint + remainingCellsInConstraint < constraint.requiredMines) {
+                return false;
+            }
+        }
+        return true;
     }
     
     canPlaceMine(group, index, currentConfig, constraints) {
