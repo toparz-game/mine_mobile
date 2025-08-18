@@ -368,6 +368,17 @@ class PCMinesweeper extends MinesweeperCore {
         if (resetBtn) {
             resetBtn.textContent = '😢';
         }
+        // ゲームオーバー時のみ地雷セルに赤い背景を適用
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                if (this.board[row][col] === -1 && this.revealed[row][col]) {
+                    const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                    if (cell) {
+                        cell.classList.add('mine-exploded');
+                    }
+                }
+            }
+        }
     }
     
     onGameWon() {
@@ -383,6 +394,7 @@ class PCMinesweeper extends MinesweeperCore {
                     if (cell) {
                         cell.classList.add('revealed');
                         cell.classList.add('mine');
+                        cell.classList.add('mine-won'); // 勝利時の地雷表示
                         cell.textContent = '💣';
                     }
                 }
@@ -587,6 +599,10 @@ class PCMinesweeper extends MinesweeperCore {
             if (this.board[row][col] === -1) {
                 cell.classList.add('mine');
                 cell.textContent = '💣';
+                // ゲームオーバー時のみ赤い背景を適用
+                if (this.gameOver) {
+                    cell.classList.add('mine-exploded');
+                }
             } else if (this.board[row][col] > 0) {
                 cell.textContent = this.board[row][col];
                 cell.setAttribute('data-count', this.board[row][col]);

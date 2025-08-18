@@ -275,7 +275,16 @@ body {
 }
 
 .cell.mine {
+    /* デフォルトでは背景なし */
+}
+
+.cell.mine-exploded {
+    /* ゲームオーバー時のみ赤い背景 */
     background: #ff4444;
+}
+
+.cell.mine-won {
+    /* 勝利時は赤い背景なし */
 }
 
 /* .cell.mine-won.revealed::after を削除 - JavaScriptで管理 */
