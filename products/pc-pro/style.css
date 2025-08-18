@@ -1199,79 +1199,31 @@ body.power-save-mode .control-btn.active {
     border-top: 1px solid var(--cell-border);
 }
 
-/* 補助モードスタイル */
-.assist-mode .cell.unrevealed:not(.flagged) {
-    transition: background-color 0.3s ease;
-}
-
-/* 補助モード - 安全 (0%) */
-.assist-mode .cell.assist-safe {
-    background: rgba(33, 150, 243, 0.2) !important;
-    border-color: #2196F3;
-}
-
-/* 補助モード - 低リスク (1-25%) */
-.assist-mode .cell.assist-low {
-    background: rgba(76, 175, 80, 0.2) !important;
-    border-color: #4CAF50;
-}
-
-/* 補助モード - 中リスク (26-50%) */
-.assist-mode .cell.assist-medium {
-    background: rgba(255, 152, 0, 0.2) !important;
-    border-color: #FF9800;
-}
-
-/* 補助モード - 高リスク (51-99%) */
-.assist-mode .cell.assist-high {
-    background: rgba(244, 67, 54, 0.2) !important;
-    border-color: #f44336;
-}
-
-/* 補助モード - 地雷確定 (100%) */
-.assist-mode .cell.assist-certain {
-    background: rgba(156, 39, 176, 0.3) !important;
-    border-color: #9C27B0;
-}
-
-/* 補助モード - 不明 */
-.assist-mode .cell.assist-unknown {
-    background: rgba(158, 158, 158, 0.1) !important;
-    border-color: #9E9E9E;
-}
 
 /* 補助表示パネル */
 .assist-display {
-    position: fixed;
-    top: 20px;
-    left: 20px;
+    position: absolute;
+    top: 10px;
+    left: calc(50% + 50px);
+    transform: translateX(0);
     background: var(--modal-content-bg);
-    padding: 15px;
+    padding: 10px 15px;
     border-radius: 10px;
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
     z-index: 100;
     display: none;
-    min-width: 200px;
+    min-width: 150px;
 }
 
 .assist-display.show {
     display: block;
 }
 
-.assist-title {
-    font-size: 14px;
-    font-weight: bold;
-    color: var(--theme-primary);
-    margin-bottom: 10px;
-    border-bottom: 1px solid var(--cell-border);
-    padding-bottom: 5px;
-}
-
 .assist-content {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px;
+    padding: 8px;
     border-radius: 5px;
     transition: background-color 0.3s ease;
 }

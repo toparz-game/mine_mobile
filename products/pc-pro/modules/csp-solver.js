@@ -30,8 +30,9 @@ class CSPSolver {
             for (let col = 0; col < cols; col++) {
                 if (this.game.revealed[row][col]) {
                     this.probabilities[row][col] = 0; // 開示済みは地雷確率0%
+                } else if (this.game.flagged[row][col]) {
+                    this.probabilities[row][col] = 100; // 旗は地雷確率100%として扱う
                 }
-                // 旗は無視して、後で計算する
             }
         }
         
@@ -87,8 +88,9 @@ class CSPSolver {
                             const newCol = col + dc;
                             
                             if (this.game.isValidCell(newRow, newCol) &&
-                                !this.game.revealed[newRow][newCol]) {
-                                // 旗が立っていても境界セルとして扱う
+                                !this.game.revealed[newRow][newCol] &&
+                                !this.game.flagged[newRow][newCol]) {
+                                // 旗が立っていないセルのみ境界セルとして扱う
                                 borderSet.add(`${newRow},${newCol}`);
                             }
                         }
@@ -103,13 +105,13 @@ class CSPSolver {
         });
     }
     
-    // 未開示のセルを取得（旗も含む）
+    // 未開示のセルを取得（旗は除く）
     getUnknownCells() {
         const cells = [];
         for (let row = 0; row < this.game.rows; row++) {
             for (let col = 0; col < this.game.cols; col++) {
-                if (!this.game.revealed[row][col]) {
-                    // 旗が立っていても未開示として扱う
+                if (!this.game.revealed[row][col] && !this.game.flagged[row][col]) {
+                    // 旗が立っていないセルのみを未開示として扱う
                     cells.push({ row, col });
                 }
             }
@@ -288,7 +290,7 @@ class CSPSolver {
             
             for (const constraint of constraints) {
                 const unknownInConstraint = [];
-                let minesInConstraint = 0; // 旗は無視
+                let minesInConstraint = 0; // 旗は既にrequiredMinesから引かれているので0から開始
                 
                 // この制約に関わるセルの状態を確認
                 for (const cellIdx of constraint.cells) {
@@ -354,7 +356,7 @@ class CSPSolver {
                 adjustedConstraints.push({
                     cells: newCells,
                     requiredMines: constraint.requiredMines - additionalMines,
-                    flaggedCount: constraint.flaggedCount,
+                    flaggedCount: 0, // 旗は既にrequiredMinesから引かれているので0にする
                     numberCell: constraint.numberCell
                 });
             }
@@ -557,7 +559,7 @@ class CSPSolver {
         for (const constraint of constraints) {
             if (constraint.cells.includes(index)) {
                 const currentMinesInConstraint = currentConfig.filter(i => constraint.cells.includes(i)).length;
-                if (currentMinesInConstraint + 1 > constraint.requiredMines - constraint.flaggedCount) {
+                if (currentMinesInConstraint + 1 > constraint.requiredMines) {
                     return false;
                 }
             }
@@ -622,7 +624,7 @@ class CSPSolver {
                 }
             }
             
-            // 旗を無視して純粋に地雷数をチェック
+            // 必要な地雷数をチェック（旗の数は既に引かれている）
             if (actualMines !== constraint.requiredMines) {
                 return false;
             }
@@ -673,8 +675,8 @@ class CSPSolver {
                     const newCol = col + dc;
                     
                     if (this.game.isValidCell(newRow, newCol)) {
-                        if (!this.game.revealed[newRow][newCol]) {
-                            // グループ内のセルかチェック（旗も含む）
+                        if (!this.game.revealed[newRow][newCol] && !this.game.flagged[newRow][newCol]) {
+                            // グループ内のセルかチェック（旗は除く）
                             const cellKey = `${newRow},${newCol}`;
                             if (groupCellSet.has(cellKey)) {
                                 const index = group.findIndex(c => c.row === newRow && c.col === newCol);
@@ -688,10 +690,11 @@ class CSPSolver {
             }
             
             if (affectedCells.length > 0) {
+                const flaggedCount = this.countFlaggedNeighbors(row, col);
                 constraints.push({
                     cells: affectedCells,
-                    requiredMines: value, // 旗を無視した本来の地雷数
-                    flaggedCount: 0, // 旗は無視
+                    requiredMines: value - flaggedCount, // 旗の数を引いた必要地雷数
+                    flaggedCount: flaggedCount,
                     numberCell: { row, col, value }
                 });
             }
@@ -750,13 +753,20 @@ class CSPSolver {
         // 代わりに-2でマークして、全体確率を別途表示
     }
     
-    // 旗の数をカウント（全体の地雷数計算では使わない）
+    // 旗の数をカウント
     countFlags() {
-        // 旗を無視するため、常に0を返す
-        return 0;
+        let count = 0;
+        for (let row = 0; row < this.game.rows; row++) {
+            for (let col = 0; col < this.game.cols; col++) {
+                if (this.game.flagged[row][col]) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
     
-    // 未開示の隣接セル数をカウント（旗も含む）
+    // 未開示の隣接セル数をカウント（旗は除く）
     countUnknownNeighbors(row, col) {
         let count = 0;
         for (let dr = -1; dr <= 1; dr++) {
@@ -766,8 +776,9 @@ class CSPSolver {
                 const newCol = col + dc;
                 
                 if (this.game.isValidCell(newRow, newCol) &&
-                    !this.game.revealed[newRow][newCol]) {
-                    // 旗が立っていても未開示として数える
+                    !this.game.revealed[newRow][newCol] &&
+                    !this.game.flagged[newRow][newCol]) {
+                    // 旗が立っていないセルのみを未開示として数える
                     count++;
                 }
             }
@@ -775,9 +786,21 @@ class CSPSolver {
         return count;
     }
     
-    // 旗付きの隣接セル数をカウント（旗を無視するため使わない）
+    // 旗付きの隣接セル数をカウント
     countFlaggedNeighbors(row, col) {
-        // 旗を無視するため、常に0を返す
-        return 0;
+        let count = 0;
+        for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                const newRow = row + dr;
+                const newCol = col + dc;
+                
+                if (this.game.isValidCell(newRow, newCol) &&
+                    this.game.flagged[newRow][newCol]) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 }

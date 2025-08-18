@@ -872,28 +872,7 @@ class PCProMinesweeper extends PCMinesweeper {
             assistClass = 'assist-certain';
         }
         
-        // すべてのセルに補助クラスを適用
-        for (let row = 0; row < this.rows; row++) {
-            for (let col = 0; col < this.cols; col++) {
-                const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-                if (!cell) continue;
-                
-                // 既存の補助クラスを削除
-                cell.classList.remove('assist-safe', 'assist-low', 
-                                    'assist-medium', 'assist-high', 'assist-certain',
-                                    'assist-unknown');
-                
-                // 開示済みまたは旗付きのセルはスキップ
-                if (this.revealed[row][col] || this.flagged[row][col]) {
-                    continue;
-                }
-                
-                // 補助クラスを追加
-                cell.classList.add(assistClass);
-            }
-        }
-        
-        // 補助情報表示
+        // 補助情報表示のみ（セルへのクラス適用は削除）
         this.updateAssistDisplay(minProbability, assistClass);
     }
     
@@ -929,7 +908,6 @@ class PCProMinesweeper extends PCMinesweeper {
         }
         
         display.innerHTML = `
-            <div class="assist-title">補助モード</div>
             <div class="assist-content ${assistClass}">
                 <span class="assist-icon">${statusIcon}</span>
                 <span class="assist-text">${statusText}</span>
@@ -939,14 +917,6 @@ class PCProMinesweeper extends PCMinesweeper {
     }
     
     clearAssistDisplay() {
-        // セルから補助クラスを削除
-        const cells = document.querySelectorAll('.cell');
-        cells.forEach(cell => {
-            cell.classList.remove('assist-safe', 'assist-low', 
-                                'assist-medium', 'assist-high', 'assist-certain',
-                                'assist-unknown');
-        });
-        
         // 補助表示を非表示
         const display = document.querySelector('.assist-display');
         if (display) {
@@ -1136,8 +1106,10 @@ class PCProMinesweeper extends PCMinesweeper {
     toggleFlag(row, col) {
         super.toggleFlag(row, col);
         
-        // 旗を立てた時は確率を再計算しない（パフォーマンス最適化）
-        // マスを開けた時のみ再計算する
+        // 旗を立てた/外した時に確率を再計算
+        if (this.probabilityMode && this.cspSolver && !this.isRevealing) {
+            this.updateProbabilities();
+        }
     }
 }
 
