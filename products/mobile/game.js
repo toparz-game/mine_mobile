@@ -23,6 +23,7 @@ class MobileMinesweeper extends MinesweeperCore {
         this.isLongPress = false;
         this.isPinching = false;
         this.touchCount = 0;
+        this.multiTouchDetected = false;
         this.zoomLevel = 1.0;
         this.minZoom = 0.3;
         this.maxZoom = 3.0;
@@ -359,12 +360,22 @@ class MobileMinesweeper extends MinesweeperCore {
             });
         }
         
-        // ゲームボードのピンチイベントを防止
+        // ゲームボードのピンチイベントを防止と複数タッチ検出
         const gameBoard = document.getElementById('game-board');
         if (gameBoard) {
             gameBoard.addEventListener('touchstart', (e) => {
                 if (e.touches.length > 1) {
                     e.preventDefault();
+                    this.multiTouchDetected = true;
+                }
+            }, { passive: false });
+            
+            gameBoard.addEventListener('touchend', (e) => {
+                if (e.touches.length === 0) {
+                    // すべての指が離れたらリセット
+                    setTimeout(() => {
+                        this.multiTouchDetected = false;
+                    }, 100);
                 }
             }, { passive: false });
         }
@@ -528,6 +539,12 @@ class MobileMinesweeper extends MinesweeperCore {
             let hasMoved = false;
             
             gameBoard.addEventListener('touchstart', (e) => {
+                // 2本指以上のタッチは無視
+                if (e.touches.length > 1) {
+                    hasMoved = true;
+                    return;
+                }
+                
                 if (e.target.classList && e.target.classList.contains('cell') && e.touches.length === 1) {
                     cellTouchStartX = e.touches[0].clientX;
                     cellTouchStartY = e.touches[0].clientY;
@@ -539,6 +556,13 @@ class MobileMinesweeper extends MinesweeperCore {
             }, { passive: true });
             
             gameBoard.addEventListener('touchmove', (e) => {
+                // 2本指以上のタッチは無視
+                if (e.touches.length > 1) {
+                    hasMoved = true;
+                    isDraggingFromCell = false;
+                    return;
+                }
+                
                 if (e.target.classList && e.target.classList.contains('cell') && e.touches.length === 1) {
                     const touch = e.touches[0];
                     const deltaX = touch.clientX - cellTouchStartX;
@@ -667,13 +691,22 @@ class MobileMinesweeper extends MinesweeperCore {
             cell.addEventListener('touchstart', (e) => {
                 if (this.gameOver) return;
                 
+                // 2本指以上のタッチは無視
+                if (e.touches.length > 1 || this.multiTouchDetected) {
+                    clearTimeout(touchTimer);
+                    return;
+                }
+                
+                // 長押しによるiOSの拡大鏡などを防止
+                e.preventDefault();
+                
                 touchStartX = e.touches[0].clientX;
                 touchStartY = e.touches[0].clientY;
                 hasMoved = false;
                 
                 // 長押し検出用タイマー
                 touchTimer = setTimeout(() => {
-                    if (!hasMoved && !this.gameOver) {
+                    if (!hasMoved && !this.gameOver && !this.revealed[row][col]) {
                         const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
                         if (this.flagged[row][col] || this.questioned[row][col]) {
                             // 旗または?がある場合は消去
@@ -710,10 +743,17 @@ class MobileMinesweeper extends MinesweeperCore {
                         this.isLongPress = true;
                     }
                 }, 200);
-            }, { passive: true });
+            }, { passive: false });
             
             // タッチ移動
             cell.addEventListener('touchmove', (e) => {
+                // 2本指以上のタッチは無視
+                if (e.touches.length > 1) {
+                    hasMoved = true;
+                    clearTimeout(touchTimer);
+                    return;
+                }
+                
                 const moveX = e.touches[0].clientX;
                 const moveY = e.touches[0].clientY;
                 const distance = Math.sqrt(
@@ -730,6 +770,12 @@ class MobileMinesweeper extends MinesweeperCore {
             // タッチ終了
             cell.addEventListener('touchend', (e) => {
                 clearTimeout(touchTimer);
+                
+                // 複数タッチが検出された場合は何もしない
+                if (e.touches.length > 0) {
+                    this.isLongPress = false;
+                    return;
+                }
                 
                 if (this.isLongPress) {
                     this.isLongPress = false;
@@ -919,6 +965,9 @@ class MobileMinesweeper extends MinesweeperCore {
     }
     
     toggleFlag(row, col) {
+        // 既に開いているマスには何もしない
+        if (this.revealed[row][col]) return;
+        
         const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
         
         if (this.flagged[row][col]) {

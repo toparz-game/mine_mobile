@@ -257,6 +257,11 @@ body {
     width: 35px;
     height: 35px;
     font-size: 14px;
+    /* 長押し時のブラウザ機能を無効化 */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
 }
 
 .cell:active:not(.revealed):not(.flagged) {
