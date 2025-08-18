@@ -802,6 +802,35 @@ class PCProMinesweeper extends PCMinesweeper {
         // 確率表示をクリア
         this.clearProbabilityDisplay();
         
+        // 補助表示をクリア  
+        this.clearAssistDisplay();
+        
+        // 補助モードをオフにする
+        if (this.assistMode) {
+            this.assistMode = false;
+            const btn = document.getElementById('assist-btn');
+            if (btn) {
+                btn.classList.remove('active');
+            }
+            const boardElement = document.getElementById('game-board');
+            if (boardElement) {
+                boardElement.classList.remove('assist-mode');
+            }
+        }
+        
+        // 確率モードをオフにする
+        if (this.probabilityMode) {
+            this.probabilityMode = false;
+            const btn = document.getElementById('probability-btn');
+            if (btn) {
+                btn.classList.remove('active');
+            }
+            const boardElement = document.getElementById('game-board');
+            if (boardElement) {
+                boardElement.classList.remove('probability-mode');
+            }
+        }
+        
         // 録画開始
         this.startRecording();
         
@@ -936,13 +965,20 @@ class PCProMinesweeper extends PCMinesweeper {
         if (!display) {
             display = document.createElement('div');
             display.className = 'assist-display';
-            document.body.appendChild(display);
+            const container = document.querySelector('.assist-display-container');
+            if (container) {
+                container.appendChild(display);
+            } else {
+                document.body.appendChild(display);
+            }
         }
         
         let statusText = '';
         
         if (minProbability === 101) {
-            statusText = '計算中...';
+            // 確率が計算できない場合は表示しない
+            display.classList.remove('show');
+            return;
         } else {
             statusText = `${minProbability}%`;
             // 盤面上に100%のセルがある場合は💣を追加

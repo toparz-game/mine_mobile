@@ -120,6 +120,12 @@ body {
     padding: 5px 12px;
 }
 
+.center-group {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
 .info-item-group {
     display: flex;
     gap: 12px;
@@ -1226,17 +1232,24 @@ body.power-save-mode .control-btn.active {
 
 /* 補助表示パネル */
 .assist-display {
-    position: absolute;
-    top: 17px;
-    left: calc(50% - 140px);
-    transform: translateX(-100%);
     background: var(--modal-content-bg);
-    padding: 10px 15px;
+    padding: 8px 12px;
     border-radius: 10px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
     z-index: 100;
     display: none;
-    min-width: 90px;
+    min-width: 70px;
+}
+
+.assist-display-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 40px;
+}
+
+.assist-display-container .assist-display {
+    position: static;
 }
 
 .assist-display.show {
@@ -1246,8 +1259,9 @@ body.power-save-mode .control-btn.active {
 .assist-content {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px;
+    justify-content: center;
+    gap: 5px;
+    padding: 4px;
     border-radius: 5px;
     transition: background-color 0.3s ease;
 }
