@@ -477,9 +477,9 @@ class MobileMinesweeper extends MinesweeperCore {
         });
         
         // ダブルタップズーム防止（ゲームボード内のみ）
-        const gameBoard = document.getElementById('game-board');
-        if (gameBoard) {
-            gameBoard.addEventListener('touchend', (e) => {
+        const gameBoardElement = document.getElementById('game-board');
+        if (gameBoardElement) {
+            gameBoardElement.addEventListener('touchend', (e) => {
                 const now = new Date().getTime();
                 if (now - this.lastTapTime < 500) {
                     e.preventDefault();
@@ -697,10 +697,6 @@ class MobileMinesweeper extends MinesweeperCore {
     
     renderBoard() {
         const boardElement = document.getElementById('game-board');
-        if (!boardElement) {
-            console.error('renderBoard: game-board element not found!');
-            return;
-        }
         boardElement.innerHTML = '';
         boardElement.style.gridTemplateColumns = `repeat(${this.cols}, 1fr)`;
         
