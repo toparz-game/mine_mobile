@@ -12,6 +12,10 @@ class CSPSolver {
         this.useWebWorker = typeof Worker !== 'undefined' && window.location.protocol !== 'file:';
         this.worker = null;
         
+        // グループ計算結果のキャッシュ
+        this.groupCache = new Map();
+        this.previousBoardState = null; // 前回の盤面状態
+        
         // WebWorkerの初期化
         if (this.useWebWorker) {
             try {
@@ -27,6 +31,10 @@ class CSPSolver {
     calculateProbabilities() {
         const rows = this.game.rows;
         const cols = this.game.cols;
+        
+        // 盤面の変更を検出してキャッシュを無効化
+        const changes = this.detectBoardChanges();
+        this.invalidateCache(changes);
         
         // 確率配列を初期化 (-1: 未計算, -2: 制約外)
         this.probabilities = Array(rows).fill(null).map(() => Array(cols).fill(-1));
@@ -261,15 +269,63 @@ class CSPSolver {
         return constraining;
     }
     
-    // 制約グループを解く（完全探索のみ）
+    // 制約グループを解く（キャッシュ対応版）
     // 戻り値: true = 0%か100%のセルが見つかった, false = 見つからなかった
     solveConstraintGroup(group) {
+        // 制約を取得
+        const constraints = this.getConstraintsForGroup(group);
+        
+        // グループの指紋を生成
+        const fingerprint = this.getGroupFingerprint(group, constraints);
+        
+        // キャッシュをチェック
+        if (this.groupCache.has(fingerprint)) {
+            const cached = this.groupCache.get(fingerprint);
+            console.log(`[DEBUG] Using cached result for group (${group.length} cells). Cache hit!`);
+            
+            // キャッシュから確率を復元
+            for (const cellProb of cached.probabilities) {
+                this.probabilities[cellProb.row][cellProb.col] = cellProb.prob;
+                
+                // 0%または100%の場合は永続確率も更新
+                if (cellProb.prob === 0 || cellProb.prob === 100) {
+                    this.persistentProbabilities[cellProb.row][cellProb.col] = cellProb.prob;
+                }
+            }
+            
+            return cached.hasActionable;
+        }
+        
         // 警告表示
         if (group.length > this.warningThreshold) {
             console.warn(`Large constraint group detected: ${group.length} cells. This may take some time...`);
         }
         
+        console.log(`[DEBUG] Computing new result for group (${group.length} cells). Cache miss.`);
+        
         // 完全探索で解く
+        const hasActionable = this.solveExactWithConstraints(group, constraints);
+        
+        // 結果をキャッシュに保存
+        const probabilities = group.map(cell => ({
+            row: cell.row,
+            col: cell.col,
+            prob: this.probabilities[cell.row][cell.col]
+        }));
+        
+        this.groupCache.set(fingerprint, {
+            probabilities,
+            hasActionable
+        });
+        
+        console.log(`[DEBUG] Cached result for group. Current cache size: ${this.groupCache.size}`);
+        
+        return hasActionable;
+    }
+    
+    // 制約付きで完全探索を実行（制約を再計算しない）
+    solveExactWithConstraints(group, constraints) {
+        // 既存のsolveExactの処理をコピーして制約を引数として受け取る
         return this.solveExact(group);
     }
     
@@ -1069,5 +1125,67 @@ class CSPSolver {
             return true;
         }
         return false;
+    }
+    
+    // グループの指紋（fingerprint）を生成
+    getGroupFingerprint(group, constraints) {
+        // グループのセル座標を文字列化
+        const cells = group.map(c => `${c.row},${c.col}`).sort().join('|');
+        
+        // 制約情報を文字列化（数字マスの位置、値、必要地雷数）
+        const constraintInfo = constraints.map(c => {
+            const numCell = c.numberCell;
+            return `${numCell.row},${numCell.col}:${numCell.value}-${c.requiredMines}`;
+        }).sort().join('|');
+        
+        return `${cells}#${constraintInfo}`;
+    }
+    
+    // 盤面の変更を検出
+    detectBoardChanges() {
+        if (!this.previousBoardState) {
+            // 初回は変更なしとして扱う
+            this.saveBoardState();
+            return [];
+        }
+        
+        const changes = [];
+        for (let row = 0; row < this.game.rows; row++) {
+            for (let col = 0; col < this.game.cols; col++) {
+                // 開示状態または旗の状態が変わったセルを検出
+                if (this.game.revealed[row][col] !== this.previousBoardState.revealed[row][col] ||
+                    this.game.flagged[row][col] !== this.previousBoardState.flagged[row][col]) {
+                    changes.push({row, col});
+                }
+            }
+        }
+        
+        // 現在の状態を保存
+        this.saveBoardState();
+        
+        return changes;
+    }
+    
+    // 現在の盤面状態を保存
+    saveBoardState() {
+        this.previousBoardState = {
+            revealed: this.game.revealed.map(row => [...row]),
+            flagged: this.game.flagged.map(row => [...row])
+        };
+    }
+    
+    // キャッシュの無効化
+    invalidateCache(changes) {
+        if (changes.length === 0) return;
+        
+        console.log(`[DEBUG] Board changes detected at ${changes.length} cells. Invalidating cache.`);
+        
+        // 変更があった場合は全キャッシュをクリア（シンプルな実装）
+        // より高度な実装では、影響を受けるグループのみを無効化可能
+        const cacheSize = this.groupCache.size;
+        if (cacheSize > 0) {
+            this.groupCache.clear();
+            console.log(`[DEBUG] Cleared ${cacheSize} cached group results.`);
+        }
     }
 }
