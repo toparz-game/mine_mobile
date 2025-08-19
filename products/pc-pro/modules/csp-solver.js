@@ -66,13 +66,38 @@ class CSPSolver {
         // 制約グループに分割
         const constraintGroups = this.partitionIntoConstraintGroups(borderCells);
         
-        // 各グループごとに確率を計算
-        for (const group of constraintGroups) {
-            if (group.length <= this.maxConstraintSize) {
-                this.solveConstraintGroup(group);
-            } else {
-                // グループが大きすぎる場合は近似計算
-                this.approximateConstraintGroup(group);
+        // 既に盤面上に0%または100%のセルがあるかチェック
+        const hasExistingActionableCell = this.checkForExistingActionableCells();
+        if (hasExistingActionableCell) {
+            console.log('Existing actionable cells (0% or 100%) found on board. Skipping probability calculation.');
+            // 制約グループのセルを-2（制約外）としてマーク
+            for (const group of constraintGroups) {
+                for (const cell of group) {
+                    if (this.probabilities[cell.row][cell.col] === -1) {
+                        this.probabilities[cell.row][cell.col] = -2;
+                    }
+                }
+            }
+        } else {
+            // 各グループごとに確率を計算
+            for (const group of constraintGroups) {
+                if (group.length <= this.maxConstraintSize) {
+                    const hasActionableCell = this.solveConstraintGroup(group);
+                    // 制約伝播で0%か100%のセルが見つかった場合、他のグループの処理をスキップ
+                    if (hasActionableCell) {
+                        console.log('New actionable cell found (0% or 100%). Skipping remaining groups.');
+                        break;
+                    }
+                } else {
+                    // グループが大きすぎる場合は処理をスキップ
+                    console.log(`Group too large (${group.length} cells > ${this.maxConstraintSize}). Skipping calculation.`);
+                    // このグループのセルを-2（制約外）としてマーク
+                    for (const cell of group) {
+                        if (this.probabilities[cell.row][cell.col] === -1) {
+                            this.probabilities[cell.row][cell.col] = -2;
+                        }
+                    }
+                }
             }
         }
         
@@ -203,6 +228,7 @@ class CSPSolver {
     }
     
     // 制約グループを解く（完全探索のみ）
+    // 戻り値: true = 0%か100%のセルが見つかった, false = 見つからなかった
     solveConstraintGroup(group) {
         // 警告表示
         if (group.length > this.warningThreshold) {
@@ -210,10 +236,11 @@ class CSPSolver {
         }
         
         // 完全探索で解く
-        this.solveExact(group);
+        return this.solveExact(group);
     }
     
     // 完全探索による確率計算（最適化版）
+    // 戻り値: true = 0%か100%のセルが見つかった, false = 見つからなかった
     solveExact(group) {
         // まず簡単なケースを処理
         const simpleSolution = this.trySolveSingleConstraint(group);
@@ -260,6 +287,20 @@ class CSPSolver {
             this.probabilities[group[cellIdx].row][group[cellIdx].col] = 0;
         }
         
+        // 0%か100%のセルが1つでも見つかった場合、後続処理をスキップ
+        if (determinedCells.certain.length > 0 || determinedCells.safe.length > 0) {
+            console.log(`Found ${determinedCells.certain.length} mines and ${determinedCells.safe.length} safe cells. Stopping further calculation.`);
+            // 残りの不確定セルを-2（制約外）としてマーク
+            for (let i = 0; i < group.length; i++) {
+                if (!determinedCells.certain.includes(i) && !determinedCells.safe.includes(i)) {
+                    if (this.probabilities[group[i].row][group[i].col] === -1) {
+                        this.probabilities[group[i].row][group[i].col] = -2;
+                    }
+                }
+            }
+            return true; // アクション可能なセルが見つかった
+        }
+        
         // STEP 2: 確定していないセルだけを完全探索
         const uncertainIndices = [];
         for (let i = 0; i < group.length; i++) {
@@ -270,7 +311,7 @@ class CSPSolver {
         
         if (uncertainIndices.length === 0) {
             // すべて確定した
-            return;
+            return false; // すでに上で処理済みなのでfalseを返す
         }
         
         // デバッグ情報（大きなグループの場合のみ）
@@ -286,15 +327,21 @@ class CSPSolver {
             determinedCells.certain
         );
         
-        // グループが大きすぎる場合の警告と処理
-        if (uncertainIndices.length > 45) {
-            console.warn(`Large uncertain group (${uncertainIndices.length} cells). Using optimized DFS...`);
-            this.solveReducedGroupOptimized(uncertainGroup, uncertainConstraints, uncertainIndices, group);
-            return;
+        // グループが大きすぎる場合は処理をスキップ（20セル以上）
+        if (uncertainIndices.length > 20) {
+            console.warn(`Uncertain group too large (${uncertainIndices.length} cells > 20). Skipping calculation.`);
+            // これらのセルを-2（制約外）としてマーク
+            for (const idx of uncertainIndices) {
+                if (this.probabilities[group[idx].row][group[idx].col] === -1) {
+                    this.probabilities[group[idx].row][group[idx].col] = -2;
+                }
+            }
+            return false;
         }
         
         // 不確定なセルのみで完全探索
         this.solveReducedGroup(uncertainGroup, uncertainConstraints, uncertainIndices, group);
+        return false; // 完全探索では0%/100%は既に処理済み
     }
     
     // 制約伝播で確定できるセルを見つける
@@ -462,6 +509,8 @@ class CSPSolver {
     }
     
     // 縮小されたグループの最適化版
+    // 処理軽減のため一時的にコメントアウト（必要に応じて復活可能）
+    /*
     solveReducedGroupOptimized(uncertainGroup, constraints, originalIndices, fullGroup) {
         // 枝刈りを使った深さ優先探索
         const validConfigurations = [];
@@ -556,8 +605,11 @@ class CSPSolver {
             }
         }
     }
+    */
     
     // 最適化された完全探索（巨大グループ用）
+    // 処理軽減のため一時的にコメントアウト（必要に応じて復活可能）
+    /*
     solveExactOptimized(group, constraints) {
         // 枝刈りを使った深さ優先探索
         const validConfigurations = [];
@@ -621,8 +673,11 @@ class CSPSolver {
             }
         }
     }
+    */
     
     // 枝刈り用のヘルパー関数
+    // 処理軽減のため一時的にコメントアウト（必要に応じて復活可能）
+    /*
     canPlaceEmpty(group, index, currentConfig, constraints) {
         // 制約チェック: このセルを空にした場合に制約違反が起きないか
         for (const constraint of constraints) {
@@ -651,6 +706,7 @@ class CSPSolver {
         }
         return true;
     }
+    */
     
     // 単一制約の簡単なケースを処理
     trySolveSingleConstraint(group) {
@@ -904,5 +960,22 @@ class CSPSolver {
             }
         }
         return count;
+    }
+    
+    // 既に盤面上に0%または100%のセルが存在するかチェック
+    checkForExistingActionableCells() {
+        for (let row = 0; row < this.game.rows; row++) {
+            for (let col = 0; col < this.game.cols; col++) {
+                // 未開示かつ旗が立っていないセルのみチェック
+                if (!this.game.revealed[row][col] && !this.game.flagged[row][col]) {
+                    const prob = this.probabilities[row][col];
+                    // 0%または100%のセルが存在する場合
+                    if (prob === 0 || prob === 100) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 }
