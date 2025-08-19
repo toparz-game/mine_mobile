@@ -1160,26 +1160,91 @@ class PCProMinesweeper extends PCMinesweeper {
             return;
         }
         
-        // 再帰的な開示処理中は確率計算を延期
-        const wasRevealing = this.isRevealing;
+        // 再帰的な開示処理中またはchord操作中は確率計算を延期
+        const wasRevealing = this.isRevealing || this.isChording;
         if (!wasRevealing) {
             this.isRevealing = true;
+            this.revealedCellsCount = 0;  // 開いたセル数をカウント
         }
         
         const wasRevealed = this.revealed[row][col];
+        const previousBoard = this.board[row][col];
         super.revealCell(row, col);
         
-        // 最初の呼び出しの場合、かつ実際に新しいセルが開いた場合のみ確率を再計算
-        if (!wasRevealing && !wasRevealed && this.revealed[row][col]) {
+        // 新しくセルが開いた場合
+        if (!wasRevealed && this.revealed[row][col]) {
+            this.revealedCellsCount++;
+        }
+        
+        // 最初の呼び出しの場合のみ確率を再計算
+        if (!wasRevealing && !this.isChording) {
             this.isRevealing = false;
-            if (this.probabilityMode) {
-                this.calculateAndDisplayProbabilities();
+            
+            // 大きく開けた場合（0マスから連鎖して5マス以上開いた）は計算をスキップ
+            const isLargeReveal = previousBoard === 0 && this.revealedCellsCount >= 5;
+            
+            if (!isLargeReveal) {
+                if (this.probabilityMode) {
+                    this.calculateAndDisplayProbabilities();
+                }
+                if (this.assistMode) {
+                    this.calculateAndDisplayAssist();
+                }
             }
-            if (this.assistMode) {
-                this.calculateAndDisplayAssist();
+            
+            this.revealedCellsCount = 0;  // カウントをリセット
+        }
+    }
+    
+    // ダブルクリックで周囲のマスを開く（コード操作）
+    chordReveal(row, col) {
+        if (!this.revealed[row][col]) return;
+        
+        const mineCount = this.board[row][col];
+        if (mineCount === 0) return;
+        
+        let flagCount = 0;
+        for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+                const newRow = row + dr;
+                const newCol = col + dc;
+                if (this.isValidCell(newRow, newCol) && this.flagged[newRow][newCol]) {
+                    flagCount++;
+                }
             }
-        } else if (!wasRevealing) {
-            this.isRevealing = false;
+        }
+        
+        if (flagCount === mineCount) {
+            // コード操作開始
+            this.isChording = true;
+            this.revealedCellsCount = 0;
+            
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    const newRow = row + dr;
+                    const newCol = col + dc;
+                    if (this.isValidCell(newRow, newCol) && 
+                        !this.flagged[newRow][newCol] && 
+                        !this.revealed[newRow][newCol]) {
+                        this.revealCell(newRow, newCol);
+                    }
+                }
+            }
+            
+            // コード操作終了、一度だけ計算
+            this.isChording = false;
+            
+            // 実際にセルが開いた場合のみ計算
+            if (this.revealedCellsCount > 0) {
+                if (this.probabilityMode) {
+                    this.calculateAndDisplayProbabilities();
+                }
+                if (this.assistMode) {
+                    this.calculateAndDisplayAssist();
+                }
+            }
+            
+            this.revealedCellsCount = 0;
         }
     }
     
