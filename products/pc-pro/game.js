@@ -805,6 +805,12 @@ class PCProMinesweeper extends PCMinesweeper {
         // 補助表示をクリア  
         this.clearAssistDisplay();
         
+        // CSPソルバーの永続確率をクリア
+        if (this.cspSolver) {
+            this.cspSolver.persistentProbabilities = [];
+            console.log('[DEBUG] Cleared persistent probabilities on game reset');
+        }
+        
         // 補助モードをオフにする
         if (this.assistMode) {
             this.assistMode = false;

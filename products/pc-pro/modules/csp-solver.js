@@ -45,20 +45,30 @@ class CSPSolver {
             : 0;
         
         // 既に開示されたセルの確率を設定（旗は無視）
+        let restoredCount = 0;
         for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
                 if (this.game.revealed[row][col]) {
                     this.probabilities[row][col] = 0; // 開示済みは地雷確率0%
+                    if (this.persistentProbabilities[row][col] === 0 || this.persistentProbabilities[row][col] === 100) {
+                        console.log(`[DEBUG] Clearing persistent probability for revealed cell (${row},${col}): was ${this.persistentProbabilities[row][col]}`);
+                    }
                     this.persistentProbabilities[row][col] = -1; // 開示済みセルの永続確率をクリア
                 } else if (this.game.flagged[row][col]) {
                     this.probabilities[row][col] = 100; // 旗は地雷確率100%として扱う
+                    if (this.persistentProbabilities[row][col] === 0 || this.persistentProbabilities[row][col] === 100) {
+                        console.log(`[DEBUG] Clearing persistent probability for flagged cell (${row},${col}): was ${this.persistentProbabilities[row][col]}`);
+                    }
                     this.persistentProbabilities[row][col] = -1; // 旗付きセルの永続確率をクリア
                 } else if (this.persistentProbabilities[row][col] === 0 || this.persistentProbabilities[row][col] === 100) {
                     // 永続的に保存された0%または100%の確率を復元
                     this.probabilities[row][col] = this.persistentProbabilities[row][col];
+                    restoredCount++;
+                    console.log(`[DEBUG] Restored persistent probability (${row},${col}): ${this.persistentProbabilities[row][col]}%`);
                 }
             }
         }
+        console.log(`[DEBUG] Total restored persistent probabilities: ${restoredCount}`);
         
         // 開示されていない境界セルを収集
         const borderCells = this.getBorderCells();
@@ -79,8 +89,9 @@ class CSPSolver {
         
         // 既に盤面上に0%または100%のセルがあるかチェック
         const hasExistingActionableCell = this.checkForExistingActionableCells();
+        console.log(`[DEBUG] checkForExistingActionableCells result: ${hasExistingActionableCell}`);
         if (hasExistingActionableCell) {
-            console.log('Existing actionable cells (0% or 100%) found on board. Skipping probability calculation.');
+            console.log('[DEBUG] Existing actionable cells (0% or 100%) found on board. Skipping probability calculation.');
             // 制約グループのセルを-2（制約外）としてマーク
             for (const group of constraintGroups) {
                 for (const cell of group) {
@@ -90,6 +101,7 @@ class CSPSolver {
                 }
             }
         } else {
+            console.log('[DEBUG] No existing actionable cells. Proceeding with probability calculation.');
             // 各グループごとに確率を計算
             let foundActionableCell = false;
             for (const group of constraintGroups) {
@@ -1020,6 +1032,7 @@ class CSPSolver {
     
     // 既に盤面上に0%または100%のセルが存在するかチェック
     checkForExistingActionableCells() {
+        let foundCells = [];
         for (let row = 0; row < this.game.rows; row++) {
             for (let col = 0; col < this.game.cols; col++) {
                 // 未開示かつ旗が立っていないセルのみチェック
@@ -1029,10 +1042,14 @@ class CSPSolver {
                     const prob = this.probabilities[row][col];
                     // 0%または100%のセルが存在する場合
                     if (prob === 0 || prob === 100) {
-                        return true;
+                        foundCells.push(`(${row},${col}): ${prob}%`);
                     }
                 }
             }
+        }
+        if (foundCells.length > 0) {
+            console.log(`[DEBUG] Found existing actionable cells: ${foundCells.join(', ')}`);
+            return true;
         }
         return false;
     }
