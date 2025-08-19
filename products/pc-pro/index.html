@@ -154,6 +154,14 @@
                         </button>
                         <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;">スワイプ操作を反転します</p>
                     </div>
+                    <div class="settings-section">
+                        <h3>完全探索上限マス数（デバッグ用）</h3>
+                        <div class="settings-controls">
+                            <input type="range" id="max-constraint-size" min="5" max="50" value="20" step="5">
+                            <span id="max-constraint-size-display" class="settings-value">20マス</span>
+                        </div>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;">確率計算の完全探索を行う最大セル数（大きいほど正確だが処理が重い）</p>
+                    </div>
                 </div>
             </div>
         </div>

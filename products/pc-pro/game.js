@@ -60,6 +60,7 @@ class PCProMinesweeper extends PCMinesweeper {
         this.setupProEventListeners();
         this.initSounds();
         this.initCSPSolver();
+        this.setupMaxConstraintSizeControl();
     }
     
     setupProEventListeners() {
@@ -848,6 +849,46 @@ class PCProMinesweeper extends PCMinesweeper {
     initCSPSolver() {
         if (typeof CSPSolver !== 'undefined') {
             this.cspSolver = new CSPSolver(this);
+            
+            // 保存された上限値を適用
+            const savedMaxSize = localStorage.getItem('maxConstraintSize');
+            if (savedMaxSize) {
+                this.cspSolver.maxConstraintSize = parseInt(savedMaxSize);
+                console.log(`[DEBUG] CSP Solver initialized with max constraint size: ${savedMaxSize}`);
+            }
+        }
+    }
+    
+    // 完全探索上限マス数の設定コントロール
+    setupMaxConstraintSizeControl() {
+        const slider = document.getElementById('max-constraint-size');
+        const display = document.getElementById('max-constraint-size-display');
+        
+        if (slider && display) {
+            // 保存された値を読み込み
+            const savedValue = localStorage.getItem('maxConstraintSize');
+            if (savedValue) {
+                slider.value = savedValue;
+                display.textContent = `${savedValue}マス`;
+                if (this.cspSolver) {
+                    this.cspSolver.maxConstraintSize = parseInt(savedValue);
+                }
+            }
+            
+            // スライダー変更時の処理
+            slider.addEventListener('input', (e) => {
+                const value = e.target.value;
+                display.textContent = `${value}マス`;
+                
+                // CSPソルバーの設定を更新
+                if (this.cspSolver) {
+                    this.cspSolver.maxConstraintSize = parseInt(value);
+                    console.log(`[DEBUG] Max constraint size updated to: ${value}`);
+                }
+                
+                // 設定を保存
+                localStorage.setItem('maxConstraintSize', value);
+            });
         }
     }
     

@@ -303,7 +303,7 @@ class CSPSolver {
         const determinedCells = this.determineCertainCells(group, constraints);
         
         // デバッグ情報（大きなグループの場合のみ）
-        if (group.length > 20) {
+        if (group.length > this.maxConstraintSize) {
             console.log(`Constraint propagation: ${determinedCells.certain.length} mines, ${determinedCells.safe.length} safe cells confirmed`);
         }
         
@@ -355,7 +355,7 @@ class CSPSolver {
         }
         
         // デバッグ情報（大きなグループの場合のみ）
-        if (group.length > 20) {
+        if (group.length > this.maxConstraintSize) {
             console.log(`Exact search: ${uncertainIndices.length} cells (reduced from ${group.length})`);
         }
         
@@ -367,9 +367,9 @@ class CSPSolver {
             determinedCells.certain
         );
         
-        // グループが大きすぎる場合は完全探索をスキップ（20セル超）
-        if (uncertainIndices.length > 20) {
-            console.warn(`Uncertain group too large (${uncertainIndices.length} cells > 20). Skipping full search.`);
+        // グループが大きすぎる場合は完全探索をスキップ
+        if (uncertainIndices.length > this.maxConstraintSize) {
+            console.warn(`Uncertain group too large (${uncertainIndices.length} cells > ${this.maxConstraintSize}). Skipping full search.`);
             // これらのセルを-2（制約外）としてマーク
             for (const idx of uncertainIndices) {
                 if (this.probabilities[group[idx].row][group[idx].col] === -1) {
