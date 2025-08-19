@@ -1186,24 +1186,65 @@ body.power-save-mode .control-btn.active {
 
 /* 全体統計確率表示 */
 .global-probability-display {
-    position: fixed;
-    top: 20px;
-    right: 20px;
     background: var(--modal-content-bg);
-    padding: 15px;
+    padding: 8px 12px;
     border-radius: 10px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
     z-index: 100;
     display: none;
-    min-width: 180px;
+    min-width: 120px;
 }
 
 .global-probability-display.show {
     display: block;
 }
 
+.global-stats-display-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 40px;
+    margin-left: 10px;
+}
+
+.global-stats-display-container .global-probability-display {
+    position: static;
+}
+
+/* スマホでの表示調整 */
+@media (max-width: 768px) {
+    .global-stats-display-container {
+        margin-left: 5px;
+    }
+    
+    .global-probability-display {
+        min-width: 100px;
+        padding: 6px 10px;
+    }
+    
+    .global-prob-title {
+        font-size: 10px;
+        margin-bottom: 5px;
+        padding-bottom: 3px;
+    }
+    
+    .global-prob-content {
+        font-size: 9px;
+    }
+    
+    .global-prob-content div {
+        margin: 2px 0;
+    }
+    
+    .global-prob-value {
+        font-size: 10px;
+        margin-top: 5px;
+        padding-top: 3px;
+    }
+}
+
 .global-prob-title {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: bold;
     color: var(--theme-primary);
     margin-bottom: 10px;
@@ -1212,16 +1253,16 @@ body.power-save-mode .control-btn.active {
 }
 
 .global-prob-content {
-    font-size: 13px;
+    font-size: 11px;
     color: var(--text-primary);
 }
 
 .global-prob-content div {
-    margin: 5px 0;
+    margin: 3px 0;
 }
 
 .global-prob-value {
-    font-size: 16px;
+    font-size: 12px;
     font-weight: bold;
     color: var(--theme-secondary);
     margin-top: 10px;

@@ -1171,11 +1171,14 @@ class PCProMinesweeper extends PCMinesweeper {
     }
     
     updateGlobalProbabilityDisplay(globalProbability) {
-        let display = document.querySelector('.global-probability-display');
+        const container = document.querySelector('.global-stats-display-container');
+        if (!container) return;
+        
+        let display = container.querySelector('.global-probability-display');
         if (!display) {
             display = document.createElement('div');
             display.className = 'global-probability-display';
-            document.body.appendChild(display);
+            container.appendChild(display);
         }
         
         const flaggedCount = this.countFlags();
@@ -1194,7 +1197,7 @@ class PCProMinesweeper extends PCMinesweeper {
     }
     
     hideGlobalProbabilityDisplay() {
-        const display = document.querySelector('.global-probability-display');
+        const display = document.querySelector('.global-stats-display-container .global-probability-display');
         if (display) {
             display.classList.remove('show');
         }
