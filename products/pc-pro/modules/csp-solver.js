@@ -105,22 +105,13 @@ class CSPSolver {
             // 各グループごとに確率を計算
             let foundActionableCell = false;
             for (const group of constraintGroups) {
-                if (group.length <= this.maxConstraintSize) {
-                    const hasActionableCell = this.solveConstraintGroup(group);
-                    if (hasActionableCell) {
-                        foundActionableCell = true;
-                        // 0%/100%が見つかっても他のグループも処理を続ける
-                        // （他のグループにも0%/100%がある可能性があるため）
-                    }
-                } else {
-                    // グループが大きすぎる場合は処理をスキップ
-                    console.log(`Group too large (${group.length} cells > ${this.maxConstraintSize}). Skipping calculation.`);
-                    // このグループのセルを-2（制約外）としてマーク
-                    for (const cell of group) {
-                        if (this.probabilities[cell.row][cell.col] === -1) {
-                            this.probabilities[cell.row][cell.col] = -2;
-                        }
-                    }
+                // グループサイズに関係なく、常に処理を試みる
+                // （制約伝播は高速なので、大きなグループでも実行可能）
+                const hasActionableCell = this.solveConstraintGroup(group);
+                if (hasActionableCell) {
+                    foundActionableCell = true;
+                    // 0%/100%が見つかっても他のグループも処理を続ける
+                    // （他のグループにも0%/100%がある可能性があるため）
                 }
             }
         }
@@ -376,16 +367,17 @@ class CSPSolver {
             determinedCells.certain
         );
         
-        // グループが大きすぎる場合は処理をスキップ（20セル以上）
+        // グループが大きすぎる場合は完全探索をスキップ（20セル超）
         if (uncertainIndices.length > 20) {
-            console.warn(`Uncertain group too large (${uncertainIndices.length} cells > 20). Skipping calculation.`);
+            console.warn(`Uncertain group too large (${uncertainIndices.length} cells > 20). Skipping full search.`);
             // これらのセルを-2（制約外）としてマーク
             for (const idx of uncertainIndices) {
                 if (this.probabilities[group[idx].row][group[idx].col] === -1) {
                     this.probabilities[group[idx].row][group[idx].col] = -2;
                 }
             }
-            return false;
+            // 制約伝播で0%/100%が見つかっていればtrueを返す
+            return (determinedCells.certain.length > 0 || determinedCells.safe.length > 0);
         }
         
         // 不確定なセルのみで完全探索
