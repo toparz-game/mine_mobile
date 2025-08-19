@@ -104,15 +104,34 @@ class CSPSolver {
             console.log('[DEBUG] No existing actionable cells. Proceeding with probability calculation.');
             // 各グループごとに確率を計算
             let foundActionableCell = false;
+            let groupsProcessed = 0;
+            let groupsSkipped = 0;
+            
             for (const group of constraintGroups) {
-                // グループサイズに関係なく、常に処理を試みる
-                // （制約伝播は高速なので、大きなグループでも実行可能）
+                // 既に0%/100%が見つかっている場合は、後続グループをスキップ
+                if (foundActionableCell) {
+                    groupsSkipped++;
+                    console.log(`[DEBUG] Skipping group ${groupsProcessed + groupsSkipped} (${group.length} cells) - actionable cells already found`);
+                    // このグループのセルを-2（制約外）としてマーク
+                    for (const cell of group) {
+                        if (this.probabilities[cell.row][cell.col] === -1) {
+                            this.probabilities[cell.row][cell.col] = -2;
+                        }
+                    }
+                    continue;
+                }
+                
+                groupsProcessed++;
+                console.log(`[DEBUG] Processing group ${groupsProcessed} (${group.length} cells)`);
                 const hasActionableCell = this.solveConstraintGroup(group);
                 if (hasActionableCell) {
                     foundActionableCell = true;
-                    // 0%/100%が見つかっても他のグループも処理を続ける
-                    // （他のグループにも0%/100%がある可能性があるため）
+                    console.log(`[DEBUG] Found actionable cells in group ${groupsProcessed}`);
                 }
+            }
+            
+            if (groupsSkipped > 0) {
+                console.log(`[DEBUG] Groups processed: ${groupsProcessed}, Groups skipped: ${groupsSkipped}`);
             }
         }
         
@@ -504,6 +523,9 @@ class CSPSolver {
         const validConfigurations = [];
         const totalConfigs = Math.pow(2, uncertainGroup.length);
         
+        // 完全探索の計算マス数をログ出力
+        console.log(`[DEBUG] Starting exhaustive search for ${uncertainGroup.length} cells (${totalConfigs} configurations)`);
+        
         // プログレス表示（大きなグループの場合）
         let progressCounter = 0;
         const progressInterval = Math.floor(totalConfigs / 100);
@@ -528,6 +550,9 @@ class CSPSolver {
                 validConfigurations.push(mines);
             }
         }
+        
+        // 完全探索完了をログ出力
+        console.log(`[DEBUG] Exhaustive search completed. Found ${validConfigurations.length} valid configurations`);
         
         // 有効な配置から確率を計算
         let hasActionableCell = false;
