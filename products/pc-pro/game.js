@@ -886,9 +886,31 @@ class PCProMinesweeper extends PCMinesweeper {
         // 非同期で計算を実行
         setTimeout(() => {
             const result = this.cspSolver.calculateProbabilities();
-            this.displayAssist(result.probabilities);
+            // 永続確率と通常確率をマージして表示用の確率を作成
+            const displayProbabilities = this.mergeWithPersistentProbabilities(result.probabilities);
+            this.displayAssist(displayProbabilities);
             this.hideCalculatingIndicator();
         }, 10);
+    }
+    
+    // 永続確率と通常確率をマージ（永続確率を優先）
+    mergeWithPersistentProbabilities(probabilities) {
+        const merged = [];
+        for (let row = 0; row < this.rows; row++) {
+            merged[row] = [];
+            for (let col = 0; col < this.cols; col++) {
+                // 永続確率があればそれを使用、なければ通常確率を使用
+                if (this.cspSolver.persistentProbabilities && 
+                    this.cspSolver.persistentProbabilities[row] && 
+                    (this.cspSolver.persistentProbabilities[row][col] === 0 || 
+                     this.cspSolver.persistentProbabilities[row][col] === 100)) {
+                    merged[row][col] = this.cspSolver.persistentProbabilities[row][col];
+                } else {
+                    merged[row][col] = probabilities[row][col];
+                }
+            }
+        }
+        return merged;
     }
     
     displayAssist(probabilities) {
@@ -1012,7 +1034,9 @@ class PCProMinesweeper extends PCMinesweeper {
         // 非同期で計算を実行
         setTimeout(() => {
             const result = this.cspSolver.calculateProbabilities();
-            this.displayProbabilities(result.probabilities, result.globalProbability);
+            // 永続確率と通常確率をマージして表示用の確率を作成
+            const displayProbabilities = this.mergeWithPersistentProbabilities(result.probabilities);
+            this.displayProbabilities(displayProbabilities, result.globalProbability);
             this.hideCalculatingIndicator();
         }, 10);
     }
@@ -1182,21 +1206,12 @@ class PCProMinesweeper extends PCMinesweeper {
         if (!wasRevealing && !this.isChording) {
             this.isRevealing = false;
             
-            // 大きく開けた場合（0マスから連鎖して5マス以上開いた）は計算をスキップ
-            const isLargeReveal = previousBoard === 0 && this.revealedCellsCount >= 5;
-            
-            if (!isLargeReveal) {
-                if (this.probabilityMode) {
-                    this.calculateAndDisplayProbabilities();
-                }
-                if (this.assistMode) {
-                    this.calculateAndDisplayAssist();
-                }
-            } else {
-                // 大きく開けた場合は、開いたセルの周囲の確率表示をクリア
-                if (this.probabilityMode) {
-                    this.clearProbabilitiesAroundCells(this.revealedCells);
-                }
+            // 大きく開けた場合でも制約伝播は実行（完全探索は20マス制限で自動的に制御される）
+            if (this.probabilityMode) {
+                this.calculateAndDisplayProbabilities();
+            }
+            if (this.assistMode) {
+                this.calculateAndDisplayAssist();
             }
             
             this.revealedCellsCount = 0;  // カウントをリセット
@@ -1275,19 +1290,12 @@ class PCProMinesweeper extends PCMinesweeper {
             
             // 実際にセルが開いた場合のみ計算
             if (this.revealedCellsCount > 0) {
-                // 大きく開けた場合（5マス以上）は計算をスキップ
-                if (this.revealedCellsCount < 5) {
-                    if (this.probabilityMode) {
-                        this.calculateAndDisplayProbabilities();
-                    }
-                    if (this.assistMode) {
-                        this.calculateAndDisplayAssist();
-                    }
-                } else {
-                    // 大きく開けた場合は確率表示をクリア
-                    if (this.probabilityMode) {
-                        this.clearProbabilitiesAroundCells(this.revealedCells || []);
-                    }
+                // 大きく開けた場合でも制約伝播は実行（完全探索は20マス制限で自動的に制御される）
+                if (this.probabilityMode) {
+                    this.calculateAndDisplayProbabilities();
+                }
+                if (this.assistMode) {
+                    this.calculateAndDisplayAssist();
                 }
             }
             

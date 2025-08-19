@@ -5,7 +5,8 @@ class CSPSolver {
     constructor(game) {
         this.game = game;
         this.probabilities = [];
-        this.maxConstraintSize = 60; // 完全探索の最大サイズを拡大
+        this.persistentProbabilities = []; // 0%と100%の確率を永続的に保持
+        this.maxConstraintSize = 20; // 完全探索の最大サイズ（処理軽減のため20に制限）
         this.warningThreshold = 35; // 警告を表示するセル数の閾値
         this.maxValidConfigs = 500000; // 有効な配置の最大数を増加
         this.useWebWorker = typeof Worker !== 'undefined' && window.location.protocol !== 'file:';
@@ -30,6 +31,11 @@ class CSPSolver {
         // 確率配列を初期化 (-1: 未計算, -2: 制約外)
         this.probabilities = Array(rows).fill(null).map(() => Array(cols).fill(-1));
         
+        // 永続確率配列の初期化（初回のみ）
+        if (!this.persistentProbabilities || this.persistentProbabilities.length === 0) {
+            this.persistentProbabilities = Array(rows).fill(null).map(() => Array(cols).fill(-1));
+        }
+        
         // 統計情報を計算
         const unknownCells = this.getUnknownCells();
         const flaggedCount = this.countFlags();
@@ -43,8 +49,13 @@ class CSPSolver {
             for (let col = 0; col < cols; col++) {
                 if (this.game.revealed[row][col]) {
                     this.probabilities[row][col] = 0; // 開示済みは地雷確率0%
+                    this.persistentProbabilities[row][col] = -1; // 開示済みセルの永続確率をクリア
                 } else if (this.game.flagged[row][col]) {
                     this.probabilities[row][col] = 100; // 旗は地雷確率100%として扱う
+                    this.persistentProbabilities[row][col] = -1; // 旗付きセルの永続確率をクリア
+                } else if (this.persistentProbabilities[row][col] === 0 || this.persistentProbabilities[row][col] === 100) {
+                    // 永続的に保存された0%または100%の確率を復元
+                    this.probabilities[row][col] = this.persistentProbabilities[row][col];
                 }
             }
         }
@@ -80,13 +91,14 @@ class CSPSolver {
             }
         } else {
             // 各グループごとに確率を計算
+            let foundActionableCell = false;
             for (const group of constraintGroups) {
                 if (group.length <= this.maxConstraintSize) {
                     const hasActionableCell = this.solveConstraintGroup(group);
-                    // 制約伝播で0%か100%のセルが見つかった場合、他のグループの処理をスキップ
                     if (hasActionableCell) {
-                        console.log('New actionable cell found (0% or 100%). Skipping remaining groups.');
-                        break;
+                        foundActionableCell = true;
+                        // 0%/100%が見つかっても他のグループも処理を続ける
+                        // （他のグループにも0%/100%がある可能性があるため）
                     }
                 } else {
                     // グループが大きすぎる場合は処理をスキップ
@@ -245,15 +257,23 @@ class CSPSolver {
         // まず簡単なケースを処理
         const simpleSolution = this.trySolveSingleConstraint(group);
         if (simpleSolution) {
+            let hasActionableCell = false;
             for (let i = 0; i < group.length; i++) {
                 if (simpleSolution[i] !== null && simpleSolution[i] !== undefined) {
-                    this.probabilities[group[i].row][group[i].col] = simpleSolution[i];
+                    const row = group[i].row;
+                    const col = group[i].col;
+                    this.probabilities[row][col] = simpleSolution[i];
+                    // 0%または100%の場合は永続的に保存
+                    if (simpleSolution[i] === 0 || simpleSolution[i] === 100) {
+                        this.persistentProbabilities[row][col] = simpleSolution[i];
+                        hasActionableCell = true;
+                    }
                 }
             }
             // 部分的な解決の場合は続行
             const hasUnresolved = simpleSolution.some(p => p === null || p === undefined);
             if (!hasUnresolved) {
-                return;
+                return hasActionableCell; // 0%/100%が見つかったかどうかを返す
             }
         }
         
@@ -265,10 +285,15 @@ class CSPSolver {
             const unknownCount = this.getUnknownCells().length;
             const probability = Math.min(100, Math.round((remainingMines / unknownCount) * 100));
             
+            let hasActionableCell = false;
             for (const cell of group) {
                 this.probabilities[cell.row][cell.col] = probability;
+                if (probability === 0 || probability === 100) {
+                    this.persistentProbabilities[cell.row][cell.col] = probability;
+                    hasActionableCell = true;
+                }
             }
-            return;
+            return hasActionableCell;
         }
         
         // STEP 1: 制約伝播で0%と100%のセルを確定
@@ -281,24 +306,36 @@ class CSPSolver {
         
         // 確定したセルの確率を設定
         for (const cellIdx of determinedCells.certain) {
-            this.probabilities[group[cellIdx].row][group[cellIdx].col] = 100;
+            const row = group[cellIdx].row;
+            const col = group[cellIdx].col;
+            this.probabilities[row][col] = 100;
+            this.persistentProbabilities[row][col] = 100; // 永続的に保存
         }
         for (const cellIdx of determinedCells.safe) {
-            this.probabilities[group[cellIdx].row][group[cellIdx].col] = 0;
+            const row = group[cellIdx].row;
+            const col = group[cellIdx].col;
+            this.probabilities[row][col] = 0;
+            this.persistentProbabilities[row][col] = 0; // 永続的に保存
         }
         
-        // 0%か100%のセルが1つでも見つかった場合、後続処理をスキップ
+        // 0%か100%のセルが1つでも見つかった場合
         if (determinedCells.certain.length > 0 || determinedCells.safe.length > 0) {
-            console.log(`Found ${determinedCells.certain.length} mines and ${determinedCells.safe.length} safe cells. Stopping further calculation.`);
-            // 残りの不確定セルを-2（制約外）としてマーク
-            for (let i = 0; i < group.length; i++) {
-                if (!determinedCells.certain.includes(i) && !determinedCells.safe.includes(i)) {
-                    if (this.probabilities[group[i].row][group[i].col] === -1) {
-                        this.probabilities[group[i].row][group[i].col] = -2;
+            console.log(`Found ${determinedCells.certain.length} mines and ${determinedCells.safe.length} safe cells in this group.`);
+            // 既に他のグループで0%/100%が見つかっているかチェック
+            const hasExistingActionable = this.checkForExistingActionableCells();
+            
+            if (hasExistingActionable) {
+                // 既に0%/100%があるなら、このグループの残りの不確定セルをスキップ
+                for (let i = 0; i < group.length; i++) {
+                    if (!determinedCells.certain.includes(i) && !determinedCells.safe.includes(i)) {
+                        if (this.probabilities[group[i].row][group[i].col] === -1) {
+                            this.probabilities[group[i].row][group[i].col] = -2;
+                        }
                     }
                 }
+                return true; // アクション可能なセルが見つかった
             }
-            return true; // アクション可能なセルが見つかった
+            // 初めて0%/100%が見つかった場合は、完全探索も実行して他の確率も計算
         }
         
         // STEP 2: 確定していないセルだけを完全探索
@@ -340,8 +377,10 @@ class CSPSolver {
         }
         
         // 不確定なセルのみで完全探索
-        this.solveReducedGroup(uncertainGroup, uncertainConstraints, uncertainIndices, group);
-        return false; // 完全探索では0%/100%は既に処理済み
+        const foundInReducedGroup = this.solveReducedGroup(uncertainGroup, uncertainConstraints, uncertainIndices, group);
+        
+        // 制約伝播または完全探索で0%/100%が見つかったかを返す
+        return (determinedCells.certain.length > 0 || determinedCells.safe.length > 0) || foundInReducedGroup;
     }
     
     // 制約伝播で確定できるセルを見つける
@@ -487,6 +526,7 @@ class CSPSolver {
         }
         
         // 有効な配置から確率を計算
+        let hasActionableCell = false;
         if (validConfigurations.length > 0) {
             for (let i = 0; i < uncertainGroup.length; i++) {
                 let mineCount = 0;
@@ -495,9 +535,17 @@ class CSPSolver {
                         mineCount++;
                     }
                 }
-                const probability = (mineCount / validConfigurations.length) * 100;
+                const probability = Math.round((mineCount / validConfigurations.length) * 100);
                 const originalIdx = originalIndices[i];
-                this.probabilities[fullGroup[originalIdx].row][fullGroup[originalIdx].col] = Math.round(probability);
+                const row = fullGroup[originalIdx].row;
+                const col = fullGroup[originalIdx].col;
+                this.probabilities[row][col] = probability;
+                
+                // 0%または100%の場合は永続的に保存
+                if (probability === 0 || probability === 100) {
+                    this.persistentProbabilities[row][col] = probability;
+                    hasActionableCell = true;
+                }
             }
         } else {
             // デフォルト値
@@ -506,6 +554,7 @@ class CSPSolver {
                 this.probabilities[fullGroup[originalIdx].row][fullGroup[originalIdx].col] = 50;
             }
         }
+        return hasActionableCell;
     }
     
     // 縮小されたグループの最適化版
@@ -594,9 +643,16 @@ class CSPSolver {
                         mineCount++;
                     }
                 }
-                const probability = (mineCount / validConfigurations.length) * 100;
+                const probability = Math.round((mineCount / validConfigurations.length) * 100);
                 const originalIdx = originalIndices[i];
-                this.probabilities[fullGroup[originalIdx].row][fullGroup[originalIdx].col] = Math.round(probability);
+                const row = fullGroup[originalIdx].row;
+                const col = fullGroup[originalIdx].col;
+                this.probabilities[row][col] = probability;
+                
+                // 0%または100%の場合は永続的に保存
+                if (probability === 0 || probability === 100) {
+                    this.persistentProbabilities[row][col] = probability;
+                }
             }
         } else {
             for (let i = 0; i < uncertainGroup.length; i++) {
@@ -968,6 +1024,8 @@ class CSPSolver {
             for (let col = 0; col < this.game.cols; col++) {
                 // 未開示かつ旗が立っていないセルのみチェック
                 if (!this.game.revealed[row][col] && !this.game.flagged[row][col]) {
+                    // 現在の確率のみをチェック（永続確率は見ない）
+                    // 永続確率は表示用であり、計算スキップの判定には使わない
                     const prob = this.probabilities[row][col];
                     // 0%または100%のセルが存在する場合
                     if (prob === 0 || prob === 100) {
