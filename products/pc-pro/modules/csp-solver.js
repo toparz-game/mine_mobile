@@ -132,11 +132,30 @@ class CSPSolver {
             // 確定マスが見つかった場合は終了
             if (foundActionableCell) {
                 console.log(`[DEBUG] Found actionable cells in constraint propagation phase. Skipping exhaustive search.`);
-                // 他のグループのセルを-2（制約外）としてマーク
-                for (const group of constraintGroups) {
+                // 他のグループにキャッシュ確率を復元（あれば）
+                for (let i = 0; i < constraintGroups.length; i++) {
+                    const group = constraintGroups[i];
+                    let hasUnprocessed = false;
+                    
+                    // 未処理のセルがあるかチェック
                     for (const cell of group) {
                         if (this.probabilities[cell.row][cell.col] === -1) {
-                            this.probabilities[cell.row][cell.col] = -2;
+                            hasUnprocessed = true;
+                            break;
+                        }
+                    }
+                    
+                    if (hasUnprocessed) {
+                        console.log(`[DEBUG] Phase 1 - Restoring cached probabilities for group ${i + 1} (${group.length} cells)`);
+                        const restored = this.restoreCachedProbabilitiesForGroup(group);
+                        
+                        if (!restored) {
+                            // キャッシュがない場合は-2（制約外）としてマーク
+                            for (const cell of group) {
+                                if (this.probabilities[cell.row][cell.col] === -1) {
+                                    this.probabilities[cell.row][cell.col] = -2;
+                                }
+                            }
                         }
                     }
                 }
@@ -157,13 +176,20 @@ class CSPSolver {
                         phase2ActionableFound = true;
                         console.log(`[DEBUG] Phase 2 - Found actionable cells in group ${i + 1}`);
                         
-                        // 残りのグループのセルを-2（制約外）としてマーク
+                        // 残りのグループにキャッシュ確率を復元（あれば）、なければ-2でマーク
                         for (let j = i + 1; j < constraintGroups.length; j++) {
                             const remainingGroup = constraintGroups[j];
-                            console.log(`[DEBUG] Phase 2 - Marking group ${j + 1} (${remainingGroup.length} cells) as out-of-constraint`);
-                            for (const cell of remainingGroup) {
-                                if (this.probabilities[cell.row][cell.col] === -1) {
-                                    this.probabilities[cell.row][cell.col] = -2;
+                            console.log(`[DEBUG] Phase 2 - Restoring cached probabilities for skipped group ${j + 1} (${remainingGroup.length} cells)`);
+                            
+                            // キャッシュから確率を復元を試行
+                            const restored = this.restoreCachedProbabilitiesForGroup(remainingGroup);
+                            
+                            if (!restored) {
+                                // キャッシュがない場合は-2（制約外）としてマーク
+                                for (const cell of remainingGroup) {
+                                    if (this.probabilities[cell.row][cell.col] === -1) {
+                                        this.probabilities[cell.row][cell.col] = -2;
+                                    }
                                 }
                             }
                         }
@@ -172,14 +198,21 @@ class CSPSolver {
                 
                 console.log(`[DEBUG] Phase 2 complete: processed ${phase2GroupsProcessed} groups, actionable found: ${phase2ActionableFound}`);
                 
-                // 確定マスが見つからなかった場合、残りのグループのセルを-2でマーク
+                // 確定マスが見つからなかった場合、残りのグループにキャッシュ確率を復元
                 if (!phase2ActionableFound) {
                     for (let i = phase2GroupsProcessed; i < constraintGroups.length; i++) {
                         const group = constraintGroups[i];
-                        console.log(`[DEBUG] Phase 2 - Marking remaining group ${i + 1} (${group.length} cells) as out-of-constraint`);
-                        for (const cell of group) {
-                            if (this.probabilities[cell.row][cell.col] === -1) {
-                                this.probabilities[cell.row][cell.col] = -2;
+                        console.log(`[DEBUG] Phase 2 - Restoring cached probabilities for remaining group ${i + 1} (${group.length} cells)`);
+                        
+                        // キャッシュから確率を復元を試行
+                        const restored = this.restoreCachedProbabilitiesForGroup(group);
+                        
+                        if (!restored) {
+                            // キャッシュがない場合は-2（制約外）としてマーク
+                            for (const cell of group) {
+                                if (this.probabilities[cell.row][cell.col] === -1) {
+                                    this.probabilities[cell.row][cell.col] = -2;
+                                }
                             }
                         }
                     }
@@ -195,6 +228,27 @@ class CSPSolver {
         }
         
         return { probabilities: this.probabilities, globalProbability };
+    }
+    
+    // スキップされたグループにキャッシュから確率を復元
+    restoreCachedProbabilitiesForGroup(group) {
+        const constraints = this.getConstraintsForGroup(group);
+        const fingerprint = this.getGroupFingerprint(group, constraints);
+        
+        if (this.groupCache.has(fingerprint)) {
+            const cached = this.groupCache.get(fingerprint);
+            console.log(`[DEBUG] Restoring probabilities from cache for group (${group.length} cells)`);
+            
+            // キャッシュから確率を復元
+            for (const cellProb of cached.probabilities) {
+                // 0%/100%以外の確率のみ復元（確定マスは永続確率で管理）
+                if (cellProb.prob !== 0 && cellProb.prob !== 100) {
+                    this.probabilities[cellProb.row][cellProb.col] = cellProb.prob;
+                }
+            }
+            return true;
+        }
+        return false;
     }
     
     // 境界セル（開示されたセルに隣接する未開示セル）を取得
