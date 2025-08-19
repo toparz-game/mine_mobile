@@ -109,37 +109,57 @@ class CSPSolver {
                 }
             }
         } else {
-            console.log('[DEBUG] No existing actionable cells. Proceeding with probability calculation.');
-            // 各グループごとに確率を計算
-            let foundActionableCell = false;
-            let groupsProcessed = 0;
-            let groupsSkipped = 0;
+            console.log('[DEBUG] No existing actionable cells. Proceeding with 2-phase probability calculation.');
             
-            for (const group of constraintGroups) {
-                // 既に0%/100%が見つかっている場合は、後続グループをスキップ
-                if (foundActionableCell) {
-                    groupsSkipped++;
-                    console.log(`[DEBUG] Skipping group ${groupsProcessed + groupsSkipped} (${group.length} cells) - actionable cells already found`);
-                    // このグループのセルを-2（制約外）としてマーク
+            // フェーズ1: 全グループに制約伝播のみ適用
+            console.log(`[DEBUG] Phase 1: Applying constraint propagation to all ${constraintGroups.length} groups`);
+            let foundActionableCell = false;
+            let groupsWithActionable = 0;
+            
+            for (let i = 0; i < constraintGroups.length; i++) {
+                const group = constraintGroups[i];
+                console.log(`[DEBUG] Phase 1 - Processing group ${i + 1} (${group.length} cells)`);
+                const hasActionable = this.applyConstraintPropagationOnly(group);
+                if (hasActionable) {
+                    foundActionableCell = true;
+                    groupsWithActionable++;
+                    console.log(`[DEBUG] Phase 1 - Found actionable cells in group ${i + 1}`);
+                }
+            }
+            
+            console.log(`[DEBUG] Phase 1 complete: ${groupsWithActionable} groups with actionable cells`);
+            
+            // 確定マスが見つかった場合は終了
+            if (foundActionableCell) {
+                console.log(`[DEBUG] Found actionable cells in constraint propagation phase. Skipping exhaustive search.`);
+                // 他のグループのセルを-2（制約外）としてマーク
+                for (const group of constraintGroups) {
                     for (const cell of group) {
                         if (this.probabilities[cell.row][cell.col] === -1) {
                             this.probabilities[cell.row][cell.col] = -2;
                         }
                     }
-                    continue;
                 }
+            } else {
+                // フェーズ2: 完全探索（最初のグループのみ）
+                console.log(`[DEBUG] Phase 2: No actionable cells found in constraint propagation. Proceeding with exhaustive search.`);
                 
-                groupsProcessed++;
-                console.log(`[DEBUG] Processing group ${groupsProcessed} (${group.length} cells)`);
-                const hasActionableCell = this.solveConstraintGroup(group);
-                if (hasActionableCell) {
-                    foundActionableCell = true;
-                    console.log(`[DEBUG] Found actionable cells in group ${groupsProcessed}`);
+                if (constraintGroups.length > 0) {
+                    const firstGroup = constraintGroups[0];
+                    console.log(`[DEBUG] Phase 2 - Processing group 1 (${firstGroup.length} cells) with exhaustive search`);
+                    this.solveConstraintGroup(firstGroup, true); // skipConstraintPropagation = true
+                    
+                    // 他のグループのセルを-2（制約外）としてマーク
+                    for (let i = 1; i < constraintGroups.length; i++) {
+                        const group = constraintGroups[i];
+                        console.log(`[DEBUG] Phase 2 - Marking group ${i + 1} (${group.length} cells) as out-of-constraint`);
+                        for (const cell of group) {
+                            if (this.probabilities[cell.row][cell.col] === -1) {
+                                this.probabilities[cell.row][cell.col] = -2;
+                            }
+                        }
+                    }
                 }
-            }
-            
-            if (groupsSkipped > 0) {
-                console.log(`[DEBUG] Groups processed: ${groupsProcessed}, Groups skipped: ${groupsSkipped}`);
             }
         }
         
@@ -269,9 +289,42 @@ class CSPSolver {
         return constraining;
     }
     
-    // 制約グループを解く（キャッシュ対応版）
+    // 制約伝播のみを適用（完全探索なし）
     // 戻り値: true = 0%か100%のセルが見つかった, false = 見つからなかった
-    solveConstraintGroup(group) {
+    applyConstraintPropagationOnly(group) {
+        const constraints = this.getConstraintsForGroup(group);
+        
+        // 制約がない場合は何もしない
+        if (constraints.length === 0) {
+            return false;
+        }
+        
+        // 制約伝播で0%と100%のセルを確定
+        const determinedCells = this.determineCertainCells(group, constraints);
+        
+        console.log(`[DEBUG] Constraint propagation for group (${group.length} cells): ${determinedCells.certain.length} mines, ${determinedCells.safe.length} safe cells found`);
+        
+        // 確定したセルの確率を設定
+        for (const cellIdx of determinedCells.certain) {
+            const row = group[cellIdx].row;
+            const col = group[cellIdx].col;
+            this.probabilities[row][col] = 100;
+            this.persistentProbabilities[row][col] = 100;
+        }
+        for (const cellIdx of determinedCells.safe) {
+            const row = group[cellIdx].row;
+            const col = group[cellIdx].col;
+            this.probabilities[row][col] = 0;
+            this.persistentProbabilities[row][col] = 0;
+        }
+        
+        // 0%か100%のセルが見つかったかどうかを返す
+        return (determinedCells.certain.length > 0 || determinedCells.safe.length > 0);
+    }
+    
+    // 制約グループを完全探索で解く（キャッシュ対応版）
+    // 戻り値: true = 0%か100%のセルが見つかった, false = 見つからなかった
+    solveConstraintGroup(group, skipConstraintPropagation = false) {
         // 制約を取得
         const constraints = this.getConstraintsForGroup(group);
         
@@ -304,7 +357,7 @@ class CSPSolver {
         console.log(`[DEBUG] Computing new result for group (${group.length} cells). Cache miss.`);
         
         // 完全探索で解く
-        const hasActionable = this.solveExactWithConstraints(group, constraints);
+        const hasActionable = this.solveExactWithConstraints(group, constraints, skipConstraintPropagation);
         
         // 結果をキャッシュに保存
         const probabilities = group.map(cell => ({
@@ -324,14 +377,13 @@ class CSPSolver {
     }
     
     // 制約付きで完全探索を実行（制約を再計算しない）
-    solveExactWithConstraints(group, constraints) {
-        // 既存のsolveExactの処理をコピーして制約を引数として受け取る
-        return this.solveExact(group);
+    solveExactWithConstraints(group, constraints, skipConstraintPropagation = false) {
+        return this.solveExact(group, skipConstraintPropagation);
     }
     
     // 完全探索による確率計算（最適化版）
     // 戻り値: true = 0%か100%のセルが見つかった, false = 見つからなかった
-    solveExact(group) {
+    solveExact(group, skipConstraintPropagation = false) {
         // まず簡単なケースを処理
         const simpleSolution = this.trySolveSingleConstraint(group);
         if (simpleSolution) {
@@ -374,46 +426,36 @@ class CSPSolver {
             return hasActionableCell;
         }
         
-        // STEP 1: 制約伝播で0%と100%のセルを確定
-        const determinedCells = this.determineCertainCells(group, constraints);
+        let determinedCells = { certain: [], safe: [] };
+        let hasActionableFromPropagation = false;
         
-        // デバッグ情報（大きなグループの場合のみ）
-        if (group.length > this.maxConstraintSize) {
-            console.log(`Constraint propagation: ${determinedCells.certain.length} mines, ${determinedCells.safe.length} safe cells confirmed`);
-        }
-        
-        // 確定したセルの確率を設定
-        for (const cellIdx of determinedCells.certain) {
-            const row = group[cellIdx].row;
-            const col = group[cellIdx].col;
-            this.probabilities[row][col] = 100;
-            this.persistentProbabilities[row][col] = 100; // 永続的に保存
-        }
-        for (const cellIdx of determinedCells.safe) {
-            const row = group[cellIdx].row;
-            const col = group[cellIdx].col;
-            this.probabilities[row][col] = 0;
-            this.persistentProbabilities[row][col] = 0; // 永続的に保存
-        }
-        
-        // 0%か100%のセルが1つでも見つかった場合
-        if (determinedCells.certain.length > 0 || determinedCells.safe.length > 0) {
-            console.log(`Found ${determinedCells.certain.length} mines and ${determinedCells.safe.length} safe cells in this group.`);
-            // 既に他のグループで0%/100%が見つかっているかチェック
-            const hasExistingActionable = this.checkForExistingActionableCells();
+        // STEP 1: 制約伝播（スキップしない場合のみ）
+        if (!skipConstraintPropagation) {
+            determinedCells = this.determineCertainCells(group, constraints);
             
-            if (hasExistingActionable) {
-                // 既に0%/100%があるなら、このグループの残りの不確定セルをスキップ
-                for (let i = 0; i < group.length; i++) {
-                    if (!determinedCells.certain.includes(i) && !determinedCells.safe.includes(i)) {
-                        if (this.probabilities[group[i].row][group[i].col] === -1) {
-                            this.probabilities[group[i].row][group[i].col] = -2;
-                        }
-                    }
-                }
-                return true; // アクション可能なセルが見つかった
+            // デバッグ情報（大きなグループの場合のみ）
+            if (group.length > this.maxConstraintSize) {
+                console.log(`Constraint propagation: ${determinedCells.certain.length} mines, ${determinedCells.safe.length} safe cells confirmed`);
             }
-            // 初めて0%/100%が見つかった場合は、完全探索も実行して他の確率も計算
+            
+            // 確定したセルの確率を設定
+            for (const cellIdx of determinedCells.certain) {
+                const row = group[cellIdx].row;
+                const col = group[cellIdx].col;
+                this.probabilities[row][col] = 100;
+                this.persistentProbabilities[row][col] = 100;
+            }
+            for (const cellIdx of determinedCells.safe) {
+                const row = group[cellIdx].row;
+                const col = group[cellIdx].col;
+                this.probabilities[row][col] = 0;
+                this.persistentProbabilities[row][col] = 0;
+            }
+            
+            hasActionableFromPropagation = (determinedCells.certain.length > 0 || determinedCells.safe.length > 0);
+            if (hasActionableFromPropagation) {
+                console.log(`Found ${determinedCells.certain.length} mines and ${determinedCells.safe.length} safe cells in this group.`);
+            }
         }
         
         // STEP 2: 確定していないセルだけを完全探索
