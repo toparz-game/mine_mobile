@@ -1243,6 +1243,16 @@ class PCProMinesweeper extends PCMinesweeper {
         const previousBoard = this.board[row][col];
         super.revealCell(row, col);
         
+        // 爆弾を開いた場合は確率計算を行わずに終了
+        if (this.gameOver) {
+            if (!wasRevealing) {
+                this.isRevealing = false;
+                this.revealedCellsCount = 0;
+                this.revealedCells = [];
+            }
+            return;
+        }
+        
         // 新しくセルが開いた場合
         if (!wasRevealed && this.revealed[row][col]) {
             this.revealedCellsCount++;

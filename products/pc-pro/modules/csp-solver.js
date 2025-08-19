@@ -1149,6 +1149,15 @@ class CSPSolver {
             return [];
         }
         
+        // 盤面サイズが変わった場合（ゲームリセット等）
+        if (!this.previousBoardState.revealed || 
+            this.previousBoardState.revealed.length !== this.game.rows ||
+            (this.previousBoardState.revealed[0] && this.previousBoardState.revealed[0].length !== this.game.cols)) {
+            console.log('[DEBUG] Board size changed or reset detected. Clearing all cache.');
+            this.saveBoardState();
+            return ['reset']; // 特別なフラグとして'reset'を返す
+        }
+        
         const changes = [];
         for (let row = 0; row < this.game.rows; row++) {
             for (let col = 0; col < this.game.cols; col++) {
@@ -1177,6 +1186,16 @@ class CSPSolver {
     // キャッシュの無効化
     invalidateCache(changes) {
         if (changes.length === 0) return;
+        
+        // リセットの場合は特別な処理
+        if (changes[0] === 'reset') {
+            const cacheSize = this.groupCache.size;
+            if (cacheSize > 0) {
+                this.groupCache.clear();
+                console.log(`[DEBUG] Game reset detected. Cleared ${cacheSize} cached group results.`);
+            }
+            return;
+        }
         
         console.log(`[DEBUG] Board changes detected at ${changes.length} cells. Invalidating cache.`);
         
