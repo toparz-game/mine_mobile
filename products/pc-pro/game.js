@@ -1165,6 +1165,7 @@ class PCProMinesweeper extends PCMinesweeper {
         if (!wasRevealing) {
             this.isRevealing = true;
             this.revealedCellsCount = 0;  // 開いたセル数をカウント
+            this.revealedCells = [];  // 開いたセルの座標を記録
         }
         
         const wasRevealed = this.revealed[row][col];
@@ -1174,6 +1175,7 @@ class PCProMinesweeper extends PCMinesweeper {
         // 新しくセルが開いた場合
         if (!wasRevealed && this.revealed[row][col]) {
             this.revealedCellsCount++;
+            this.revealedCells.push({row, col});
         }
         
         // 最初の呼び出しの場合のみ確率を再計算
@@ -1190,9 +1192,45 @@ class PCProMinesweeper extends PCMinesweeper {
                 if (this.assistMode) {
                     this.calculateAndDisplayAssist();
                 }
+            } else {
+                // 大きく開けた場合は、開いたセルの周囲の確率表示をクリア
+                if (this.probabilityMode) {
+                    this.clearProbabilitiesAroundCells(this.revealedCells);
+                }
             }
             
             this.revealedCellsCount = 0;  // カウントをリセット
+            this.revealedCells = [];  // 座標リストをリセット
+        }
+    }
+    
+    // 指定されたセルの周囲の確率表示をクリア
+    clearProbabilitiesAroundCells(cells) {
+        const clearedCells = new Set();
+        
+        for (const {row, col} of cells) {
+            // 開いたセル自体とその周囲8マスの確率表示をクリア
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    const newRow = row + dr;
+                    const newCol = col + dc;
+                    const key = `${newRow},${newCol}`;
+                    
+                    if (this.isValidCell(newRow, newCol) && !clearedCells.has(key)) {
+                        clearedCells.add(key);
+                        const cell = document.querySelector(`[data-row="${newRow}"][data-col="${newCol}"]`);
+                        if (cell) {
+                            const overlay = cell.querySelector('.probability-overlay');
+                            if (overlay) {
+                                overlay.remove();
+                            }
+                            cell.classList.remove('probability-safe', 'probability-low', 
+                                                'probability-medium', 'probability-high', 
+                                                'probability-certain', 'probability-unknown');
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -1218,6 +1256,7 @@ class PCProMinesweeper extends PCMinesweeper {
             // コード操作開始
             this.isChording = true;
             this.revealedCellsCount = 0;
+            this.revealedCells = [];
             
             for (let dr = -1; dr <= 1; dr++) {
                 for (let dc = -1; dc <= 1; dc++) {
@@ -1236,15 +1275,24 @@ class PCProMinesweeper extends PCMinesweeper {
             
             // 実際にセルが開いた場合のみ計算
             if (this.revealedCellsCount > 0) {
-                if (this.probabilityMode) {
-                    this.calculateAndDisplayProbabilities();
-                }
-                if (this.assistMode) {
-                    this.calculateAndDisplayAssist();
+                // 大きく開けた場合（5マス以上）は計算をスキップ
+                if (this.revealedCellsCount < 5) {
+                    if (this.probabilityMode) {
+                        this.calculateAndDisplayProbabilities();
+                    }
+                    if (this.assistMode) {
+                        this.calculateAndDisplayAssist();
+                    }
+                } else {
+                    // 大きく開けた場合は確率表示をクリア
+                    if (this.probabilityMode) {
+                        this.clearProbabilitiesAroundCells(this.revealedCells || []);
+                    }
                 }
             }
             
             this.revealedCellsCount = 0;
+            this.revealedCells = [];
         }
     }
     
