@@ -101,11 +101,18 @@ class CSPSolver {
         console.log(`[DEBUG] checkForExistingActionableCells result: ${hasExistingActionableCell}`);
         if (hasExistingActionableCell) {
             console.log('[DEBUG] Existing actionable cells (0% or 100%) found on board. Skipping probability calculation.');
-            // 制約グループのセルを-2（制約外）としてマーク
+            
+            // 既存の確定マスがある場合でも、キャッシュから他のグループの確率を復元
             for (const group of constraintGroups) {
-                for (const cell of group) {
-                    if (this.probabilities[cell.row][cell.col] === -1) {
-                        this.probabilities[cell.row][cell.col] = -2;
+                console.log(`[DEBUG] Trying to restore cached probabilities for group (${group.length} cells) despite existing actionable cells`);
+                const restored = this.restoreCachedProbabilitiesForGroup(group);
+                
+                if (!restored) {
+                    // キャッシュがない場合のみ-2（制約外）としてマーク
+                    for (const cell of group) {
+                        if (this.probabilities[cell.row][cell.col] === -1) {
+                            this.probabilities[cell.row][cell.col] = -2;
+                        }
                     }
                 }
             }
