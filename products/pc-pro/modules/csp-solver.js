@@ -141,18 +141,42 @@ class CSPSolver {
                     }
                 }
             } else {
-                // フェーズ2: 完全探索（最初のグループのみ）
+                // フェーズ2: 完全探索（確定マスが見つかるまで順次実行）
                 console.log(`[DEBUG] Phase 2: No actionable cells found in constraint propagation. Proceeding with exhaustive search.`);
                 
-                if (constraintGroups.length > 0) {
-                    const firstGroup = constraintGroups[0];
-                    console.log(`[DEBUG] Phase 2 - Processing group 1 (${firstGroup.length} cells) with exhaustive search`);
-                    this.solveConstraintGroup(firstGroup, true); // skipConstraintPropagation = true
+                let phase2ActionableFound = false;
+                let phase2GroupsProcessed = 0;
+                
+                for (let i = 0; i < constraintGroups.length && !phase2ActionableFound; i++) {
+                    const group = constraintGroups[i];
+                    console.log(`[DEBUG] Phase 2 - Processing group ${i + 1} (${group.length} cells) with exhaustive search`);
+                    const hasActionable = this.solveConstraintGroup(group, true); // skipConstraintPropagation = true
+                    phase2GroupsProcessed++;
                     
-                    // 他のグループのセルを-2（制約外）としてマーク
-                    for (let i = 1; i < constraintGroups.length; i++) {
+                    if (hasActionable) {
+                        phase2ActionableFound = true;
+                        console.log(`[DEBUG] Phase 2 - Found actionable cells in group ${i + 1}`);
+                        
+                        // 残りのグループのセルを-2（制約外）としてマーク
+                        for (let j = i + 1; j < constraintGroups.length; j++) {
+                            const remainingGroup = constraintGroups[j];
+                            console.log(`[DEBUG] Phase 2 - Marking group ${j + 1} (${remainingGroup.length} cells) as out-of-constraint`);
+                            for (const cell of remainingGroup) {
+                                if (this.probabilities[cell.row][cell.col] === -1) {
+                                    this.probabilities[cell.row][cell.col] = -2;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                console.log(`[DEBUG] Phase 2 complete: processed ${phase2GroupsProcessed} groups, actionable found: ${phase2ActionableFound}`);
+                
+                // 確定マスが見つからなかった場合、残りのグループのセルを-2でマーク
+                if (!phase2ActionableFound) {
+                    for (let i = phase2GroupsProcessed; i < constraintGroups.length; i++) {
                         const group = constraintGroups[i];
-                        console.log(`[DEBUG] Phase 2 - Marking group ${i + 1} (${group.length} cells) as out-of-constraint`);
+                        console.log(`[DEBUG] Phase 2 - Marking remaining group ${i + 1} (${group.length} cells) as out-of-constraint`);
                         for (const cell of group) {
                             if (this.probabilities[cell.row][cell.col] === -1) {
                                 this.probabilities[cell.row][cell.col] = -2;
