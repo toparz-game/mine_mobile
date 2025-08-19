@@ -14,6 +14,7 @@ class CSPSolver {
         
         // グループ計算結果のキャッシュ
         this.groupCache = new Map();
+        this.tempGroupCache = new Map(); // 一時保存用キャッシュ
         this.previousBoardState = null; // 前回の盤面状態
         
         // WebWorkerの初期化
@@ -176,6 +177,24 @@ class CSPSolver {
                         phase2ActionableFound = true;
                         console.log(`[DEBUG] Phase 2 - Found actionable cells in group ${i + 1}`);
                         
+                        // 既に処理済みのグループ（0からi-1まで）のキャッシュを復元
+                        for (let j = 0; j < i; j++) {
+                            const processedGroup = constraintGroups[j];
+                            console.log(`[DEBUG] Phase 2 - Restoring cached probabilities for already processed group ${j + 1} (${processedGroup.length} cells)`);
+                            
+                            // キャッシュから確率を復元を試行
+                            const restored = this.restoreCachedProbabilitiesForGroup(processedGroup);
+                            
+                            if (!restored) {
+                                // キャッシュがない場合は-2（制約外）としてマーク
+                                for (const cell of processedGroup) {
+                                    if (this.probabilities[cell.row][cell.col] === -1) {
+                                        this.probabilities[cell.row][cell.col] = -2;
+                                    }
+                                }
+                            }
+                        }
+                        
                         // 残りのグループにキャッシュ確率を復元（あれば）、なければ-2でマーク
                         for (let j = i + 1; j < constraintGroups.length; j++) {
                             const remainingGroup = constraintGroups[j];
@@ -235,19 +254,54 @@ class CSPSolver {
         const constraints = this.getConstraintsForGroup(group);
         const fingerprint = this.getGroupFingerprint(group, constraints);
         
+        console.log(`[DEBUG] Trying to restore cache for group (${group.length} cells), fingerprint: ${fingerprint.substring(0, 50)}...`);
+        console.log(`[DEBUG] Current cache size: ${this.groupCache.size}, temp cache size: ${this.tempGroupCache.size}`);
+        
+        // まず通常のキャッシュをチェック
         if (this.groupCache.has(fingerprint)) {
             const cached = this.groupCache.get(fingerprint);
-            console.log(`[DEBUG] Restoring probabilities from cache for group (${group.length} cells)`);
+            console.log(`[DEBUG] Cache HIT in main cache! Restoring probabilities from cache for group (${group.length} cells)`);
+            console.log(`[DEBUG] Cached probabilities:`, cached.probabilities.map(p => `(${p.row},${p.col}):${p.prob}%`).join(', '));
             
             // キャッシュから確率を復元
+            let restoredCount = 0;
             for (const cellProb of cached.probabilities) {
                 // 0%/100%以外の確率のみ復元（確定マスは永続確率で管理）
                 if (cellProb.prob !== 0 && cellProb.prob !== 100) {
                     this.probabilities[cellProb.row][cellProb.col] = cellProb.prob;
+                    restoredCount++;
+                    console.log(`[DEBUG] Restored (${cellProb.row},${cellProb.col}): ${cellProb.prob}%`);
+                } else {
+                    console.log(`[DEBUG] Skipped actionable cell (${cellProb.row},${cellProb.col}): ${cellProb.prob}%`);
                 }
             }
+            console.log(`[DEBUG] Restored ${restoredCount} non-actionable probabilities from main cache`);
             return true;
         }
+        
+        // 通常のキャッシュにない場合、一時キャッシュをチェック
+        if (this.tempGroupCache.has(fingerprint)) {
+            const cached = this.tempGroupCache.get(fingerprint);
+            console.log(`[DEBUG] Cache HIT in temp cache! Restoring probabilities from temp cache for group (${group.length} cells)`);
+            console.log(`[DEBUG] Cached probabilities:`, cached.probabilities.map(p => `(${p.row},${p.col}):${p.prob}%`).join(', '));
+            
+            // キャッシュから確率を復元
+            let restoredCount = 0;
+            for (const cellProb of cached.probabilities) {
+                // 0%/100%以外の確率のみ復元（確定マスは永続確率で管理）
+                if (cellProb.prob !== 0 && cellProb.prob !== 100) {
+                    this.probabilities[cellProb.row][cellProb.col] = cellProb.prob;
+                    restoredCount++;
+                    console.log(`[DEBUG] Restored (${cellProb.row},${cellProb.col}): ${cellProb.prob}%`);
+                } else {
+                    console.log(`[DEBUG] Skipped actionable cell (${cellProb.row},${cellProb.col}): ${cellProb.prob}%`);
+                }
+            }
+            console.log(`[DEBUG] Restored ${restoredCount} non-actionable probabilities from temp cache`);
+            return true;
+        }
+        
+        console.log(`[DEBUG] Cache MISS! No cached result found in both main and temp cache for this group`);
         return false;
     }
     
@@ -1312,19 +1366,20 @@ class CSPSolver {
             const cacheSize = this.groupCache.size;
             if (cacheSize > 0) {
                 this.groupCache.clear();
+                this.tempGroupCache.clear();
                 console.log(`[DEBUG] Game reset detected. Cleared ${cacheSize} cached group results.`);
             }
             return;
         }
         
-        console.log(`[DEBUG] Board changes detected at ${changes.length} cells. Invalidating cache.`);
+        console.log(`[DEBUG] Board changes detected at ${changes.length} cells. Preserving cache for current calculation.`);
         
-        // 変更があった場合は全キャッシュをクリア（シンプルな実装）
-        // より高度な実装では、影響を受けるグループのみを無効化可能
+        // キャッシュを一時保存して、計算中に利用できるようにする
         const cacheSize = this.groupCache.size;
         if (cacheSize > 0) {
-            this.groupCache.clear();
-            console.log(`[DEBUG] Cleared ${cacheSize} cached group results.`);
+            // 現在のキャッシュを一時保存
+            this.tempGroupCache = new Map(this.groupCache);
+            console.log(`[DEBUG] Preserved ${cacheSize} cached group results for current calculation.`);
         }
     }
 }
