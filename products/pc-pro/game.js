@@ -1311,7 +1311,23 @@ class PCProMinesweeper extends PCMinesweeper {
     }
     
     toggleFlag(row, col) {
+        // 旗を外す場合の判定（旗を外す前に状態を確認）
+        const isRemovingFlag = this.flagged[row][col];
+        
         super.toggleFlag(row, col);
+        
+        // 旗を外した場合、そのセルの永続確率をクリア
+        if (isRemovingFlag && this.cspSolver && this.cspSolver.persistentProbabilities) {
+            if (this.cspSolver.persistentProbabilities[row] && 
+                this.cspSolver.persistentProbabilities[row][col] !== undefined) {
+                console.log(`[DEBUG] Clearing persistent probability for unflagged cell (${row},${col}): was ${this.cspSolver.persistentProbabilities[row][col]}%`);
+                this.cspSolver.persistentProbabilities[row][col] = -1;
+            }
+            
+            // 旗を外した場合、すべての永続確率をクリアして再計算を強制
+            console.log(`[DEBUG] Flag removed - clearing all persistent probabilities to force recalculation`);
+            this.cspSolver.persistentProbabilities = [];
+        }
         
         // 旗を立てた/外した時に確率を再計算
         if (this.probabilityMode && this.cspSolver) {
