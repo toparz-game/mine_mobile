@@ -181,16 +181,30 @@ class SoundManager {
         this.lastPlayTime.clear();
     }
     
-    // HTMLAudioElementを取得またはキャッシュ
+    // HTMLAudioElementを取得またはキャッシュ（複数インスタンス対応）
     getAudioElement(filePath) {
+        // 再生中でない音声要素を探す
         if (this.audioElements.has(filePath)) {
-            return this.audioElements.get(filePath);
+            const audioList = this.audioElements.get(filePath);
+            for (const audio of audioList) {
+                if (audio.paused || audio.ended) {
+                    return audio;
+                }
+            }
+            
+            // 全て再生中の場合、新しいインスタンスを作成
+            const newAudio = new Audio(filePath);
+            newAudio.preload = 'auto';
+            newAudio.volume = 0;
+            audioList.push(newAudio);
+            return newAudio;
         }
         
+        // 初回の場合
         const audio = new Audio(filePath);
         audio.preload = 'auto';
-        audio.volume = 0; // 初期は無音に設定
-        this.audioElements.set(filePath, audio);
+        audio.volume = 0;
+        this.audioElements.set(filePath, [audio]);
         return audio;
     }
     
@@ -199,11 +213,8 @@ class SoundManager {
         try {
             const audio = this.getAudioElement(config.file);
             
-            // 既に再生中なら停止してリセット
-            if (!audio.paused) {
-                audio.pause();
-                audio.currentTime = 0;
-            }
+            // 音を中断せず、常に最初から再生
+            audio.currentTime = 0;
             
             const volume = config.volume * this.masterVolume;
             
@@ -211,7 +222,6 @@ class SoundManager {
             audio.volume = volume;
             
             // 再生開始
-            audio.currentTime = 0;
             const playPromise = audio.play();
             
             if (playPromise !== undefined) {
