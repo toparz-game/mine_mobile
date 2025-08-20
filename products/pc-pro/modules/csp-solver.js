@@ -260,6 +260,9 @@ class CSPSolver {
             console.log(`└──────────────────────────────────────────────────┘`);
         }
         
+        // 地雷候補マスをマーク（確定安全マスに依存する場合）
+        this.markMineCandidatesForConfirmedSafes(borderCells);
+        
         return { probabilities: this.probabilities, globalProbability };
     }
     
@@ -696,6 +699,132 @@ class CSPSolver {
         }
         
         console.log(`[LOCAL COMPLETENESS] Marked ${interruptedCount} cells as calculation interrupted (-3)`);
+    }
+    
+    // 確定安全マス（0%）の依存地雷候補をマーク
+    markMineCandidatesForConfirmedSafes(group) {
+        const confirmedSafeCells = [];
+        const candidates = new Map(); // セル座標 → 依存度カウント
+        
+        // 0%確定セルを収集
+        for (const cell of group) {
+            if (this.probabilities[cell.row][cell.col] === 0) {
+                confirmedSafeCells.push(cell);
+            }
+        }
+        
+        if (confirmedSafeCells.length === 0) return;
+        
+        console.log(`[MINE CANDIDATES] Analyzing ${confirmedSafeCells.length} confirmed safe cells`);
+        
+        // 各確定安全セルについて依存地雷候補を特定
+        for (const safeCell of confirmedSafeCells) {
+            const dependencies = this.findMineDependenciesForSafeCell(safeCell, group);
+            
+            for (const candidateKey of dependencies) {
+                const count = candidates.get(candidateKey) || 0;
+                candidates.set(candidateKey, count + 1);
+            }
+        }
+        
+        // 候補マスに特別な値を設定
+        for (const [candidateKey, dependencyCount] of candidates) {
+            const [row, col] = candidateKey.split(',').map(Number);
+            
+            // 既に確率が設定されている場合はスキップ（確定マスや計算済みセル）
+            const currentProb = this.probabilities[row][col];
+            if (currentProb !== -1 && currentProb !== -3) continue;
+            
+            if (dependencyCount >= 2) {
+                this.probabilities[row][col] = -4; // 強い地雷候補
+            } else {
+                this.probabilities[row][col] = -5; // 通常地雷候補
+            }
+        }
+        
+        console.log(`[MINE CANDIDATES] Marked ${candidates.size} mine candidate cells`);
+    }
+    
+    // 確定安全セルの依存地雷候補を特定
+    findMineDependenciesForSafeCell(safeCell, group) {
+        const dependencies = new Set();
+        
+        // この安全セルに隣接する数字セルを取得
+        const adjacentNumberCells = this.getAdjacentNumberCells(safeCell);
+        
+        for (const numberCell of adjacentNumberCells) {
+            const remainingMines = this.calculateRemainingMinesForNumberCell(numberCell);
+            
+            if (remainingMines > 0) {
+                // この数字セルの周りの未開示セルが地雷候補
+                const unknownNeighbors = this.getUnknownNeighborsOfNumberCell(numberCell, group);
+                
+                for (const neighbor of unknownNeighbors) {
+                    // 安全セル自身は除外
+                    if (neighbor.row !== safeCell.row || neighbor.col !== safeCell.col) {
+                        dependencies.add(`${neighbor.row},${neighbor.col}`);
+                    }
+                }
+            }
+        }
+        
+        return dependencies;
+    }
+    
+    // セルに隣接する数字セルを取得
+    getAdjacentNumberCells(cell) {
+        const numberCells = [];
+        
+        for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                
+                const row = cell.row + dr;
+                const col = cell.col + dc;
+                
+                if (this.game.isValidCell(row, col) && 
+                    this.game.revealed[row][col] && 
+                    this.game.board[row][col] > 0) {
+                    numberCells.push({
+                        row: row,
+                        col: col,
+                        value: this.game.board[row][col]
+                    });
+                }
+            }
+        }
+        
+        return numberCells;
+    }
+    
+    // 数字セルの残り必要地雷数を計算
+    calculateRemainingMinesForNumberCell(numberCell) {
+        const flaggedCount = this.countFlaggedNeighbors(numberCell.row, numberCell.col);
+        return numberCell.value - flaggedCount;
+    }
+    
+    // 数字セルの周りの未開示セルを取得
+    getUnknownNeighborsOfNumberCell(numberCell, group) {
+        const unknownNeighbors = [];
+        const groupCellSet = new Set(group.map(c => `${c.row},${c.col}`));
+        
+        for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                
+                const row = numberCell.row + dr;
+                const col = numberCell.col + dc;
+                
+                if (this.game.isValidCell(row, col) && 
+                    !this.game.revealed[row][col] && 
+                    !this.game.flagged[row][col] &&
+                    groupCellSet.has(`${row},${col}`)) {
+                    unknownNeighbors.push({ row, col });
+                }
+            }
+        }
+        
+        return unknownNeighbors;
     }
     
     // 単純制約パターンをチェックして直接計算

@@ -1057,7 +1057,8 @@ class PCProMinesweeper extends PCMinesweeper {
                 // 確率クラスをクリア
                 cell.classList.remove('probability-safe', 'probability-low', 
                                     'probability-medium', 'probability-high', 'probability-certain',
-                                    'probability-unknown', 'probability-interrupted');
+                                    'probability-unknown', 'probability-interrupted',
+                                    'mine-candidate', 'mine-candidate-strong');
                 
                 const probability = probabilities[row][col];
                 
@@ -1097,6 +1098,12 @@ class PCProMinesweeper extends PCMinesweeper {
                     overlay.className = 'probability-overlay';
                     overlay.textContent = '---';
                     cell.appendChild(overlay);
+                } else if (probability === -4) {
+                    // 地雷候補マス（強）
+                    cell.classList.add('mine-candidate-strong');
+                } else if (probability === -5) {
+                    // 地雷候補マス（通常）
+                    cell.classList.add('mine-candidate');
                 }
             }
         }
@@ -1111,7 +1118,8 @@ class PCProMinesweeper extends PCMinesweeper {
             }
             cell.classList.remove('probability-safe', 'probability-low', 
                                 'probability-medium', 'probability-high', 'probability-certain',
-                                'probability-unknown', 'probability-interrupted');
+                                'probability-unknown', 'probability-interrupted',
+                                'mine-candidate', 'mine-candidate-strong');
         });
         
         // 全体確率表示をクリア
@@ -1256,7 +1264,8 @@ class PCProMinesweeper extends PCMinesweeper {
                             }
                             cell.classList.remove('probability-safe', 'probability-low', 
                                                 'probability-medium', 'probability-high', 
-                                                'probability-certain', 'probability-unknown', 'probability-interrupted');
+                                                'probability-certain', 'probability-unknown', 'probability-interrupted',
+                                                'mine-candidate', 'mine-candidate-strong');
                         }
                     }
                 }
