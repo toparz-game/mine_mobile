@@ -1042,79 +1042,11 @@ class PCProMinesweeper extends PCMinesweeper {
             }
         }
         
-        // ポップアップ表示のための処理（早期リターン前に実行）
+        // ポップアップ表示のための処理
         this.showAssistPopup(probabilities);
-        return; // 以下の処理は実行しない
-        
-        // 優先順位: 0% > 100% > その他の最低確率
-        let hasSafeCell = false; // 0%のセルがあるか
-        let hasUnflaggedCertainMine = false; // 旗が立っていない100%のセルがあるか
-        let minProbability = 101; // その他の確率の最小値（100%より大きい値で初期化）
-        let displayProbability = 101; // 実際に表示する確率
-        
-        for (let row = 0; row < this.rows; row++) {
-            for (let col = 0; col < this.cols; col++) {
-                // 開示済みのセルはスキップ
-                if (this.revealed[row][col]) {
-                    continue;
-                }
-                
-                const probability = probabilities[row][col];
-                
-                // 旗付きのセルはスキップ（最低確率の計算から除外）
-                if (this.flagged[row][col]) {
-                    continue;
-                }
-                
-                // 制約ベースの確率のみ考慮（-2は平均確率なので無視）
-                if (probability >= 0) {
-                    // 0%のセルをチェック（最優先）
-                    if (probability === 0) {
-                        hasSafeCell = true;
-                    }
-                    // 旗が立っていない100%のセルをチェック（2番目の優先度）
-                    else if (probability === 100 && !this.flagged[row][col]) {
-                        hasUnflaggedCertainMine = true;
-                    }
-                    // その他の確率の最小値を更新
-                    else if (probability < minProbability) {
-                        minProbability = probability;
-                    }
-                }
-            }
-        }
-        
-        // 優先順位に従って表示する確率を決定
-        if (hasSafeCell) {
-            displayProbability = 0; // 最優先: 0%
-        } else if (hasUnflaggedCertainMine) {
-            displayProbability = 100; // 2番目: 100%
-        } else if (minProbability !== 101) {
-            displayProbability = minProbability; // 3番目: その他の最低確率
-        }
-        
-        // 表示確率に基づいて色分けクラスを決定
-        let assistClass = '';
-        if (displayProbability === 101) {
-            // 計算できる確率がない場合
-            assistClass = 'assist-unknown';
-        } else if (displayProbability === 0) {
-            assistClass = 'assist-safe';
-        } else if (displayProbability <= 25) {
-            assistClass = 'assist-low';
-        } else if (displayProbability <= 50) {
-            assistClass = 'assist-medium';
-        } else if (displayProbability < 100) {
-            assistClass = 'assist-high';
-        } else {
-            assistClass = 'assist-certain';
-        }
-        
-        // 補助情報表示のみ（セルへのクラス適用は削除）
-        this.updateAssistDisplay(displayProbability, assistClass, hasUnflaggedCertainMine);
     }
     
-    updateAssistDisplay(minProbability, assistClass, hasCertainMine) {
+    clearAssistDisplay() {
         let display = document.querySelector('.assist-display');
         if (!display) {
             display = document.createElement('div');
@@ -1184,7 +1116,7 @@ class PCProMinesweeper extends PCMinesweeper {
                 }
                 cell.classList.remove('probability-safe', 'probability-low', 
                                     'probability-medium', 'probability-high', 'probability-certain',
-                                    'probability-unknown', 'probability-interrupted',
+                                    'probability-unknown', 'probability-interrupted', 'probability-skipped',
                                     'mine-candidate');
             });
         }
@@ -1194,6 +1126,7 @@ class PCProMinesweeper extends PCMinesweeper {
         // 優先順位: 0% > 100% > その他の最低確率
         let hasSafeCell = false; // 0%のセルがあるか
         let hasUnflaggedCertainMine = false; // 旗が立っていない100%のセルがあるか
+        let hasSkippedCells = false; // 完全探索がスキップされたセルがあるか
         let minProbability = 101; // その他の確率の最小値（100%より大きい値で初期化）
         let displayProbability = 101; // 実際に表示する確率
         
@@ -1209,6 +1142,11 @@ class PCProMinesweeper extends PCMinesweeper {
                 // 旗付きのセルはスキップ（最低確率の計算から除外）
                 if (this.flagged[row][col]) {
                     continue;
+                }
+                
+                // 完全探索がスキップされたセルをチェック
+                if (probability === -4) {
+                    hasSkippedCells = true;
                 }
                 
                 // 制約ベースの確率のみ考慮（-2は平均確率なので無視）
@@ -1239,10 +1177,10 @@ class PCProMinesweeper extends PCMinesweeper {
         }
         
         // ポップアップに表示
-        this.updateAssistDisplay(displayProbability, hasUnflaggedCertainMine);
+        this.updateAssistDisplay(displayProbability, hasUnflaggedCertainMine, hasSkippedCells);
     }
     
-    updateAssistDisplay(displayProbability, hasCertainMine) {
+    updateAssistDisplay(displayProbability, hasCertainMine, hasSkippedCells = false) {
         let display = document.querySelector('.assist-display');
         
         if (!display) {
@@ -1261,9 +1199,16 @@ class PCProMinesweeper extends PCMinesweeper {
         let assistClass = '';
         
         if (displayProbability === 101) {
-            // 確率が計算できない場合は表示しない
-            display.classList.remove('show');
-            return;
+            // 確率が計算できない場合
+            if (hasSkippedCells) {
+                // スキップされたセルがある場合は「組み合わせ超過」のみ表示
+                statusText = '組み合わせ超過';
+                assistClass = 'probability';
+            } else {
+                // スキップされたセルもない場合は表示しない
+                display.classList.remove('show');
+                return;
+            }
         } else if (displayProbability === 0) {
             statusText = '0%';
             assistClass = 'safe';
@@ -1276,6 +1221,11 @@ class PCProMinesweeper extends PCMinesweeper {
         } else {
             statusText = `${displayProbability}%`;
             assistClass = 'probability';
+        }
+        
+        // 完全探索がスキップされたセルがある場合は追加表示
+        if (hasSkippedCells) {
+            statusText += ' 組み合わせ超過';
         }
         
         display.innerHTML = `
@@ -1320,7 +1270,7 @@ class PCProMinesweeper extends PCMinesweeper {
                 // 確率クラスをクリア
                 cell.classList.remove('probability-safe', 'probability-low', 
                                     'probability-medium', 'probability-high', 'probability-certain',
-                                    'probability-unknown', 'probability-interrupted',
+                                    'probability-unknown', 'probability-interrupted', 'probability-skipped',
                                     'mine-candidate');
                 
                 const probability = probabilities[row][col];
@@ -1360,6 +1310,13 @@ class PCProMinesweeper extends PCMinesweeper {
                     const overlay = document.createElement('div');
                     overlay.className = 'probability-overlay';
                     overlay.textContent = '---';
+                    cell.appendChild(overlay);
+                } else if (probability === -4) {
+                    // 完全探索スキップのセル
+                    cell.classList.add('probability-skipped');
+                    const overlay = document.createElement('div');
+                    overlay.className = 'probability-overlay';
+                    overlay.textContent = '----';
                     cell.appendChild(overlay);
                 } else if (probability === 0) {
                     // 確定安全マス（0%）
@@ -1413,7 +1370,7 @@ class PCProMinesweeper extends PCMinesweeper {
                 // 確率関連のクラスのみ削除（mine-candidateは保持）
                 cell.classList.remove('probability-safe', 'probability-low', 
                                     'probability-medium', 'probability-high', 'probability-certain',
-                                    'probability-unknown', 'probability-interrupted');
+                                    'probability-unknown', 'probability-interrupted', 'probability-skipped');
             } else {
                 // 補助機能が無効または視覚表示無効な場合は全て削除
                 const overlay = cell.querySelector('.probability-overlay');
@@ -1422,7 +1379,7 @@ class PCProMinesweeper extends PCMinesweeper {
                 }
                 cell.classList.remove('probability-safe', 'probability-low', 
                                     'probability-medium', 'probability-high', 'probability-certain',
-                                    'probability-unknown', 'probability-interrupted',
+                                    'probability-unknown', 'probability-interrupted', 'probability-skipped',
                                     'mine-candidate');
             }
         });
