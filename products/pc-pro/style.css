@@ -1149,21 +1149,26 @@ body.power-save-mode .control-btn.active {
 
 /* 計算中断のセル */
 .cell.probability-interrupted {
-    opacity: 0.6;
-    background: rgba(255, 165, 0, 0.1);
-    border: 1px dashed rgba(255, 165, 0, 0.3);
+    opacity: 0.8;
+    background: rgba(128, 128, 128, 0.05);
+    border: 1px dashed rgba(128, 128, 128, 0.3);
 }
 
 /* 地雷候補マス（通常） */
 .cell.mine-candidate {
-    background: rgba(255, 69, 0, 0.1);
-    border: 1px solid rgba(255, 69, 0, 0.2);
+    background: rgba(255, 140, 0, 0.1);
+    border: 1px solid rgba(255, 140, 0, 0.3);
 }
 
 /* 地雷候補マス（強） */
 .cell.mine-candidate-strong {
-    background: rgba(220, 20, 60, 0.15);
-    border: 1px solid rgba(220, 20, 60, 0.3);
+    background: rgba(128, 0, 128, 0.15);
+    border: 1px solid rgba(128, 0, 128, 0.4);
+}
+
+/* 地雷候補オーバーレイ */
+.mine-candidate-overlay {
+    color: var(--text-primary);
 }
 
 /* 確率モード時の既存セル表示調整 */

@@ -168,6 +168,9 @@ class CSPSolver {
                     if (hasActionable) {
                         phase2ActionableFound = true;
                         
+                        // 地雷候補マスをマーク（Phase2でも実行）
+                        this.markMineCandidatesForConfirmedSafes(group);
+                        
                         // 既に処理済みのグループ（0からi-1まで）のキャッシュを復元
                         for (let j = 0; j < i; j++) {
                             const processedGroup = constraintGroups[j];

@@ -1101,9 +1101,17 @@ class PCProMinesweeper extends PCMinesweeper {
                 } else if (probability === -4) {
                     // 地雷候補マス（強）
                     cell.classList.add('mine-candidate-strong');
+                    const overlay = document.createElement('div');
+                    overlay.className = 'probability-overlay mine-candidate-overlay';
+                    overlay.textContent = '？';
+                    cell.appendChild(overlay);
                 } else if (probability === -5) {
                     // 地雷候補マス（通常）
                     cell.classList.add('mine-candidate');
+                    const overlay = document.createElement('div');
+                    overlay.className = 'probability-overlay mine-candidate-overlay';
+                    overlay.textContent = '？';
+                    cell.appendChild(overlay);
                 }
             }
         }
