@@ -1148,7 +1148,9 @@ class CSPSolver {
                     console.log(`[LOCAL COMPLETENESS] No independent subsets found in group of ${group.length} cells`);
                 }
             } else {
-                console.log(`[LOCAL COMPLETENESS] Group too large for local completeness (${group.length} > ${this.maxLocalCompletenessSize} cells). Skipping.`);
+                console.log(`[LOCAL COMPLETENESS] Group too large for local completeness (${group.length} > ${this.maxLocalCompletenessSize} cells). Trying approximate calculation.`);
+                // 近似確率計算を試行
+                this.calculateApproximateProbabilities(group, constraints);
             }
         }
         
@@ -1960,5 +1962,155 @@ class CSPSolver {
             // 現在のキャッシュを一時保存
             this.tempGroupCache = new Map(this.groupCache);
         }
+    }
+    
+    // 近似確率計算（重要度ベースサンプリング）
+    calculateApproximateProbabilities(group, constraints) {
+        console.log(`[APPROXIMATE] Starting approximate calculation for ${group.length} cells...`);
+        
+        // 各セルの重要度を計算（制約数ベース）
+        const cellImportance = group.map((cell, index) => {
+            let constraintCount = 0;
+            for (const constraint of constraints) {
+                if (constraint.cells.includes(index)) {
+                    constraintCount++;
+                }
+            }
+            return { index, cell, importance: constraintCount };
+        });
+        
+        // 重要度順にソート（制約が多いセル = より重要）
+        cellImportance.sort((a, b) => b.importance - a.importance);
+        
+        // 最大25マスを選択（完全探索制限内）
+        const sampleSize = Math.min(this.maxConstraintSize, group.length);
+        const selectedCells = cellImportance.slice(0, sampleSize);
+        
+        console.log(`[APPROXIMATE] Selected ${selectedCells.length} most important cells for sampling`);
+        
+        // 選択されたセルのみで部分的なグループと制約を作成
+        const sampleGroup = selectedCells.map(item => item.cell);
+        const sampleConstraints = this.adjustConstraintsForSample(constraints, selectedCells);
+        
+        // 選択されたセルで完全探索を実行
+        const sampleProbabilities = this.exhaustiveSearchForSample(sampleGroup, sampleConstraints);
+        
+        // 結果を元のグループに適用
+        for (let i = 0; i < selectedCells.length; i++) {
+            const originalIndex = selectedCells[i].index;
+            const cell = group[originalIndex];
+            const probability = sampleProbabilities[i];
+            
+            if (probability >= 0) {
+                // 近似確率として-6をマイナス値として使用（-6 = 近似確率）
+                this.probabilities[cell.row][cell.col] = probability;
+                // 近似フラグとして特別な値を設定
+                this.markAsApproximate(cell.row, cell.col, probability);
+            }
+        }
+        
+        // 選択されなかったセルは制約外として扱う
+        for (let i = 0; i < group.length; i++) {
+            const cell = group[i];
+            if (!selectedCells.some(selected => selected.index === i)) {
+                if (this.probabilities[cell.row][cell.col] === -1) {
+                    this.probabilities[cell.row][cell.col] = -2; // 制約外
+                }
+            }
+        }
+        
+        console.log(`[APPROXIMATE] Completed approximate calculation`);
+    }
+    
+    // サンプル用に制約を調整
+    adjustConstraintsForSample(constraints, selectedCells) {
+        const sampleConstraints = [];
+        const oldToNewIndex = new Map();
+        
+        // 選択されたセルのインデックスマッピングを作成
+        selectedCells.forEach((item, newIndex) => {
+            oldToNewIndex.set(item.index, newIndex);
+        });
+        
+        for (const constraint of constraints) {
+            const newCells = [];
+            let adjustedRequiredMines = constraint.requiredMines;
+            
+            // この制約に含まれるセルのうち、選択されたものを新しいインデックスに変換
+            for (const oldIndex of constraint.cells) {
+                if (oldToNewIndex.has(oldIndex)) {
+                    newCells.push(oldToNewIndex.get(oldIndex));
+                } else {
+                    // 選択されなかったセルは平均確率で処理
+                    // ここでは簡単のため、制約から除外
+                }
+            }
+            
+            if (newCells.length > 0) {
+                sampleConstraints.push({
+                    cells: newCells,
+                    requiredMines: Math.min(adjustedRequiredMines, newCells.length)
+                });
+            }
+        }
+        
+        return sampleConstraints;
+    }
+    
+    // サンプルセルで完全探索を実行
+    exhaustiveSearchForSample(sampleGroup, sampleConstraints) {
+        const cellCount = sampleGroup.length;
+        const totalConfigs = Math.pow(2, cellCount);
+        const validConfigurations = [];
+        
+        console.log(`[APPROXIMATE] Running exhaustive search on ${cellCount} cells (${totalConfigs} configurations)`);
+        
+        // 全ての配置パターンをチェック
+        for (let config = 0; config < totalConfigs; config++) {
+            if (this.isValidConfiguration(config, sampleConstraints, cellCount)) {
+                validConfigurations.push(config);
+            }
+        }
+        
+        console.log(`[APPROXIMATE] Found ${validConfigurations.length} valid configurations`);
+        
+        // 各セルの確率を計算
+        const probabilities = new Array(cellCount).fill(0);
+        
+        if (validConfigurations.length > 0) {
+            for (const config of validConfigurations) {
+                for (let i = 0; i < cellCount; i++) {
+                    if ((config >> i) & 1) {
+                        probabilities[i]++;
+                    }
+                }
+            }
+            
+            // パーセンテージに変換
+            for (let i = 0; i < cellCount; i++) {
+                probabilities[i] = Math.round((probabilities[i] / validConfigurations.length) * 100);
+            }
+        }
+        
+        return probabilities;
+    }
+    
+    // 近似確率としてマーク
+    markAsApproximate(row, col, probability) {
+        // 近似確率の情報を別途保存
+        if (!this.approximateProbabilities) {
+            this.approximateProbabilities = [];
+        }
+        if (!this.approximateProbabilities[row]) {
+            this.approximateProbabilities[row] = [];
+        }
+        this.approximateProbabilities[row][col] = probability;
+    }
+    
+    // 近似確率かどうかをチェック
+    isApproximate(row, col) {
+        return this.approximateProbabilities && 
+               this.approximateProbabilities[row] && 
+               this.approximateProbabilities[row][col] !== undefined;
     }
 }
