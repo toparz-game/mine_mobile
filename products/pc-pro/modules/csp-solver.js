@@ -490,6 +490,363 @@ class CSPSolver {
         return this.solveExact(group, skipConstraintPropagation);
     }
     
+    // 局所制約完全性をチェック（セル集合が独立して解けるか判定）
+    checkLocalConstraintCompleteness(cellSet, constraintSet, allConstraints) {
+        const cellIndices = new Set(cellSet);
+        
+        // 条件1: セル集合内の各セルが関与する制約が、すべて制約集合内に含まれているか
+        for (const cellIdx of cellIndices) {
+            // このセルが関与するすべての制約を取得
+            const cellConstraints = allConstraints.filter(constraint => 
+                constraint.cells.includes(cellIdx)
+            );
+            
+            // このセルの制約がすべて制約集合に含まれているかチェック
+            for (const cellConstraint of cellConstraints) {
+                if (!constraintSet.includes(cellConstraint)) {
+                    return false; // 制約集合外の制約がセルに影響している
+                }
+            }
+        }
+        
+        // 条件2: 制約集合内の各制約が影響するセルが、すべてセル集合内に含まれているか
+        for (const constraint of constraintSet) {
+            for (const cellIdx of constraint.cells) {
+                if (!cellIndices.has(cellIdx)) {
+                    return false; // セル集合外のセルに制約が影響している
+                }
+            }
+        }
+        
+        return true; // 完全性が確認された
+    }
+    
+    // 独立した部分集合を検出
+    findIndependentSubsets(group, constraints) {
+        const independentSubsets = [];
+        const processedConstraints = new Set();
+        
+        for (const constraint of constraints) {
+            if (processedConstraints.has(constraint)) continue;
+            
+            // この制約から開始して関連する制約とセルを収集
+            const relatedConstraints = [constraint];
+            const relatedCells = new Set(constraint.cells);
+            const constraintQueue = [constraint];
+            const processedInThisSet = new Set([constraint]);
+            
+            // 制約の連鎖を辿る
+            while (constraintQueue.length > 0) {
+                const currentConstraint = constraintQueue.shift();
+                
+                // この制約に関わるセルを追加
+                for (const cellIdx of currentConstraint.cells) {
+                    relatedCells.add(cellIdx);
+                }
+                
+                // セルを共有する他の制約を探す
+                for (const otherConstraint of constraints) {
+                    if (processedInThisSet.has(otherConstraint)) continue;
+                    
+                    // セルの重複をチェック
+                    const hasOverlap = otherConstraint.cells.some(cellIdx => 
+                        relatedCells.has(cellIdx)
+                    );
+                    
+                    if (hasOverlap) {
+                        relatedConstraints.push(otherConstraint);
+                        constraintQueue.push(otherConstraint);
+                        processedInThisSet.add(otherConstraint);
+                    }
+                }
+            }
+            
+            // 完全性をチェック
+            const cellArray = Array.from(relatedCells);
+            if (this.checkLocalConstraintCompleteness(cellArray, relatedConstraints, constraints)) {
+                independentSubsets.push({
+                    cells: cellArray,
+                    constraints: relatedConstraints,
+                    isComplete: true
+                });
+            }
+            
+            // 処理済みとしてマーク
+            for (const processedConstraint of relatedConstraints) {
+                processedConstraints.add(processedConstraint);
+            }
+        }
+        
+        return independentSubsets;
+    }
+    
+    // 独立部分集合を完全探索で解く
+    // 戻り値: true = 0%か100%のセルが見つかった, false = 見つからなかった
+    solveIndependentSubset(subset, group) {
+        // 部分集合のセルをグループ内インデックスから実際のセル情報に変換
+        const subsetCells = subset.cells.map(idx => group[idx]);
+        
+        // サイズチェック（安全性のため）
+        if (subsetCells.length > this.maxConstraintSize) {
+            console.warn(`Independent subset too large (${subsetCells.length} cells). Skipping.`);
+            return false;
+        }
+        
+        console.log(`[LOCAL COMPLETENESS] Solving independent subset: ${subsetCells.length} cells, ${subset.constraints.length} constraints`);
+        
+        // 完全探索を実行
+        const validConfigurations = [];
+        const totalConfigs = Math.pow(2, subsetCells.length);
+        
+        // パフォーマンス測定用カウンター更新
+        this.totalConfigurations += totalConfigs;
+        this.totalExhaustiveSearches += 1;
+        this.totalCellsProcessed += subsetCells.length;
+        
+        // すべての可能な配置を試す
+        for (let config = 0; config < totalConfigs; config++) {
+            const mines = [];
+            for (let i = 0; i < subsetCells.length; i++) {
+                if ((config >> i) & 1) {
+                    mines.push(i);
+                }
+            }
+            
+            if (this.isValidConfigurationForSubset(mines, subset.constraints)) {
+                validConfigurations.push(mines);
+            }
+        }
+        
+        // 有効な配置から確率を計算
+        let hasActionableCell = false;
+        if (validConfigurations.length > 0) {
+            for (let i = 0; i < subsetCells.length; i++) {
+                let mineCount = 0;
+                for (const config of validConfigurations) {
+                    if (config.includes(i)) {
+                        mineCount++;
+                    }
+                }
+                const probability = Math.round((mineCount / validConfigurations.length) * 100);
+                const cell = subsetCells[i];
+                this.probabilities[cell.row][cell.col] = probability;
+                
+                // 0%または100%の場合は永続的に保存
+                if (probability === 0 || probability === 100) {
+                    this.persistentProbabilities[cell.row][cell.col] = probability;
+                    hasActionableCell = true;
+                }
+            }
+        } else {
+            // 有効な配置がない場合（エラー状態）
+            console.warn('No valid configurations found for independent subset');
+            for (const cell of subsetCells) {
+                this.probabilities[cell.row][cell.col] = 50; // デフォルト値
+            }
+        }
+        
+        return hasActionableCell;
+    }
+    
+    // 独立部分集合用の配置検証
+    isValidConfigurationForSubset(mineIndices, constraints) {
+        // 各制約をチェック
+        for (const constraint of constraints) {
+            let actualMines = 0;
+            
+            for (const cellIndex of constraint.cells) {
+                if (mineIndices.includes(cellIndex)) {
+                    actualMines++;
+                }
+            }
+            
+            // 必要な地雷数をチェック（旗の数は既に引かれている）
+            if (actualMines !== constraint.requiredMines) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    // 単純制約パターンをチェックして直接計算
+    // 戻り値: {solved: boolean, hasActionable: boolean} または null
+    checkSimpleConstraintPatterns(group, constraints) {
+        const startTime = performance.now();
+        
+        console.log(`[DEBUG] Checking simple patterns: ${group.length} cells, ${constraints.length} constraints`);
+        for (let i = 0; i < constraints.length; i++) {
+            const c = constraints[i];
+            console.log(`[DEBUG] Constraint ${i}: ${c.cells.length} cells, ${c.requiredMines} mines required`);
+        }
+        
+        // パターン1: 単一制約で全セルが同等
+        if (constraints.length === 1) {
+            const constraint = constraints[0];
+            console.log(`[DEBUG] Single constraint detected: ${constraint.cells.length} cells in group, ${constraint.cells.length} cells in constraint`);
+            
+            // 制約がグループ全体をカバーしているかチェック
+            if (constraint.cells.length === group.length) {
+                console.log(`[DEBUG] Constraint covers entire group. Proceeding with direct calculation.`);
+                const result = this.solveSingleConstraintDirect(group, constraint, startTime);
+                if (result) {
+                    return result;
+                }
+            } else {
+                console.log(`[DEBUG] Constraint does not cover entire group (${constraint.cells.length}/${group.length}). Skipping simple pattern.`);
+            }
+        }
+        
+        // パターン2: 複数制約だが対称性がある場合
+        if (constraints.length > 1) {
+            const symmetryResult = this.checkConstraintSymmetry(group, constraints, startTime);
+            if (symmetryResult) {
+                return symmetryResult;
+            }
+        }
+        
+        console.log(`[DEBUG] No simple pattern detected.`);
+        return null; // 単純パターンではない
+    }
+    
+    // 単一制約を直接計算
+    solveSingleConstraintDirect(group, constraint, startTime) {
+        const cellCount = constraint.cells.length;
+        const requiredMines = constraint.requiredMines;
+        
+        // 制約違反チェック
+        if (requiredMines < 0 || requiredMines > cellCount) {
+            return null;
+        }
+        
+        // セル数チェック（単一制約でも大きすぎる場合は通常の処理に委ねる）
+        if (cellCount > this.maxConstraintSize) {
+            return null;
+        }
+        
+        // すべてのセルが制約内に含まれているかチェック
+        if (constraint.cells.length !== cellCount) {
+            return null;
+        }
+        
+        // 確定パターンのチェック
+        let hasActionable = false;
+        let patternType = "";
+        let probability = 0;
+        
+        if (requiredMines === 0) {
+            // すべて安全
+            for (const cellIdx of constraint.cells) {
+                const cell = group[cellIdx];
+                this.probabilities[cell.row][cell.col] = 0;
+                this.persistentProbabilities[cell.row][cell.col] = 0;
+            }
+            hasActionable = true;
+            patternType = "全セル安全";
+            probability = 0;
+        } else if (requiredMines === cellCount) {
+            // すべて地雷
+            for (const cellIdx of constraint.cells) {
+                const cell = group[cellIdx];
+                this.probabilities[cell.row][cell.col] = 100;
+                this.persistentProbabilities[cell.row][cell.col] = 100;
+            }
+            hasActionable = true;
+            patternType = "全セル地雷";
+            probability = 100;
+        } else {
+            // 均等確率（数学的に正確な計算）
+            probability = Math.round((requiredMines / cellCount) * 100);
+            for (const cellIdx of constraint.cells) {
+                const cell = group[cellIdx];
+                this.probabilities[cell.row][cell.col] = probability;
+                // 0%または100%の場合のみ永続保存
+                if (probability === 0 || probability === 100) {
+                    this.persistentProbabilities[cell.row][cell.col] = probability;
+                    hasActionable = true;
+                }
+            }
+            patternType = "均等確率";
+        }
+        
+        // パフォーマンスレポート出力
+        const endTime = performance.now();
+        const processingTime = (endTime - startTime).toFixed(2);
+        const processingTimeSeconds = (processingTime / 1000).toFixed(3);
+        
+        console.log(`┌── [SIMPLE PATTERN REPORT] ───────────────────────┐`);
+        console.log(`│ 単純パターン計算完了                             │`);
+        console.log(`│ パターン: ${patternType}                            │`);
+        console.log(`│ 処理時間: ${processingTime}ms (${processingTimeSeconds}秒)             │`);
+        console.log(`│ 計算マス数: ${cellCount}マス                           │`);
+        console.log(`│ 制約: ${requiredMines}個の地雷 / ${cellCount}マス                  │`);
+        console.log(`│ 結果確率: ${probability}%                            │`);
+        console.log(`│ 確定マス発見: ${hasActionable ? 'あり' : 'なし'}                        │`);
+        console.log(`│ 計算量削減: 完全探索 ${Math.pow(2, cellCount).toLocaleString()}パターン → 直接計算      │`);
+        console.log(`└──────────────────────────────────────────────────┘`);
+        
+        return { solved: true, hasActionable };
+    }
+    
+    // 制約の対称性をチェック
+    checkConstraintSymmetry(group, constraints, startTime) {
+        // より高度な対称性検出は後で実装
+        // 今回は基本的なケースのみ対応
+        
+        // すべての制約が同じセル集合に対して同じ要求をしている場合
+        const allCells = new Set();
+        const allRequiredMines = [];
+        
+        for (const constraint of constraints) {
+            for (const cellIdx of constraint.cells) {
+                allCells.add(cellIdx);
+            }
+            allRequiredMines.push(constraint.requiredMines);
+        }
+        
+        // 単純な対称性: すべての制約が同じ地雷数を要求
+        const uniqueRequiredMines = [...new Set(allRequiredMines)];
+        if (uniqueRequiredMines.length === 1 && allCells.size === group.length) {
+            // すべてのセルが関与し、すべての制約が同じ地雷数を要求
+            const totalRequiredMines = uniqueRequiredMines[0] * constraints.length;
+            const cellCount = allCells.size;
+            
+            if (totalRequiredMines <= cellCount) {
+                const probability = Math.round((totalRequiredMines / cellCount) * 100);
+                let hasActionable = false;
+                
+                for (let i = 0; i < group.length; i++) {
+                    const cell = group[i];
+                    this.probabilities[cell.row][cell.col] = probability;
+                    if (probability === 0 || probability === 100) {
+                        this.persistentProbabilities[cell.row][cell.col] = probability;
+                        hasActionable = true;
+                    }
+                }
+                
+                // パフォーマンスレポート出力
+                const endTime = performance.now();
+                const processingTime = (endTime - startTime).toFixed(2);
+                const processingTimeSeconds = (processingTime / 1000).toFixed(3);
+                
+                console.log(`┌── [SIMPLE PATTERN REPORT] ───────────────────────┐`);
+                console.log(`│ 単純パターン計算完了                             │`);
+                console.log(`│ パターン: 対称制約                               │`);
+                console.log(`│ 処理時間: ${processingTime}ms (${processingTimeSeconds}秒)             │`);
+                console.log(`│ 計算マス数: ${cellCount}マス                           │`);
+                console.log(`│ 制約数: ${constraints.length}個                            │`);
+                console.log(`│ 結果確率: ${probability}%                            │`);
+                console.log(`│ 確定マス発見: ${hasActionable ? 'あり' : 'なし'}                        │`);
+                console.log(`│ 計算量削減: 完全探索 ${Math.pow(2, cellCount).toLocaleString()}パターン → 直接計算      │`);
+                console.log(`└──────────────────────────────────────────────────┘`);
+                
+                return { solved: true, hasActionable };
+            }
+        }
+        
+        return null; // 対称性なし
+    }
+    
     // 完全探索による確率計算（最適化版）
     // 戻り値: true = 0%か100%のセルが見つかった, false = 見つからなかった
     solveExact(group, skipConstraintPropagation = false) {
@@ -564,7 +921,47 @@ class CSPSolver {
             hasActionableFromPropagation = (determinedCells.certain.length > 0 || determinedCells.safe.length > 0);
         }
         
-        // STEP 2: 確定していないセルだけを完全探索
+        // STEP 2: 局所制約完全性チェック（制約伝播で確定マスが見つからなかった場合のみ）
+        if (!hasActionableFromPropagation && !skipConstraintPropagation) {
+            console.log(`[LOCAL COMPLETENESS] Analyzing group of ${group.length} cells for independent subsets...`);
+            const independentSubsets = this.findIndependentSubsets(group, constraints);
+            
+            if (independentSubsets.length > 0) {
+                console.log(`[LOCAL COMPLETENESS] Found ${independentSubsets.length} independent subset(s): ${independentSubsets.map(s => s.cells.length + ' cells').join(', ')}`);
+                
+                // 小さな独立部分集合があれば優先的に処理
+                for (const subset of independentSubsets) {
+                    if (subset.cells.length <= this.maxConstraintSize) {
+                        const hasActionableFromSubset = this.solveIndependentSubset(subset, group);
+                        if (hasActionableFromSubset) {
+                            console.log(`[LOCAL COMPLETENESS] Found actionable cells in independent subset of ${subset.cells.length} cells`);
+                            return true; // 確定マスが見つかったので早期終了
+                        } else {
+                            console.log(`[LOCAL COMPLETENESS] No actionable cells found in subset of ${subset.cells.length} cells`);
+                        }
+                    } else {
+                        console.log(`[LOCAL COMPLETENESS] Skipping large subset of ${subset.cells.length} cells (exceeds limit of ${this.maxConstraintSize})`);
+                    }
+                }
+                console.log(`[LOCAL COMPLETENESS] All independent subsets processed. No actionable cells found.`);
+            } else {
+                console.log(`[LOCAL COMPLETENESS] No independent subsets found in group of ${group.length} cells`);
+            }
+        }
+        
+        // STEP 3: 単純制約パターンの直接計算（一時的にコメントアウト）
+        /*
+        if (!hasActionableFromPropagation) {
+            console.log(`[DEBUG] solveExact called with skipConstraintPropagation: ${skipConstraintPropagation}`);
+            console.log(`[DEBUG] Starting simple pattern check...`);
+            const simplePatternResult = this.checkSimpleConstraintPatterns(group, constraints);
+            if (simplePatternResult) {
+                return simplePatternResult.hasActionable;
+            }
+        }
+        */
+        
+        // STEP 4: 確定していないセルだけを完全探索
         const uncertainIndices = [];
         for (let i = 0; i < group.length; i++) {
             if (!determinedCells.certain.includes(i) && !determinedCells.safe.includes(i)) {
@@ -574,7 +971,7 @@ class CSPSolver {
         
         if (uncertainIndices.length === 0) {
             // すべて確定した
-            return false; // すでに上で処理済みなのでfalseを返す
+            return hasActionableFromPropagation; // 制約伝播での結果を返す
         }
         
         
