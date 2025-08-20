@@ -792,6 +792,10 @@ class PCProMinesweeper extends PCMinesweeper {
     }
     
     newGame() {
+        // 現在のモード状態を保存
+        const probabilityModeState = this.probabilityMode;
+        const assistModeState = this.assistMode;
+        
         // リセット
         this.hintsUsed = 0;
         this.moveHistory = [];
@@ -811,27 +815,28 @@ class PCProMinesweeper extends PCMinesweeper {
             console.log('[DEBUG] Cleared persistent probabilities on game reset');
         }
         
-        // 補助モードの状態を保持（UIの表示のみクリア）
-        if (this.assistMode) {
-            const boardElement = document.getElementById('game-board');
-            if (boardElement) {
-                boardElement.classList.add('assist-mode');
-            }
-        }
-        
-        // 確率モードの状態を保持（UIの表示のみクリア）
-        if (this.probabilityMode) {
-            const boardElement = document.getElementById('game-board');
-            if (boardElement) {
-                boardElement.classList.add('probability-mode');
-            }
-        }
-        
         // 録画開始
         this.startRecording();
         
         // 基本的なnewGame処理
         super.newGame();
+        
+        // モード状態を復元
+        if (probabilityModeState) {
+            this.probabilityMode = true;
+            const probabilityBtn = document.getElementById('probability-btn');
+            const boardElement = document.getElementById('game-board');
+            if (probabilityBtn) probabilityBtn.classList.add('active');
+            if (boardElement) boardElement.classList.add('probability-mode');
+        }
+        
+        if (assistModeState) {
+            this.assistMode = true;
+            const assistBtn = document.getElementById('assist-btn');
+            const boardElement = document.getElementById('game-board');
+            if (assistBtn) assistBtn.classList.add('active');
+            if (boardElement) boardElement.classList.add('assist-mode');
+        }
     }
     
     // CSPソルバー関連メソッド
