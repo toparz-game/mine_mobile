@@ -340,6 +340,16 @@ body {
 [data-theme="dark"] .cell[data-count="7"] { color: #e0e0e0; }
 [data-theme="dark"] .cell[data-count="8"] { color: #c0c0c0; }
 
+/* ダークテーマでの確率表示 */
+[data-theme="dark"] .cell.probability-certain .probability-overlay {
+    color: #FFD700;
+    background: rgba(255, 215, 0, 0.25);
+    border: 1px solid rgba(255, 215, 0, 0.4);
+    font-weight: bold;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+}
+
+
 .controls {
     display: flex;
     justify-content: center;
