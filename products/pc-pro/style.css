@@ -123,7 +123,20 @@ body {
 .center-group {
     display: flex;
     align-items: center;
-    gap: 15px;
+    justify-content: center;
+}
+
+.timer-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-self: end;
+}
+
+.displays-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .info-item-group {
@@ -1192,7 +1205,7 @@ body.power-save-mode .control-btn.active {
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
     z-index: 100;
     display: none;
-    min-width: 120px;
+    min-width: 100px;
 }
 
 .global-probability-display.show {
@@ -1204,7 +1217,6 @@ body.power-save-mode .control-btn.active {
     display: flex;
     align-items: center;
     height: 40px;
-    margin-left: 10px;
 }
 
 .global-stats-display-container .global-probability-display {
@@ -1213,61 +1225,57 @@ body.power-save-mode .control-btn.active {
 
 /* スマホでの表示調整 */
 @media (max-width: 768px) {
-    .global-stats-display-container {
-        margin-left: 5px;
+    .timer-group {
+        gap: 5px;
+    }
+    
+    .displays-container {
+        gap: 5px;
     }
     
     .global-probability-display {
-        min-width: 100px;
-        padding: 6px 10px;
-    }
-    
-    .global-prob-title {
-        font-size: 10px;
-        margin-bottom: 5px;
-        padding-bottom: 3px;
-    }
-    
-    .global-prob-content {
-        font-size: 9px;
-    }
-    
-    .global-prob-content div {
-        margin: 2px 0;
+        min-width: 90px;
+        padding: 4px 6px;
     }
     
     .global-prob-value {
         font-size: 10px;
-        margin-top: 5px;
-        padding-top: 3px;
     }
 }
 
-.global-prob-title {
-    font-size: 12px;
-    font-weight: bold;
-    color: var(--theme-primary);
-    margin-bottom: 10px;
-    border-bottom: 1px solid var(--cell-border);
-    padding-bottom: 5px;
+/* より小さなスクリーン用 */
+@media (max-width: 480px) {
+    .timer-group {
+        gap: 3px;
+    }
+    
+    .displays-container {
+        gap: 3px;
+    }
+    
+    .global-probability-display {
+        min-width: 80px;
+        padding: 3px 5px;
+    }
+    
+    .global-prob-value {
+        font-size: 9px;
+    }
 }
+
 
 .global-prob-content {
-    font-size: 11px;
-    color: var(--text-primary);
-}
-
-.global-prob-content div {
-    margin: 3px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .global-prob-value {
     font-size: 12px;
     font-weight: bold;
     color: var(--theme-secondary);
-    margin-top: 10px;
-    padding-top: 5px;
-    border-top: 1px solid var(--cell-border);
+    margin: 0;
+    padding: 0;
 }
 
 

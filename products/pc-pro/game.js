@@ -1186,10 +1186,7 @@ class PCProMinesweeper extends PCMinesweeper {
         const unknownCount = this.getUnknownCells().length;
         
         display.innerHTML = `
-            <div class="global-prob-title">全体統計</div>
             <div class="global-prob-content">
-                <div>残り地雷: ${remainingMines}</div>
-                <div>未開示: ${unknownCount}</div>
                 <div class="global-prob-value">平均確率: ${globalProbability}%</div>
             </div>
         `;
