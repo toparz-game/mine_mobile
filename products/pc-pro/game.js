@@ -51,6 +51,9 @@ class PCProMinesweeper extends PCMinesweeper {
         this.assistMode = false; // 補助モード
         this.isRevealing = false; // 再帰的な開示処理中フラグ
         
+        // 補助機能の視覚表示設定
+        this.assistVisualEnabled = true;
+        
         this.initPro();
     }
     
@@ -120,6 +123,12 @@ class PCProMinesweeper extends PCMinesweeper {
         const assistBtn = document.getElementById('assist-btn');
         if (assistBtn) {
             assistBtn.addEventListener('click', () => this.toggleAssistMode());
+        }
+        
+        // 補助機能の視覚表示設定ボタン
+        const assistVisualToggleBtn = document.getElementById('assist-visual-toggle-btn');
+        if (assistVisualToggleBtn) {
+            assistVisualToggleBtn.addEventListener('click', () => this.toggleAssistVisual());
         }
         
         // キーボードショートカット
@@ -658,6 +667,24 @@ class PCProMinesweeper extends PCMinesweeper {
         localStorage.setItem('minesweeper-pro-theme', themeName);
     }
     
+    // 補助機能の視覚表示設定切り替え
+    toggleAssistVisual() {
+        this.assistVisualEnabled = !this.assistVisualEnabled;
+        const assistVisualToggleBtn = document.getElementById('assist-visual-toggle-btn');
+        if (assistVisualToggleBtn) {
+            const textElement = assistVisualToggleBtn.querySelector('.assist-visual-text');
+            if (textElement) {
+                textElement.textContent = this.assistVisualEnabled ? 'ON' : 'OFF';
+            }
+        }
+        localStorage.setItem('minesweeper-pro-assist-visual', this.assistVisualEnabled);
+        
+        // 補助モードが有効な場合は再表示
+        if (this.assistMode) {
+            this.calculateAndDisplayAssist();
+        }
+    }
+    
     // 設定の保存と読み込み
     loadSettings() {
         // サウンド設定
@@ -677,6 +704,19 @@ class PCProMinesweeper extends PCMinesweeper {
             const themeSelect = document.getElementById('theme-select');
             if (themeSelect) {
                 themeSelect.value = themeSetting;
+            }
+        }
+        
+        // 補助機能の視覚表示設定
+        const assistVisualSetting = localStorage.getItem('minesweeper-pro-assist-visual');
+        if (assistVisualSetting === 'false') {
+            this.assistVisualEnabled = false;
+            const assistVisualToggleBtn = document.getElementById('assist-visual-toggle-btn');
+            if (assistVisualToggleBtn) {
+                const textElement = assistVisualToggleBtn.querySelector('.assist-visual-text');
+                if (textElement) {
+                    textElement.textContent = 'OFF';
+                }
             }
         }
     }
@@ -917,6 +957,13 @@ class PCProMinesweeper extends PCMinesweeper {
     }
     
     displayAssist(probabilities) {
+        // 視覚表示が無効な場合は色付け・アルファベット表示を行わない
+        if (!this.assistVisualEnabled) {
+            // ポップアップ表示のみ行う
+            this.showAssistPopup(probabilities);
+            return;
+        }
+        
         // 確率モードが有効な場合は地雷候補マスの追加表示のみ行う
         if (this.probabilityMode) {
             // 地雷候補マスのみ追加表示（確率表示は維持）
@@ -1107,6 +1154,11 @@ class PCProMinesweeper extends PCMinesweeper {
         const display = document.querySelector('.assist-display');
         if (display) {
             display.classList.remove('show');
+        }
+        
+        // 視覚表示が無効な場合は色付け・アルファベット表示のクリアは不要
+        if (!this.assistVisualEnabled) {
+            return;
         }
         
         // 確率モードが有効な場合は補助機能の追加表示のみクリア
@@ -1330,8 +1382,8 @@ class PCProMinesweeper extends PCMinesweeper {
                         cell.appendChild(overlay);
                     }
                 } else if (probability === -5) {
-                    // 地雷候補マス（補助モード時のみ表示）
-                    if (this.assistMode) {
+                    // 地雷候補マス（補助モード時かつ視覚表示有効時のみ表示）
+                    if (this.assistMode && this.assistVisualEnabled) {
                         const alphabetIds = this.cspSolver ? this.cspSolver.getAlphabetIdsForCell(row, col) : null;
                         if (alphabetIds) {
                             cell.classList.add('mine-candidate');
@@ -1349,8 +1401,8 @@ class PCProMinesweeper extends PCMinesweeper {
     clearProbabilityDisplay() {
         const cells = document.querySelectorAll('.cell');
         cells.forEach(cell => {
-            // 補助機能が有効な場合はアルファベットオーバーレイを保持
-            if (this.assistMode) {
+            // 補助機能が有効かつ視覚表示有効な場合はアルファベットオーバーレイを保持
+            if (this.assistMode && this.assistVisualEnabled) {
                 // 確率オーバーレイのみ削除（アルファベットオーバーレイは保持）
                 const overlays = cell.querySelectorAll('.probability-overlay');
                 overlays.forEach(overlay => {
@@ -1363,7 +1415,7 @@ class PCProMinesweeper extends PCMinesweeper {
                                     'probability-medium', 'probability-high', 'probability-certain',
                                     'probability-unknown', 'probability-interrupted');
             } else {
-                // 補助機能が無効な場合は全て削除
+                // 補助機能が無効または視覚表示無効な場合は全て削除
                 const overlay = cell.querySelector('.probability-overlay');
                 if (overlay) {
                     overlay.remove();
