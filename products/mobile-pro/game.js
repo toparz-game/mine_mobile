@@ -58,6 +58,8 @@ class MobileMinesweeper extends MinesweeperCore {
         
         // 音響管理
         this.soundManager = new SoundManager();
+        this.isChainReveal = false; // 連鎖開示中フラグ
+        this.revealCount = 0; // 連鎖開示中のセル数カウント
         
         this.init();
     }
@@ -523,6 +525,7 @@ class MobileMinesweeper extends MinesweeperCore {
         // 設定の読み込み
         this.loadPowerSaveSettings();
         this.loadReverseModeSetting();
+        this.loadSoundSettings();
         
         
         // タッチデバイス向けのドラッグ処理
@@ -1028,6 +1031,10 @@ class MobileMinesweeper extends MinesweeperCore {
         }
         
         if (flagCount === mineCount) {
+            // コード開示時は連鎖フラグを有効にして音の重複を防ぐ
+            this.isChainReveal = true;
+            this.revealCount = 0;
+            
             for (let dr = -1; dr <= 1; dr++) {
                 for (let dc = -1; dc <= 1; dc++) {
                     const newRow = row + dr;
@@ -1039,6 +1046,12 @@ class MobileMinesweeper extends MinesweeperCore {
                     }
                 }
             }
+            
+            // コード開示完了後にフラグとカウントをリセット
+            setTimeout(() => {
+                this.isChainReveal = false;
+                this.revealCount = 0;
+            }, 100);
         }
     }
     
@@ -1372,6 +1385,10 @@ class MobileMinesweeper extends MinesweeperCore {
     
     // モーダル関連
     openSettings() {
+        // 設定画面を開く前に音響UI状態を更新
+        this.updateSoundUI();
+        this.updateVolumeUI();
+        
         const modal = document.getElementById('settings-modal');
         if (modal) {
             modal.classList.add('show');
@@ -1541,13 +1558,29 @@ class MobileMinesweeper extends MinesweeperCore {
     
     // コアのrevealCellメソッドをオーバーライドして、UI更新を追加
     revealCell(row, col) {
-        // セルクリックの効果音（地雷でない場合のみ）
-        if (!this.gameOver && this.board[row][col] !== -1) {
-            this.soundManager.playSound('cellClick');
+        // 既に開示済みなら何もしない
+        if (this.revealed[row][col]) {
+            return;
         }
+        
+        const wasRevealed = this.revealed[row][col];
         
         super.revealCell(row, col);
         this.updateCell(row, col);
+        
+        // セルクリックの効果音制御
+        if (!this.gameOver && this.board[row][col] !== -1 && !wasRevealed) {
+            if (this.isChainReveal) {
+                // 連鎖開示中は最初の1回のみ音を再生
+                this.revealCount++;
+                if (this.revealCount === 1) {
+                    this.soundManager.playSound('cellClick');
+                }
+            } else {
+                // 通常のクリックは即座に再生
+                this.soundManager.playSound('cellClick');
+            }
+        }
         
         // 周囲のセルも更新（0の場合の連鎖開示）
         if (this.board[row][col] === 0) {
@@ -1561,6 +1594,20 @@ class MobileMinesweeper extends MinesweeperCore {
                 }
             }
         }
+    }
+    
+    // コアのrevealAdjacentCellsメソッドをオーバーライドして連鎖フラグを制御
+    revealAdjacentCells(row, col) {
+        this.isChainReveal = true;
+        this.revealCount = 0;
+        
+        super.revealAdjacentCells(row, col);
+        
+        // 連鎖開示完了後にフラグとカウントをリセット
+        setTimeout(() => {
+            this.isChainReveal = false;
+            this.revealCount = 0;
+        }, 100);
     }
     
     // コアのrevealAllMinesメソッドをオーバーライドして、UI更新を追加

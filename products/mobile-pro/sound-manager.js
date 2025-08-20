@@ -3,10 +3,15 @@ class SoundManager {
     constructor() {
         this.audioContext = null;
         this.sounds = {};
-        this.masterVolume = 0.3; // マスターボリューム (0-1)
+        this.audioElements = new Map(); // HTMLAudioElementのキャッシュ
+        this.masterVolume = 1.0; // マスターボリューム (0-1)
         this.enabled = true; // 音響のON/OFF
         this.initialized = false; // 初期化フラグ
         this.userInteracted = false; // ユーザー操作フラグ
+        this.soundQueue = new Map(); // 音の重複防止用キュー
+        this.debounceTimers = new Map(); // デバウンス用タイマー
+        this.lastPlayTime = new Map(); // 最後に再生した時刻を記録
+        this.minInterval = 50; // 最小再生間隔（ミリ秒）
         
         this.initializeSounds();
     }
@@ -38,16 +43,18 @@ class SoundManager {
         // 各効果音の定義（Web Audio APIで合成）
         this.sounds = {
             cellClick: {
-                type: 'beep',
-                frequency: 800,
-                duration: 0.1,
-                volume: 0.5
+                type: 'audio_file',
+                file: 'sounds/suiteki.mp3',
+                duration: null, // 元の音の長さをそのまま使用
+                fadeOut: 0, // フェードアウトなし
+                volume: 1.0 // 音量を最大に
             },
             flagPlace: {
-                type: 'chord',
-                frequencies: [660, 880, 1320], // E5, A5, E6
-                duration: 0.15,
-                volume: 0.6
+                type: 'audio_file',
+                file: 'sounds/hata.mp3',
+                duration: null, // 元の音の長さをそのまま使用
+                fadeOut: 0, // フェードアウトなし
+                volume: 1.0 // 音量を最大に
             },
             flagRemove: {
                 type: 'chord',
@@ -90,9 +97,35 @@ class SoundManager {
         }
     }
     
-    // 効果音を再生
-    async playSound(soundName) {
+    // 効果音を再生（重複防止機能付き）
+    async playSound(soundName, options = {}) {
         if (!this.enabled || !this.sounds[soundName]) {
+            return;
+        }
+        
+        const debounceMs = options.debounce || 0;
+        const forcePlay = options.force || false;
+        
+        // 最小間隔チェック（強制再生でない場合のみ）
+        if (!forcePlay) {
+            const now = Date.now();
+            const lastTime = this.lastPlayTime.get(soundName) || 0;
+            if (now - lastTime < this.minInterval) {
+                return;
+            }
+            this.lastPlayTime.set(soundName, now);
+        }
+        
+        // デバウンス処理
+        if (debounceMs > 0) {
+            if (this.debounceTimers.has(soundName)) {
+                clearTimeout(this.debounceTimers.get(soundName));
+            }
+            
+            this.debounceTimers.set(soundName, setTimeout(() => {
+                this.playSound(soundName, { force: true });
+                this.debounceTimers.delete(soundName);
+            }, debounceMs));
             return;
         }
         
@@ -109,6 +142,12 @@ class SoundManager {
                 case 'beep':
                     this.playBeep(soundConfig);
                     break;
+                case 'satisfying_click':
+                    this.playSatisfyingClick(soundConfig);
+                    break;
+                case 'audio_file':
+                    this.playAudioFile(soundConfig);
+                    break;
                 case 'chord':
                     this.playChord(soundConfig);
                     break;
@@ -123,6 +162,162 @@ class SoundManager {
         } catch (error) {
             console.warn(`Sound playback failed for ${soundName}:`, error);
         }
+    }
+    
+    // 連続した同じ音の再生を制御
+    async playDebouncedSound(soundName, debounceMs = 100) {
+        return this.playSound(soundName, { debounce: debounceMs });
+    }
+    
+    // 音の重複を完全に停止（緊急停止用）
+    stopAllSounds() {
+        // 全てのデバウンスタイマーをクリア
+        for (const timer of this.debounceTimers.values()) {
+            clearTimeout(timer);
+        }
+        this.debounceTimers.clear();
+        
+        // 最後の再生時刻をリセット
+        this.lastPlayTime.clear();
+    }
+    
+    // HTMLAudioElementを取得またはキャッシュ
+    getAudioElement(filePath) {
+        if (this.audioElements.has(filePath)) {
+            return this.audioElements.get(filePath);
+        }
+        
+        const audio = new Audio(filePath);
+        audio.preload = 'auto';
+        audio.volume = 0; // 初期は無音に設定
+        this.audioElements.set(filePath, audio);
+        return audio;
+    }
+    
+    // 音声ファイルを再生（加工オプション付き）
+    playAudioFile(config) {
+        try {
+            const audio = this.getAudioElement(config.file);
+            
+            // 既に再生中なら停止してリセット
+            if (!audio.paused) {
+                audio.pause();
+                audio.currentTime = 0;
+            }
+            
+            const volume = config.volume * this.masterVolume;
+            
+            // 音量設定
+            audio.volume = volume;
+            
+            // 再生開始
+            audio.currentTime = 0;
+            const playPromise = audio.play();
+            
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.warn('Audio play failed:', error);
+                });
+            }
+            
+            // 加工が指定されている場合のみ処理
+            if (config.duration !== null && config.duration !== undefined) {
+                const duration = config.duration;
+                const fadeOutTime = config.fadeOut || 0;
+                
+                if (fadeOutTime > 0) {
+                    // フェードアウト処理
+                    setTimeout(() => {
+                        const fadeSteps = 10;
+                        const fadeInterval = (fadeOutTime * 1000) / fadeSteps;
+                        let currentStep = 0;
+                        
+                        const fadeTimer = setInterval(() => {
+                            currentStep++;
+                            audio.volume = volume * (1 - currentStep / fadeSteps);
+                            
+                            if (currentStep >= fadeSteps) {
+                                clearInterval(fadeTimer);
+                                audio.pause();
+                                audio.currentTime = 0;
+                                audio.volume = volume;
+                            }
+                        }, fadeInterval);
+                        
+                    }, Math.max(0, (duration - fadeOutTime) * 1000));
+                } else {
+                    // フェードなしで停止
+                    setTimeout(() => {
+                        audio.pause();
+                        audio.currentTime = 0;
+                    }, duration * 1000);
+                }
+            }
+            // config.duration が null の場合は自然に最後まで再生
+            
+        } catch (error) {
+            console.warn(`Failed to play audio file: ${config.file}`, error);
+        }
+    }
+    
+    // 爽快感のあるクリック音を再生（倍音とADSRエンベロープ付き）
+    playSatisfyingClick(config) {
+        const startTime = this.audioContext.currentTime;
+        const volume = config.volume * this.masterVolume;
+        
+        // 複数の倍音を重ねて豊かな音色を作る
+        config.harmonics.forEach((harmonic, index) => {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            // 倍音の周波数を設定
+            const frequency = config.fundamentalFreq * harmonic;
+            oscillator.frequency.setValueAtTime(frequency, startTime);
+            
+            // 倍音ごとに異なる波形を使用（音色の複雑さ）
+            const waveTypes = ['sine', 'triangle', 'sawtooth', 'square'];
+            oscillator.type = waveTypes[index % waveTypes.length];
+            
+            // 高次倍音ほど音量を下げる（自然な音色）
+            const harmonicVolume = volume / (harmonic * 1.5);
+            
+            // ADSR エンベロープを適用
+            const attackTime = startTime + config.attack;
+            const decayTime = attackTime + config.decay;
+            const releaseTime = decayTime + config.release;
+            
+            gainNode.gain.setValueAtTime(0, startTime);
+            // Attack: 急激に音量上昇（爽快感）
+            gainNode.gain.linearRampToValueAtTime(harmonicVolume, attackTime);
+            // Decay: 素早く減衰
+            gainNode.gain.exponentialRampToValueAtTime(harmonicVolume * config.sustain, decayTime);
+            // Release: 素早く無音へ（しつこくない）
+            gainNode.gain.exponentialRampToValueAtTime(0.001, releaseTime);
+            
+            oscillator.start(startTime);
+            oscillator.stop(releaseTime);
+        });
+        
+        // 高周波のアタック音を追加（シューティングゲーム的な鋭さ）
+        const attackOsc = this.audioContext.createOscillator();
+        const attackGain = this.audioContext.createGain();
+        
+        attackOsc.connect(attackGain);
+        attackGain.connect(this.audioContext.destination);
+        
+        // 高周波でノイズ的なアタック音
+        attackOsc.frequency.setValueAtTime(config.fundamentalFreq * 8, startTime);
+        attackOsc.type = 'sawtooth';
+        
+        const attackVolume = volume * 0.3;
+        attackGain.gain.setValueAtTime(attackVolume, startTime);
+        attackGain.gain.exponentialRampToValueAtTime(0.001, startTime + config.attack * 2);
+        
+        attackOsc.start(startTime);
+        attackOsc.stop(startTime + config.attack * 3);
     }
     
     // 単音ビープ音を再生
