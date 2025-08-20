@@ -1147,6 +1147,13 @@ body.power-save-mode .control-btn.active {
     background: rgba(128, 128, 128, 0.05);
 }
 
+/* 計算中断のセル */
+.cell.probability-interrupted {
+    opacity: 0.6;
+    background: rgba(255, 165, 0, 0.1);
+    border: 1px dashed rgba(255, 165, 0, 0.3);
+}
+
 /* 確率モード時の既存セル表示調整 */
 .probability-mode .cell.revealed {
     opacity: 0.7;

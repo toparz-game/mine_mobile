@@ -681,6 +681,23 @@ class CSPSolver {
         return true;
     }
     
+    // 確定マス以外のセルを計算中断としてマーク
+    markRemainingCellsAsInterrupted(group) {
+        let interruptedCount = 0;
+        
+        for (const cell of group) {
+            const currentProb = this.probabilities[cell.row][cell.col];
+            
+            // 未計算(-1)、または確定マス以外の確率値の場合
+            if (currentProb === -1 || (currentProb !== 0 && currentProb !== 100 && currentProb !== -2)) {
+                this.probabilities[cell.row][cell.col] = -3; // 計算中断
+                interruptedCount++;
+            }
+        }
+        
+        console.log(`[LOCAL COMPLETENESS] Marked ${interruptedCount} cells as calculation interrupted (-3)`);
+    }
+    
     // 単純制約パターンをチェックして直接計算
     // 戻り値: {solved: boolean, hasActionable: boolean} または null
     checkSimpleConstraintPatterns(group, constraints) {
@@ -949,7 +966,11 @@ class CSPSolver {
                         const hasActionableFromSubset = this.solveIndependentSubset(subset, group);
                         if (hasActionableFromSubset) {
                             console.log(`[LOCAL COMPLETENESS] Found actionable cells in independent subset of ${subset.cells.length} cells`);
-                            console.log(`[LOCAL COMPLETENESS] Early return - skipping full search`);
+                            console.log(`[LOCAL COMPLETENESS] Early return - marking remaining cells as calculation interrupted`);
+                            
+                            // 確定マス以外は「計算中断」としてマーク
+                            this.markRemainingCellsAsInterrupted(group);
+                            
                             this.localCompletenessSuccess = 1; // 局所制約完全性成功をマーク
                             return true; // 確定マスが見つかったので早期終了
                         } else {

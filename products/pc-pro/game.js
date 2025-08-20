@@ -1057,7 +1057,7 @@ class PCProMinesweeper extends PCMinesweeper {
                 // 確率クラスをクリア
                 cell.classList.remove('probability-safe', 'probability-low', 
                                     'probability-medium', 'probability-high', 'probability-certain',
-                                    'probability-unknown');
+                                    'probability-unknown', 'probability-interrupted');
                 
                 const probability = probabilities[row][col];
                 
@@ -1090,6 +1090,13 @@ class PCProMinesweeper extends PCMinesweeper {
                     // 制約外のセル（全体確率を適用）
                     cell.classList.add('probability-unknown');
                     // 確率は表示しない（全体確率を別途表示）
+                } else if (probability === -3) {
+                    // 計算中断のセル
+                    cell.classList.add('probability-interrupted');
+                    const overlay = document.createElement('div');
+                    overlay.className = 'probability-overlay';
+                    overlay.textContent = '---';
+                    cell.appendChild(overlay);
                 }
             }
         }
@@ -1104,7 +1111,7 @@ class PCProMinesweeper extends PCMinesweeper {
             }
             cell.classList.remove('probability-safe', 'probability-low', 
                                 'probability-medium', 'probability-high', 'probability-certain',
-                                'probability-unknown');
+                                'probability-unknown', 'probability-interrupted');
         });
         
         // 全体確率表示をクリア
@@ -1249,7 +1256,7 @@ class PCProMinesweeper extends PCMinesweeper {
                             }
                             cell.classList.remove('probability-safe', 'probability-low', 
                                                 'probability-medium', 'probability-high', 
-                                                'probability-certain', 'probability-unknown');
+                                                'probability-certain', 'probability-unknown', 'probability-interrupted');
                         }
                     }
                 }
