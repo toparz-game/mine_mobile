@@ -24,7 +24,6 @@ class MobileMinesweeper extends MinesweeperCore {
         };
         
         this.currentDifficulty = 'easy';
-        this.flagMode = 0; // 0: 通常, 1: 旗モード, 2: ?モード, 3: 取り消しモード
         this.longPressTimer = null;
         this.isLongPress = false;
         this.isPinching = false;
@@ -50,8 +49,6 @@ class MobileMinesweeper extends MinesweeperCore {
         this.scrollStartX = 0;
         this.scrollStartY = 0;
         
-        // 旗アニメーション設定
-        this.flagAnimationEnabled = true;
         
         // 省電力モード設定
         this.powerSaveMode = false;
@@ -59,6 +56,8 @@ class MobileMinesweeper extends MinesweeperCore {
         // リバース操作設定
         this.reverseMode = false;
         
+        // 音響管理
+        this.soundManager = new SoundManager();
         
         this.init();
     }
@@ -86,23 +85,6 @@ class MobileMinesweeper extends MinesweeperCore {
             }
         }
         
-        const flagModeBtn = document.getElementById('flag-mode-btn');
-        if (flagModeBtn) {
-            if (this.isTouchDevice) {
-                let isProcessing = false;
-                flagModeBtn.addEventListener('touchstart', (e) => {
-                    if (isProcessing) return;
-                    isProcessing = true;
-                    e.preventDefault();
-                    this.toggleFlagMode();
-                    setTimeout(() => { isProcessing = false; }, 50);
-                });
-            } else {
-                flagModeBtn.addEventListener('click', () => {
-                    this.toggleFlagMode();
-                });
-            }
-        }
         
         const difficultySelect = document.getElementById('difficulty-select');
         if (difficultySelect) {
@@ -283,35 +265,6 @@ class MobileMinesweeper extends MinesweeperCore {
             }
         }
         
-        const flagAnimationToggleBtn = document.getElementById('flag-animation-toggle-btn');
-        if (flagAnimationToggleBtn) {
-            if (this.isTouchDevice) {
-                let touchStartY = 0;
-                let touchMoved = false;
-                
-                flagAnimationToggleBtn.addEventListener('touchstart', (e) => {
-                    touchStartY = e.touches[0].clientY;
-                    touchMoved = false;
-                }, { passive: true });
-                
-                flagAnimationToggleBtn.addEventListener('touchmove', (e) => {
-                    const touchY = e.touches[0].clientY;
-                    if (Math.abs(touchY - touchStartY) > 5) {
-                        touchMoved = true;
-                    }
-                }, { passive: true });
-                
-                flagAnimationToggleBtn.addEventListener('touchend', (e) => {
-                    if (!touchMoved) {
-                        this.toggleFlagAnimation();
-                    }
-                }, { passive: true });
-            } else {
-                flagAnimationToggleBtn.addEventListener('click', () => {
-                    this.toggleFlagAnimation();
-                });
-            }
-        }
         
         const powerSaveToggleBtn = document.getElementById('power-save-toggle-btn');
         if (powerSaveToggleBtn) {
@@ -369,6 +322,72 @@ class MobileMinesweeper extends MinesweeperCore {
             } else {
                 reverseToggleBtn.addEventListener('click', () => {
                     this.toggleReverseMode();
+                });
+            }
+        }
+        
+        const soundToggleBtn = document.getElementById('sound-toggle-btn');
+        if (soundToggleBtn) {
+            if (this.isTouchDevice) {
+                let touchStartY = 0;
+                let touchMoved = false;
+                
+                soundToggleBtn.addEventListener('touchstart', (e) => {
+                    touchStartY = e.touches[0].clientY;
+                    touchMoved = false;
+                }, { passive: true });
+                
+                soundToggleBtn.addEventListener('touchmove', (e) => {
+                    const touchY = e.touches[0].clientY;
+                    if (Math.abs(touchY - touchStartY) > 5) {
+                        touchMoved = true;
+                    }
+                }, { passive: true });
+                
+                soundToggleBtn.addEventListener('touchend', (e) => {
+                    if (!touchMoved) {
+                        this.toggleSound();
+                    }
+                }, { passive: true });
+            } else {
+                soundToggleBtn.addEventListener('click', () => {
+                    this.toggleSound();
+                });
+            }
+        }
+        
+        const volumeUpBtn = document.getElementById('volume-up-btn');
+        if (volumeUpBtn) {
+            if (this.isTouchDevice) {
+                let isProcessing = false;
+                volumeUpBtn.addEventListener('touchstart', (e) => {
+                    if (isProcessing) return;
+                    isProcessing = true;
+                    e.preventDefault();
+                    this.increaseVolume();
+                    setTimeout(() => { isProcessing = false; }, 50);
+                });
+            } else {
+                volumeUpBtn.addEventListener('click', () => {
+                    this.increaseVolume();
+                });
+            }
+        }
+        
+        const volumeDownBtn = document.getElementById('volume-down-btn');
+        if (volumeDownBtn) {
+            if (this.isTouchDevice) {
+                let isProcessing = false;
+                volumeDownBtn.addEventListener('touchstart', (e) => {
+                    if (isProcessing) return;
+                    isProcessing = true;
+                    e.preventDefault();
+                    this.decreaseVolume();
+                    setTimeout(() => { isProcessing = false; }, 50);
+                });
+            } else {
+                volumeDownBtn.addEventListener('click', () => {
+                    this.decreaseVolume();
                 });
             }
         }
@@ -502,7 +521,6 @@ class MobileMinesweeper extends MinesweeperCore {
         if (!wrapper) return;
         
         // 設定の読み込み
-        this.loadFlagAnimationSetting();
         this.loadPowerSaveSettings();
         this.loadReverseModeSetting();
         
@@ -641,31 +659,6 @@ class MobileMinesweeper extends MinesweeperCore {
         }
     }
     
-    toggleFlagMode() {
-        this.flagMode = (this.flagMode + 1) % 4;
-        const btn = document.getElementById('flag-mode-btn');
-        if (!btn) return;
-        
-        switch(this.flagMode) {
-            case 0:
-                btn.classList.remove('active');
-                btn.textContent = '💣';
-                break;
-            case 1:
-                btn.classList.add('active');
-                btn.textContent = '💣';
-                break;
-            case 2:
-                btn.classList.add('active');
-                btn.textContent = '❓';
-                break;
-            case 3:
-                btn.classList.add('active');
-                btn.textContent = '❌';
-                break;
-        }
-    }
-    
     newGame() {
         this.stopTimer();
         this.timer = 0;
@@ -673,6 +666,9 @@ class MobileMinesweeper extends MinesweeperCore {
         this.gameOver = false;
         this.gameWon = false;
         this.firstClick = true;
+        
+        // 新しいゲームの効果音
+        this.soundManager.playSound('newGame');
         
         const difficulty = this.difficulties[this.currentDifficulty];
         
@@ -745,6 +741,9 @@ class MobileMinesweeper extends MinesweeperCore {
             cell.addEventListener('touchstart', (e) => {
                 if (this.gameOver) return;
                 
+                // ユーザー操作を記録（音響の自動再生ポリシー対応）
+                this.soundManager.recordUserInteraction();
+                
                 // 2本指以上のタッチは無視
                 if (e.touches.length > 1 || this.multiTouchDetected) {
                     clearTimeout(touchTimer);
@@ -770,19 +769,7 @@ class MobileMinesweeper extends MinesweeperCore {
                         const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
                         if (this.flagged[row][col] || this.questioned[row][col]) {
                             // 旗または?がある場合は消去
-                            if (this.flagged[row][col]) {
-                                this.createRisingFlag(cell);
-                                cell.classList.add('unflag-animation');
-                                setTimeout(() => {
-                                    cell.classList.remove('unflag-animation');
-                                }, 200);
-                            } else if (this.questioned[row][col]) {
-                                this.createRisingQuestion(cell);
-                                cell.classList.add('unflag-animation');
-                                setTimeout(() => {
-                                    cell.classList.remove('unflag-animation');
-                                }, 200);
-                            }
+                            this.soundManager.playSound('flagRemove');
                             this.flagged[row][col] = false;
                             this.questioned[row][col] = false;
                             cell.classList.remove('flagged', 'questioned');
@@ -790,13 +777,9 @@ class MobileMinesweeper extends MinesweeperCore {
                             this.updateMineCount();
                         } else {
                             // 何もない場合は旗を立てる
+                            this.soundManager.playSound('flagPlace');
                             this.flagged[row][col] = true;
                             cell.classList.add('flagged');
-                            cell.classList.add('flag-animation');
-                            this.createFallingFlag(cell);
-                            setTimeout(() => {
-                                cell.classList.remove('flag-animation');
-                            }, 300);
                             this.updateMineCount();
                             this.checkWin();
                         }
@@ -855,9 +838,8 @@ class MobileMinesweeper extends MinesweeperCore {
                         lastTapTime = 0;
                     } else {
                         // シングルタップの処理
-                        if (this.flagMode > 0) {
-                            this.handleCellMark(row, col);
-                        } else if (this.flagged[row][col]) {
+                        if (this.flagged[row][col]) {
+                            this.soundManager.playSound('flagRemove');
                             const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
                             this.flagged[row][col] = false;
                             this.questioned[row][col] = true;
@@ -866,6 +848,7 @@ class MobileMinesweeper extends MinesweeperCore {
                             cell.textContent = '?';
                             this.updateMineCount();
                         } else if (this.questioned[row][col]) {
+                            this.soundManager.playSound('flagPlace');
                             const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
                             this.questioned[row][col] = false;
                             this.flagged[row][col] = true;
@@ -898,12 +881,13 @@ class MobileMinesweeper extends MinesweeperCore {
         cell.addEventListener('click', (e) => {
             if (this.gameOver) return;
             
+            // ユーザー操作を記録（音響の自動再生ポリシー対応）
+            this.soundManager.recordUserInteraction();
+            
             // タッチデバイスの場合は既存のタッチイベントを優先
             if (this.isTouchDevice && e.pointerType !== 'mouse') return;
             
-            if (this.flagMode > 0) {
-                this.handleCellMark(row, col);
-            } else if (!this.flagged[row][col] && !this.questioned[row][col]) {
+            if (!this.flagged[row][col] && !this.questioned[row][col]) {
                 this.revealCell(row, col);
             }
         });
@@ -911,6 +895,10 @@ class MobileMinesweeper extends MinesweeperCore {
         // 右クリック
         cell.addEventListener('contextmenu', (e) => {
             e.preventDefault();
+            
+            // ユーザー操作を記録（音響の自動再生ポリシー対応）
+            this.soundManager.recordUserInteraction();
+            
             if (!this.gameOver && !this.revealed[row][col]) {
                 this.toggleFlag(row, col);
             }
@@ -930,6 +918,10 @@ class MobileMinesweeper extends MinesweeperCore {
         if (resetBtn) {
             resetBtn.textContent = 'リスタート';
         }
+        
+        // ゲームオーバーの効果音
+        this.soundManager.playSound('gameOver');
+        
         // ゲームオーバー時のみ地雷セルに赤い背景を適用
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
@@ -948,6 +940,10 @@ class MobileMinesweeper extends MinesweeperCore {
         if (resetBtn) {
             resetBtn.textContent = 'リスタート';
         }
+        
+        // ゲームクリアの効果音
+        this.soundManager.playSound('gameWon');
+        
         // 勝利時に全ての地雷を表示（旗が立っていない場所のみ）
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
@@ -979,104 +975,6 @@ class MobileMinesweeper extends MinesweeperCore {
     }
     
     // 以下、UI関連のメソッドを追加
-    handleCellMark(row, col) {
-        if (this.revealed[row][col]) return;
-        
-        const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-        
-        if (this.flagMode === 1) {
-            // 旗モード
-            if (this.flagged[row][col]) {
-                // 既に旗がある場合は取り消し
-                this.createRisingFlag(cell);
-                cell.classList.add('unflag-animation');
-                setTimeout(() => {
-                    cell.classList.remove('unflag-animation');
-                }, 200);
-                this.flagged[row][col] = false;
-                cell.classList.remove('flagged');
-                cell.textContent = '';
-                this.updateMineCount();
-            } else if (this.questioned[row][col]) {
-                // ?マークがある場合は旗に変更
-                this.questioned[row][col] = false;
-                cell.classList.remove('questioned');
-                this.flagged[row][col] = true;
-                cell.classList.add('flagged');
-                cell.classList.add('flag-animation');
-                this.createFallingFlag(cell);
-                setTimeout(() => {
-                    cell.classList.remove('flag-animation');
-                }, 300);
-                this.updateMineCount();
-                this.checkWin();
-            } else {
-                // 何もない場合は旗を立てる
-                this.flagged[row][col] = true;
-                cell.classList.add('flagged');
-                cell.classList.add('flag-animation');
-                this.createFallingFlag(cell);
-                setTimeout(() => {
-                    cell.classList.remove('flag-animation');
-                }, 300);
-                this.updateMineCount();
-                this.checkWin();
-            }
-        } else if (this.flagMode === 2) {
-            // ?モード
-            if (this.questioned[row][col]) {
-                // 既に?がある場合は取り消し
-                this.createRisingQuestion(cell);
-                cell.classList.add('unflag-animation');
-                setTimeout(() => {
-                    cell.classList.remove('unflag-animation');
-                }, 200);
-                this.questioned[row][col] = false;
-                cell.classList.remove('questioned');
-                cell.textContent = '';
-            } else if (this.flagged[row][col]) {
-                // 旗がある場合は?に変更
-                this.createRisingFlag(cell);
-                cell.classList.add('unflag-animation');
-                setTimeout(() => {
-                    cell.classList.remove('unflag-animation');
-                }, 200);
-                this.flagged[row][col] = false;
-                cell.classList.remove('flagged');
-                this.questioned[row][col] = true;
-                cell.classList.add('questioned');
-                cell.textContent = '?';
-                this.updateMineCount();
-            } else {
-                // 何もない場合は?を付ける
-                this.questioned[row][col] = true;
-                cell.classList.add('questioned');
-                cell.textContent = '?';
-            }
-        } else if (this.flagMode === 3) {
-            // 取り消しモード
-            if (this.flagged[row][col]) {
-                this.createRisingFlag(cell);
-                cell.classList.add('unflag-animation');
-                setTimeout(() => {
-                    cell.classList.remove('unflag-animation');
-                }, 200);
-                this.flagged[row][col] = false;
-                cell.classList.remove('flagged');
-                cell.textContent = '';
-                this.updateMineCount();
-            } else if (this.questioned[row][col]) {
-                this.createRisingQuestion(cell);
-                cell.classList.add('unflag-animation');
-                setTimeout(() => {
-                    cell.classList.remove('unflag-animation');
-                }, 200);
-                this.questioned[row][col] = false;
-                cell.classList.remove('questioned');
-                cell.textContent = '';
-            }
-        }
-    }
     
     toggleFlag(row, col) {
         // 既に開いているマスには何もしない
@@ -1085,6 +983,9 @@ class MobileMinesweeper extends MinesweeperCore {
         const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
         
         if (this.flagged[row][col]) {
+            // 旗を外す効果音
+            this.soundManager.playSound('flagRemove');
+            
             this.flagged[row][col] = false;
             this.questioned[row][col] = true;
             cell.classList.remove('flagged');
@@ -1092,17 +993,18 @@ class MobileMinesweeper extends MinesweeperCore {
             cell.textContent = '?';
             this.updateMineCount();
         } else if (this.questioned[row][col]) {
+            // ?を外す効果音
+            this.soundManager.playSound('flagRemove');
+            
             this.questioned[row][col] = false;
             cell.classList.remove('questioned');
             cell.textContent = '';
         } else {
+            // 旗を立てる効果音
+            this.soundManager.playSound('flagPlace');
+            
             this.flagged[row][col] = true;
             cell.classList.add('flagged');
-            cell.classList.add('flag-animation');
-            this.createFallingFlag(cell);
-            setTimeout(() => {
-                cell.classList.remove('flag-animation');
-            }, 300);
             this.updateMineCount();
             this.checkWin();
         }
@@ -1345,106 +1247,6 @@ class MobileMinesweeper extends MinesweeperCore {
         }
     }
     
-    // 旗アニメーション
-    toggleFlagAnimation() {
-        this.flagAnimationEnabled = !this.flagAnimationEnabled;
-        
-        const btn = document.getElementById('flag-animation-toggle-btn');
-        if (btn) {
-            const text = btn.querySelector('.flag-animation-text');
-            text.textContent = this.flagAnimationEnabled ? 'ON' : 'OFF';
-        }
-        
-        localStorage.setItem('minesweeper-flag-animation', this.flagAnimationEnabled);
-    }
-    
-    loadFlagAnimationSetting() {
-        const saved = localStorage.getItem('minesweeper-flag-animation');
-        if (saved !== null) {
-            this.flagAnimationEnabled = saved === 'true';
-            const btn = document.getElementById('flag-animation-toggle-btn');
-            if (btn) {
-                const text = btn.querySelector('.flag-animation-text');
-                text.textContent = this.flagAnimationEnabled ? 'ON' : 'OFF';
-            }
-        }
-    }
-    
-    createFallingFlag(cell) {
-        if (!this.flagAnimationEnabled) return;
-        
-        const container = document.getElementById('flag-animation-container');
-        if (!container) return;
-        
-        const rect = cell.getBoundingClientRect();
-        const flag = document.createElement('div');
-        flag.className = 'falling-flag';
-        flag.textContent = '💣';
-        flag.style.left = `${rect.left + rect.width / 2}px`;
-        flag.style.top = `${rect.top - 30}px`;
-        
-        container.appendChild(flag);
-        
-        setTimeout(() => {
-            flag.style.transform = `translateY(${rect.height + 30}px)`;
-            flag.style.opacity = '0';
-        }, 10);
-        
-        setTimeout(() => {
-            flag.remove();
-        }, 310);
-    }
-    
-    createRisingFlag(cell) {
-        if (!this.flagAnimationEnabled) return;
-        
-        const container = document.getElementById('flag-animation-container');
-        if (!container) return;
-        
-        const rect = cell.getBoundingClientRect();
-        const flag = document.createElement('div');
-        flag.className = 'rising-flag';
-        flag.textContent = '💣';
-        flag.style.left = `${rect.left + rect.width / 2}px`;
-        flag.style.top = `${rect.top + rect.height / 2}px`;
-        
-        container.appendChild(flag);
-        
-        setTimeout(() => {
-            flag.style.transform = 'translateY(-50px)';
-            flag.style.opacity = '0';
-        }, 10);
-        
-        setTimeout(() => {
-            flag.remove();
-        }, 210);
-    }
-    
-    createRisingQuestion(cell) {
-        if (!this.flagAnimationEnabled) return;
-        
-        const container = document.getElementById('flag-animation-container');
-        if (!container) return;
-        
-        const rect = cell.getBoundingClientRect();
-        const question = document.createElement('div');
-        question.className = 'rising-question';
-        question.textContent = '?';
-        question.style.left = `${rect.left + rect.width / 2}px`;
-        question.style.top = `${rect.top + rect.height / 2}px`;
-        
-        container.appendChild(question);
-        
-        setTimeout(() => {
-            question.style.transform = 'translateY(-50px)';
-            question.style.opacity = '0';
-        }, 10);
-        
-        setTimeout(() => {
-            question.remove();
-        }, 210);
-    }
-    
     // 省電力モード
     togglePowerSaveMode() {
         this.powerSaveMode = !this.powerSaveMode;
@@ -1501,6 +1303,71 @@ class MobileMinesweeper extends MinesweeperCore {
                 text.textContent = 'ON';
             }
         }
+    }
+    
+    // 音響設定関連のメソッド
+    toggleSound() {
+        this.soundManager.recordUserInteraction();
+        this.soundManager.toggle();
+        this.updateSoundUI();
+        this.soundManager.saveSettings();
+    }
+    
+    updateSoundUI() {
+        const btn = document.getElementById('sound-toggle-btn');
+        if (btn) {
+            const icon = btn.querySelector('.sound-icon');
+            const text = btn.querySelector('.sound-text');
+            if (this.soundManager.isEnabled()) {
+                // 音有効時のアイコン
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M6 10H4a2 2 0 00-2 2v0a2 2 0 002 2h2l4 4V6l-4 4z"></path>';
+                text.textContent = 'ON';
+            } else {
+                // 音無効時のアイコン
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15.414a2 2 0 001.414.586h1.414L12 19.414 12 4.586 8.414 8H7a2 2 0 00-2 2v1.414zm0 0L8 17l-2-2zM14 12a5 5 0 000 0zm0 0a5 5 0 000 0zm2.5-5a9 9 0 000 10"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m16 12L20 8M20 16l-4-4"></path>';
+                text.textContent = 'OFF';
+            }
+        }
+    }
+    
+    increaseVolume() {
+        this.soundManager.recordUserInteraction();
+        const currentVolume = this.soundManager.getVolume();
+        const newVolume = Math.min(1.0, currentVolume + 0.1);
+        this.soundManager.setVolume(newVolume);
+        this.updateVolumeUI();
+        this.soundManager.saveSettings();
+        
+        // ボリューム変更の確認音
+        this.soundManager.playSound('cellClick');
+    }
+    
+    decreaseVolume() {
+        this.soundManager.recordUserInteraction();
+        const currentVolume = this.soundManager.getVolume();
+        const newVolume = Math.max(0.0, currentVolume - 0.1);
+        this.soundManager.setVolume(newVolume);
+        this.updateVolumeUI();
+        this.soundManager.saveSettings();
+        
+        // ボリューム変更の確認音
+        if (newVolume > 0) {
+            this.soundManager.playSound('cellClick');
+        }
+    }
+    
+    updateVolumeUI() {
+        const display = document.getElementById('volume-display');
+        if (display) {
+            const volume = Math.round(this.soundManager.getVolume() * 100);
+            display.textContent = `${volume}%`;
+        }
+    }
+    
+    loadSoundSettings() {
+        this.soundManager.loadSettings();
+        this.updateSoundUI();
+        this.updateVolumeUI();
     }
     
     // モーダル関連
@@ -1674,6 +1541,11 @@ class MobileMinesweeper extends MinesweeperCore {
     
     // コアのrevealCellメソッドをオーバーライドして、UI更新を追加
     revealCell(row, col) {
+        // セルクリックの効果音（地雷でない場合のみ）
+        if (!this.gameOver && this.board[row][col] !== -1) {
+            this.soundManager.playSound('cellClick');
+        }
+        
         super.revealCell(row, col);
         this.updateCell(row, col);
         
@@ -1728,4 +1600,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // 設定の読み込み
     game.loadThemeSetting();
     game.loadFontSizeSetting();
+    game.loadSoundSettings();
 });

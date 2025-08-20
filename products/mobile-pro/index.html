@@ -36,11 +36,6 @@
         </div>
         
         <div class="controls">
-            <button id="flag-mode-btn" class="control-btn">
-                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path>
-                </svg>
-            </button>
             <div class="zoom-controls">
                 <button id="zoom-out-btn" class="zoom-btn">－</button>
                 <button id="zoom-in-btn" class="zoom-btn">＋</button>
@@ -99,15 +94,6 @@
                         </button>
                     </div>
                     <div class="settings-section">
-                        <h3>旗アニメーション</h3>
-                        <button id="flag-animation-toggle-btn" class="settings-toggle-btn">
-                            <svg class="icon flag-animation-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path>
-                            </svg>
-                            <span class="flag-animation-text">ON</span>
-                        </button>
-                    </div>
-                    <div class="settings-section">
                         <h3>グラデーション・影</h3>
                         <button id="power-save-toggle-btn" class="settings-toggle-btn">
                             <svg class="icon power-save-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,6 +113,24 @@
                             <span class="reverse-text">OFF</span>
                         </button>
                         <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;">スワイプ操作を反転します</p>
+                    </div>
+                    <div class="settings-section">
+                        <h3>効果音</h3>
+                        <button id="sound-toggle-btn" class="settings-toggle-btn">
+                            <svg class="icon sound-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M6 10H4a2 2 0 00-2 2v0a2 2 0 002 2h2l4 4V6l-4 4z"></path>
+                            </svg>
+                            <span class="sound-text">ON</span>
+                        </button>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;">ゲームの効果音を再生します</p>
+                    </div>
+                    <div class="settings-section">
+                        <h3>音量</h3>
+                        <div class="settings-controls">
+                            <button id="volume-down-btn" class="settings-btn">小</button>
+                            <span id="volume-display" class="settings-value">30%</span>
+                            <button id="volume-up-btn" class="settings-btn">大</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -154,10 +158,6 @@
                             <span class="help-description">旗を立てる/外す</span>
                         </div>
                         <div class="help-item">
-                            <span class="help-action">フラグボタン</span>
-                            <span class="help-description">旗モードの切り替え（ONの時はタップで旗）</span>
-                        </div>
-                        <div class="help-item">
                             <span class="help-action">＋/－ボタン</span>
                             <span class="help-description">拡大・縮小</span>
                         </div>
@@ -175,10 +175,6 @@
                         <div class="help-item">
                             <span class="help-action">右クリック</span>
                             <span class="help-description">旗を立てる/外す</span>
-                        </div>
-                        <div class="help-item">
-                            <span class="help-action">フラグボタン</span>
-                            <span class="help-description">旗モードの切り替え（ONの時は左クリックで旗）</span>
                         </div>
                         <div class="help-item">
                             <span class="help-action">＋/－ボタン</span>
@@ -216,6 +212,7 @@
     </div>
     
     <script src="../../core/minesweeper-core.js"></script>
+    <script src="sound-manager.js"></script>
     <script src="game.js"></script>
 </body>
 </html>
