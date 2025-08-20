@@ -36,6 +36,7 @@ class CSPSolver {
         this.totalExhaustiveSearches = 0;
         this.cacheHits = 0;
         this.constraintPropagationOnly = 0;
+        this.localCompletenessSuccess = 0;
         this.totalCellsProcessed = 0;
         
         const rows = this.game.rows;
@@ -237,8 +238,19 @@ class CSPSolver {
             const processingTime = (endTime - startTime).toFixed(2);
             const processingTimeSeconds = (processingTime / 1000).toFixed(3);
             
+            // 処理方法を判定
+            let processingMethod = "";
+            if (this.constraintPropagationOnly > 0) {
+                processingMethod = "制約伝播";
+            } else if (this.localCompletenessSuccess > 0) {
+                processingMethod = "局所制約完全性";
+            } else {
+                processingMethod = "完全探索";
+            }
+            
             console.log(`┌── [PERFORMANCE REPORT] ──────────────────────────┐`);
             console.log(`│ 確率計算完了                                     │`);
+            console.log(`│ 処理方法: ${processingMethod}                              │`);
             console.log(`│ 処理時間: ${processingTime}ms (${processingTimeSeconds}秒)             │`);
             console.log(`│ 計算マス数: ${this.totalCellsProcessed}マス                           │`);
             console.log(`│ 総パターン数: ${this.totalConfigurations.toLocaleString()}パターン                     │`);
@@ -895,6 +907,8 @@ class CSPSolver {
         let determinedCells = { certain: [], safe: [] };
         let hasActionableFromPropagation = false;
         
+        console.log(`[DEBUG] solveExact called with skipConstraintPropagation: ${skipConstraintPropagation}`);
+        
         // STEP 1: 制約伝播（スキップしない場合のみ）
         if (!skipConstraintPropagation) {
             determinedCells = this.determineCertainCells(group, constraints);
@@ -921,8 +935,8 @@ class CSPSolver {
             hasActionableFromPropagation = (determinedCells.certain.length > 0 || determinedCells.safe.length > 0);
         }
         
-        // STEP 2: 局所制約完全性チェック（制約伝播で確定マスが見つからなかった場合のみ）
-        if (!hasActionableFromPropagation && !skipConstraintPropagation) {
+        // STEP 2: 局所制約完全性チェック（制約伝播とは独立して実行）
+        if (!hasActionableFromPropagation) {
             console.log(`[LOCAL COMPLETENESS] Analyzing group of ${group.length} cells for independent subsets...`);
             const independentSubsets = this.findIndependentSubsets(group, constraints);
             
@@ -935,6 +949,8 @@ class CSPSolver {
                         const hasActionableFromSubset = this.solveIndependentSubset(subset, group);
                         if (hasActionableFromSubset) {
                             console.log(`[LOCAL COMPLETENESS] Found actionable cells in independent subset of ${subset.cells.length} cells`);
+                            console.log(`[LOCAL COMPLETENESS] Early return - skipping full search`);
+                            this.localCompletenessSuccess = 1; // 局所制約完全性成功をマーク
                             return true; // 確定マスが見つかったので早期終了
                         } else {
                             console.log(`[LOCAL COMPLETENESS] No actionable cells found in subset of ${subset.cells.length} cells`);
