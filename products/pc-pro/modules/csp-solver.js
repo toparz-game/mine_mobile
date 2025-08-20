@@ -6,8 +6,8 @@ class CSPSolver {
         this.game = game;
         this.probabilities = [];
         this.persistentProbabilities = []; // 0%と100%の確率を永続的に保持
-        this.maxConstraintSize = 20; // 完全探索の最大サイズ（処理軽減のため20に制限）
-        this.warningThreshold = 35; // 警告を表示するセル数の閾値
+        this.maxConstraintSize = 25; // 完全探索の最大サイズ
+        this.warningThreshold = 30; // 警告を表示するセル数の閾値
         this.maxValidConfigs = 500000; // 有効な配置の最大数を増加
         this.useWebWorker = typeof Worker !== 'undefined' && window.location.protocol !== 'file:';
         this.worker = null;
@@ -30,6 +30,14 @@ class CSPSolver {
     
     // 各セルの地雷確率を計算
     calculateProbabilities() {
+        // パフォーマンス測定開始
+        const startTime = performance.now();
+        this.totalConfigurations = 0;
+        this.totalExhaustiveSearches = 0;
+        this.cacheHits = 0;
+        this.constraintPropagationOnly = 0;
+        this.totalCellsProcessed = 0;
+        
         const rows = this.game.rows;
         const cols = this.game.cols;
         
@@ -59,25 +67,17 @@ class CSPSolver {
             for (let col = 0; col < cols; col++) {
                 if (this.game.revealed[row][col]) {
                     this.probabilities[row][col] = 0; // 開示済みは地雷確率0%
-                    if (this.persistentProbabilities[row][col] === 0 || this.persistentProbabilities[row][col] === 100) {
-                        console.log(`[DEBUG] Clearing persistent probability for revealed cell (${row},${col}): was ${this.persistentProbabilities[row][col]}`);
-                    }
                     this.persistentProbabilities[row][col] = -1; // 開示済みセルの永続確率をクリア
                 } else if (this.game.flagged[row][col]) {
                     this.probabilities[row][col] = 100; // 旗は地雷確率100%として扱う
-                    if (this.persistentProbabilities[row][col] === 0 || this.persistentProbabilities[row][col] === 100) {
-                        console.log(`[DEBUG] Clearing persistent probability for flagged cell (${row},${col}): was ${this.persistentProbabilities[row][col]}`);
-                    }
                     this.persistentProbabilities[row][col] = -1; // 旗付きセルの永続確率をクリア
                 } else if (this.persistentProbabilities[row][col] === 0 || this.persistentProbabilities[row][col] === 100) {
                     // 永続的に保存された0%または100%の確率を復元
                     this.probabilities[row][col] = this.persistentProbabilities[row][col];
                     restoredCount++;
-                    console.log(`[DEBUG] Restored persistent probability (${row},${col}): ${this.persistentProbabilities[row][col]}%`);
                 }
             }
         }
-        console.log(`[DEBUG] Total restored persistent probabilities: ${restoredCount}`);
         
         // 開示されていない境界セルを収集
         const borderCells = this.getBorderCells();
@@ -98,13 +98,10 @@ class CSPSolver {
         
         // 既に盤面上に0%または100%のセルがあるかチェック
         const hasExistingActionableCell = this.checkForExistingActionableCells();
-        console.log(`[DEBUG] checkForExistingActionableCells result: ${hasExistingActionableCell}`);
         if (hasExistingActionableCell) {
-            console.log('[DEBUG] Existing actionable cells (0% or 100%) found on board. Skipping probability calculation.');
             
             // 既存の確定マスがある場合でも、キャッシュから他のグループの確率を復元
             for (const group of constraintGroups) {
-                console.log(`[DEBUG] Trying to restore cached probabilities for group (${group.length} cells) despite existing actionable cells`);
                 const restored = this.restoreCachedProbabilitiesForGroup(group);
                 
                 if (!restored) {
@@ -117,29 +114,19 @@ class CSPSolver {
                 }
             }
         } else {
-            console.log('[DEBUG] No existing actionable cells. Proceeding with 2-phase probability calculation.');
-            
             // フェーズ1: 全グループに制約伝播のみ適用
-            console.log(`[DEBUG] Phase 1: Applying constraint propagation to all ${constraintGroups.length} groups`);
             let foundActionableCell = false;
-            let groupsWithActionable = 0;
             
             for (let i = 0; i < constraintGroups.length; i++) {
                 const group = constraintGroups[i];
-                console.log(`[DEBUG] Phase 1 - Processing group ${i + 1} (${group.length} cells)`);
                 const hasActionable = this.applyConstraintPropagationOnly(group);
                 if (hasActionable) {
                     foundActionableCell = true;
-                    groupsWithActionable++;
-                    console.log(`[DEBUG] Phase 1 - Found actionable cells in group ${i + 1}`);
                 }
             }
             
-            console.log(`[DEBUG] Phase 1 complete: ${groupsWithActionable} groups with actionable cells`);
-            
             // 確定マスが見つかった場合は終了
             if (foundActionableCell) {
-                console.log(`[DEBUG] Found actionable cells in constraint propagation phase. Skipping exhaustive search.`);
                 // 他のグループにキャッシュ確率を復元（あれば）
                 for (let i = 0; i < constraintGroups.length; i++) {
                     const group = constraintGroups[i];
@@ -154,7 +141,6 @@ class CSPSolver {
                     }
                     
                     if (hasUnprocessed) {
-                        console.log(`[DEBUG] Phase 1 - Restoring cached probabilities for group ${i + 1} (${group.length} cells)`);
                         const restored = this.restoreCachedProbabilitiesForGroup(group);
                         
                         if (!restored) {
@@ -169,25 +155,21 @@ class CSPSolver {
                 }
             } else {
                 // フェーズ2: 完全探索（確定マスが見つかるまで順次実行）
-                console.log(`[DEBUG] Phase 2: No actionable cells found in constraint propagation. Proceeding with exhaustive search.`);
                 
                 let phase2ActionableFound = false;
                 let phase2GroupsProcessed = 0;
                 
                 for (let i = 0; i < constraintGroups.length && !phase2ActionableFound; i++) {
                     const group = constraintGroups[i];
-                    console.log(`[DEBUG] Phase 2 - Processing group ${i + 1} (${group.length} cells) with exhaustive search`);
                     const hasActionable = this.solveConstraintGroup(group, true); // skipConstraintPropagation = true
                     phase2GroupsProcessed++;
                     
                     if (hasActionable) {
                         phase2ActionableFound = true;
-                        console.log(`[DEBUG] Phase 2 - Found actionable cells in group ${i + 1}`);
                         
                         // 既に処理済みのグループ（0からi-1まで）のキャッシュを復元
                         for (let j = 0; j < i; j++) {
                             const processedGroup = constraintGroups[j];
-                            console.log(`[DEBUG] Phase 2 - Restoring cached probabilities for already processed group ${j + 1} (${processedGroup.length} cells)`);
                             
                             // キャッシュから確率を復元を試行
                             const restored = this.restoreCachedProbabilitiesForGroup(processedGroup);
@@ -205,7 +187,6 @@ class CSPSolver {
                         // 残りのグループにキャッシュ確率を復元（あれば）、なければ-2でマーク
                         for (let j = i + 1; j < constraintGroups.length; j++) {
                             const remainingGroup = constraintGroups[j];
-                            console.log(`[DEBUG] Phase 2 - Restoring cached probabilities for skipped group ${j + 1} (${remainingGroup.length} cells)`);
                             
                             // キャッシュから確率を復元を試行
                             const restored = this.restoreCachedProbabilitiesForGroup(remainingGroup);
@@ -222,13 +203,10 @@ class CSPSolver {
                     }
                 }
                 
-                console.log(`[DEBUG] Phase 2 complete: processed ${phase2GroupsProcessed} groups, actionable found: ${phase2ActionableFound}`);
-                
                 // 確定マスが見つからなかった場合、残りのグループにキャッシュ確率を復元
                 if (!phase2ActionableFound) {
                     for (let i = phase2GroupsProcessed; i < constraintGroups.length; i++) {
                         const group = constraintGroups[i];
-                        console.log(`[DEBUG] Phase 2 - Restoring cached probabilities for remaining group ${i + 1} (${group.length} cells)`);
                         
                         // キャッシュから確率を復元を試行
                         const restored = this.restoreCachedProbabilitiesForGroup(group);
@@ -253,6 +231,23 @@ class CSPSolver {
             }
         }
         
+        // パフォーマンス測定結果を出力（完全探索が実行された場合のみ）
+        if (this.totalExhaustiveSearches > 0) {
+            const endTime = performance.now();
+            const processingTime = (endTime - startTime).toFixed(2);
+            const processingTimeSeconds = (processingTime / 1000).toFixed(3);
+            
+            console.log(`┌── [PERFORMANCE REPORT] ──────────────────────────┐`);
+            console.log(`│ 確率計算完了                                     │`);
+            console.log(`│ 処理時間: ${processingTime}ms (${processingTimeSeconds}秒)             │`);
+            console.log(`│ 計算マス数: ${this.totalCellsProcessed}マス                           │`);
+            console.log(`│ 総パターン数: ${this.totalConfigurations.toLocaleString()}パターン                     │`);
+            console.log(`│ 完全探索実行回数: ${this.totalExhaustiveSearches}回                        │`);
+            console.log(`│ キャッシュヒット数: ${this.cacheHits}回                         │`);
+            console.log(`│ パターン/秒: ${Math.round(this.totalConfigurations / (processingTime / 1000)).toLocaleString()}                            │`);
+            console.log(`└──────────────────────────────────────────────────┘`);
+        }
+        
         return { probabilities: this.probabilities, globalProbability };
     }
     
@@ -261,54 +256,34 @@ class CSPSolver {
         const constraints = this.getConstraintsForGroup(group);
         const fingerprint = this.getGroupFingerprint(group, constraints);
         
-        console.log(`[DEBUG] Trying to restore cache for group (${group.length} cells), fingerprint: ${fingerprint.substring(0, 50)}...`);
-        console.log(`[DEBUG] Current cache size: ${this.groupCache.size}, temp cache size: ${this.tempGroupCache.size}`);
         
         // まず通常のキャッシュをチェック
         if (this.groupCache.has(fingerprint)) {
             const cached = this.groupCache.get(fingerprint);
-            console.log(`[DEBUG] Cache HIT in main cache! Restoring probabilities from cache for group (${group.length} cells)`);
-            console.log(`[DEBUG] Cached probabilities:`, cached.probabilities.map(p => `(${p.row},${p.col}):${p.prob}%`).join(', '));
             
             // キャッシュから確率を復元
-            let restoredCount = 0;
             for (const cellProb of cached.probabilities) {
                 // 0%/100%以外の確率のみ復元（確定マスは永続確率で管理）
                 if (cellProb.prob !== 0 && cellProb.prob !== 100) {
                     this.probabilities[cellProb.row][cellProb.col] = cellProb.prob;
-                    restoredCount++;
-                    console.log(`[DEBUG] Restored (${cellProb.row},${cellProb.col}): ${cellProb.prob}%`);
-                } else {
-                    console.log(`[DEBUG] Skipped actionable cell (${cellProb.row},${cellProb.col}): ${cellProb.prob}%`);
                 }
             }
-            console.log(`[DEBUG] Restored ${restoredCount} non-actionable probabilities from main cache`);
             return true;
         }
         
         // 通常のキャッシュにない場合、一時キャッシュをチェック
         if (this.tempGroupCache.has(fingerprint)) {
             const cached = this.tempGroupCache.get(fingerprint);
-            console.log(`[DEBUG] Cache HIT in temp cache! Restoring probabilities from temp cache for group (${group.length} cells)`);
-            console.log(`[DEBUG] Cached probabilities:`, cached.probabilities.map(p => `(${p.row},${p.col}):${p.prob}%`).join(', '));
             
             // キャッシュから確率を復元
-            let restoredCount = 0;
             for (const cellProb of cached.probabilities) {
                 // 0%/100%以外の確率のみ復元（確定マスは永続確率で管理）
                 if (cellProb.prob !== 0 && cellProb.prob !== 100) {
                     this.probabilities[cellProb.row][cellProb.col] = cellProb.prob;
-                    restoredCount++;
-                    console.log(`[DEBUG] Restored (${cellProb.row},${cellProb.col}): ${cellProb.prob}%`);
-                } else {
-                    console.log(`[DEBUG] Skipped actionable cell (${cellProb.row},${cellProb.col}): ${cellProb.prob}%`);
                 }
             }
-            console.log(`[DEBUG] Restored ${restoredCount} non-actionable probabilities from temp cache`);
             return true;
         }
-        
-        console.log(`[DEBUG] Cache MISS! No cached result found in both main and temp cache for this group`);
         return false;
     }
     
@@ -441,8 +416,6 @@ class CSPSolver {
         // 制約伝播で0%と100%のセルを確定
         const determinedCells = this.determineCertainCells(group, constraints);
         
-        console.log(`[DEBUG] Constraint propagation for group (${group.length} cells): ${determinedCells.certain.length} mines, ${determinedCells.safe.length} safe cells found`);
-        
         // 確定したセルの確率を設定
         for (const cellIdx of determinedCells.certain) {
             const row = group[cellIdx].row;
@@ -473,7 +446,7 @@ class CSPSolver {
         // キャッシュをチェック
         if (this.groupCache.has(fingerprint)) {
             const cached = this.groupCache.get(fingerprint);
-            console.log(`[DEBUG] Using cached result for group (${group.length} cells). Cache hit!`);
+            this.cacheHits += 1;
             
             // キャッシュから確率を復元
             for (const cellProb of cached.probabilities) {
@@ -493,7 +466,6 @@ class CSPSolver {
             console.warn(`Large constraint group detected: ${group.length} cells. This may take some time...`);
         }
         
-        console.log(`[DEBUG] Computing new result for group (${group.length} cells). Cache miss.`);
         
         // 完全探索で解く
         const hasActionable = this.solveExactWithConstraints(group, constraints, skipConstraintPropagation);
@@ -509,8 +481,6 @@ class CSPSolver {
             probabilities,
             hasActionable
         });
-        
-        console.log(`[DEBUG] Cached result for group. Current cache size: ${this.groupCache.size}`);
         
         return hasActionable;
     }
@@ -592,9 +562,6 @@ class CSPSolver {
             }
             
             hasActionableFromPropagation = (determinedCells.certain.length > 0 || determinedCells.safe.length > 0);
-            if (hasActionableFromPropagation) {
-                console.log(`Found ${determinedCells.certain.length} mines and ${determinedCells.safe.length} safe cells in this group.`);
-            }
         }
         
         // STEP 2: 確定していないセルだけを完全探索
@@ -610,10 +577,6 @@ class CSPSolver {
             return false; // すでに上で処理済みなのでfalseを返す
         }
         
-        // デバッグ情報（大きなグループの場合のみ）
-        if (group.length > this.maxConstraintSize) {
-            console.log(`Exact search: ${uncertainIndices.length} cells (reduced from ${group.length})`);
-        }
         
         // 不確定なセルのみで新しいグループと制約を作成
         const uncertainGroup = uncertainIndices.map(i => group[i]);
@@ -760,21 +723,13 @@ class CSPSolver {
         const validConfigurations = [];
         const totalConfigs = Math.pow(2, uncertainGroup.length);
         
-        // 完全探索の計算マス数をログ出力
-        console.log(`[DEBUG] Starting exhaustive search for ${uncertainGroup.length} cells (${totalConfigs} configurations)`);
-        
-        // プログレス表示（大きなグループの場合）
-        let progressCounter = 0;
-        const progressInterval = Math.floor(totalConfigs / 100);
+        // パフォーマンス測定用カウンター更新
+        this.totalConfigurations += totalConfigs;
+        this.totalExhaustiveSearches += 1;
+        this.totalCellsProcessed += uncertainGroup.length;
         
         // すべての可能な配置を試す
         for (let config = 0; config < totalConfigs; config++) {
-            if (uncertainGroup.length > 15 && progressInterval > 0 && config % progressInterval === 0) {
-                progressCounter++;
-                if (progressCounter % 10 === 0) {
-                    console.log(`Progress: ${progressCounter}%`);
-                }
-            }
             
             const mines = [];
             for (let i = 0; i < uncertainGroup.length; i++) {
@@ -787,9 +742,6 @@ class CSPSolver {
                 validConfigurations.push(mines);
             }
         }
-        
-        // 完全探索完了をログ出力
-        console.log(`[DEBUG] Exhaustive search completed. Found ${validConfigurations.length} valid configurations`);
         
         // 有効な配置から確率を計算
         let hasActionableCell = false;
@@ -1302,7 +1254,6 @@ class CSPSolver {
             }
         }
         if (foundCells.length > 0) {
-            console.log(`[DEBUG] Found existing actionable cells: ${foundCells.join(', ')}`);
             return true;
         }
         return false;
@@ -1379,14 +1330,11 @@ class CSPSolver {
             return;
         }
         
-        console.log(`[DEBUG] Board changes detected at ${changes.length} cells. Preserving cache for current calculation.`);
-        
         // キャッシュを一時保存して、計算中に利用できるようにする
         const cacheSize = this.groupCache.size;
         if (cacheSize > 0) {
             // 現在のキャッシュを一時保存
             this.tempGroupCache = new Map(this.groupCache);
-            console.log(`[DEBUG] Preserved ${cacheSize} cached group results for current calculation.`);
         }
     }
 }
