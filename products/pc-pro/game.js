@@ -1118,10 +1118,10 @@ class PCProMinesweeper extends PCMinesweeper {
                     const overlay = document.createElement('div');
                     overlay.className = 'probability-overlay mine-candidate-overlay';
                     
-                    // アルファベットIDを取得
+                    // アルファベットIDを取得（複数の場合は最初の一つだけ表示）
                     const alphabetIds = this.cspSolver ? this.cspSolver.getAlphabetIdsForCell(row, col) : null;
                     if (alphabetIds) {
-                        overlay.textContent = alphabetIds;
+                        overlay.textContent = alphabetIds.charAt(0); // 最初の文字のみ表示
                     } else {
                         overlay.textContent = '？';
                     }
