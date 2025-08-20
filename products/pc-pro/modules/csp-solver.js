@@ -120,6 +120,7 @@ class CSPSolver {
             
             for (let i = 0; i < constraintGroups.length; i++) {
                 const group = constraintGroups[i];
+                this.currentProcessingGroup = group; // 現在のグループを記録
                 const hasActionable = this.applyConstraintPropagationOnly(group);
                 if (hasActionable) {
                     foundActionableCell = true;
@@ -162,6 +163,7 @@ class CSPSolver {
                 
                 for (let i = 0; i < constraintGroups.length && !phase2ActionableFound; i++) {
                     const group = constraintGroups[i];
+                    this.currentProcessingGroup = group; // 現在のグループを記録
                     const hasActionable = this.solveConstraintGroup(group, true); // skipConstraintPropagation = true
                     phase2GroupsProcessed++;
                     
@@ -707,45 +709,71 @@ class CSPSolver {
     // 確定安全マス（0%）の依存地雷候補をマーク
     markMineCandidatesForConfirmedSafes(group) {
         const confirmedSafeCells = [];
-        const candidates = new Map(); // セル座標 → 依存度カウント
+        const candidates = new Map(); // セル座標 → 依存するアルファベットIDセット
         
-        // 0%確定セルを収集
+        // 確定安全マス（0%）を特定してアルファベットIDを付与
         for (const cell of group) {
             if (this.probabilities[cell.row][cell.col] === 0) {
+                const alphabetId = String.fromCharCode(65 + confirmedSafeCells.length); // A, B, C...
+                cell.alphabetId = alphabetId;
                 confirmedSafeCells.push(cell);
             }
         }
         
         if (confirmedSafeCells.length === 0) return;
         
-        console.log(`[MINE CANDIDATES] Analyzing ${confirmedSafeCells.length} confirmed safe cells`);
+        console.log(`[MINE CANDIDATES] Analyzing ${confirmedSafeCells.length} confirmed safe cells with IDs: ${confirmedSafeCells.map(c => c.alphabetId).join(', ')}`);
         
         // 各確定安全セルについて依存地雷候補を特定
         for (const safeCell of confirmedSafeCells) {
             const dependencies = this.findMineDependenciesForSafeCell(safeCell, group);
             
             for (const candidateKey of dependencies) {
-                const count = candidates.get(candidateKey) || 0;
-                candidates.set(candidateKey, count + 1);
+                if (!candidates.has(candidateKey)) {
+                    candidates.set(candidateKey, new Set());
+                }
+                candidates.get(candidateKey).add(safeCell.alphabetId);
             }
         }
         
-        // 候補マスに特別な値を設定
-        for (const [candidateKey, dependencyCount] of candidates) {
+        // 候補マスをマーク（アルファベットIDも記録）
+        for (const [candidateKey, alphabetIds] of candidates) {
             const [row, col] = candidateKey.split(',').map(Number);
             
             // 既に確率が設定されている場合はスキップ（確定マスや計算済みセル）
             const currentProb = this.probabilities[row][col];
             if (currentProb !== -1 && currentProb !== -3) continue;
             
-            if (dependencyCount >= 2) {
-                this.probabilities[row][col] = -4; // 強い地雷候補
-            } else {
-                this.probabilities[row][col] = -5; // 通常地雷候補
+            this.probabilities[row][col] = -5; // 統一された地雷候補
+            
+            // アルファベットIDを記録（グループ内の対応するセルを探して設定）
+            const targetCell = group.find(c => c.row === row && c.col === col);
+            if (targetCell) {
+                targetCell.alphabetIds = Array.from(alphabetIds).sort().join('');
             }
         }
         
         console.log(`[MINE CANDIDATES] Marked ${candidates.size} mine candidate cells`);
+    }
+    
+    // セルのアルファベットIDを取得（確定安全マス用）
+    getAlphabetIdForCell(row, col) {
+        // 現在処理中のグループからアルファベットIDを探す
+        if (this.currentProcessingGroup) {
+            const cell = this.currentProcessingGroup.find(c => c.row === row && c.col === col);
+            return cell ? cell.alphabetId : null;
+        }
+        return null;
+    }
+    
+    // セルのアルファベットIDsを取得（地雷候補マス用）
+    getAlphabetIdsForCell(row, col) {
+        // 現在処理中のグループからアルファベットIDsを探す
+        if (this.currentProcessingGroup) {
+            const cell = this.currentProcessingGroup.find(c => c.row === row && c.col === col);
+            return cell ? cell.alphabetIds : null;
+        }
+        return null;
     }
     
     // 確定安全セルの依存地雷候補を特定

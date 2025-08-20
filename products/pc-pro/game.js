@@ -1058,7 +1058,7 @@ class PCProMinesweeper extends PCMinesweeper {
                 cell.classList.remove('probability-safe', 'probability-low', 
                                     'probability-medium', 'probability-high', 'probability-certain',
                                     'probability-unknown', 'probability-interrupted',
-                                    'mine-candidate', 'mine-candidate-strong');
+                                    'mine-candidate');
                 
                 const probability = probabilities[row][col];
                 
@@ -1098,19 +1098,33 @@ class PCProMinesweeper extends PCMinesweeper {
                     overlay.className = 'probability-overlay';
                     overlay.textContent = '---';
                     cell.appendChild(overlay);
-                } else if (probability === -4) {
-                    // 地雷候補マス（強）
-                    cell.classList.add('mine-candidate-strong');
+                } else if (probability === 0) {
+                    // 確定安全マス（0%） - アルファベットIDがあれば表示
+                    cell.classList.add('probability-safe');
                     const overlay = document.createElement('div');
-                    overlay.className = 'probability-overlay mine-candidate-overlay';
-                    overlay.textContent = '？';
+                    overlay.className = 'probability-overlay';
+                    
+                    // アルファベットIDを取得
+                    const alphabetId = this.cspSolver ? this.cspSolver.getAlphabetIdForCell(row, col) : null;
+                    if (alphabetId) {
+                        overlay.textContent = `0% ${alphabetId}`;
+                    } else {
+                        overlay.textContent = '0%';
+                    }
                     cell.appendChild(overlay);
                 } else if (probability === -5) {
-                    // 地雷候補マス（通常）
+                    // 地雷候補マス
                     cell.classList.add('mine-candidate');
                     const overlay = document.createElement('div');
                     overlay.className = 'probability-overlay mine-candidate-overlay';
-                    overlay.textContent = '？';
+                    
+                    // アルファベットIDを取得
+                    const alphabetIds = this.cspSolver ? this.cspSolver.getAlphabetIdsForCell(row, col) : null;
+                    if (alphabetIds) {
+                        overlay.textContent = alphabetIds;
+                    } else {
+                        overlay.textContent = '？';
+                    }
                     cell.appendChild(overlay);
                 }
             }
@@ -1127,7 +1141,7 @@ class PCProMinesweeper extends PCMinesweeper {
             cell.classList.remove('probability-safe', 'probability-low', 
                                 'probability-medium', 'probability-high', 'probability-certain',
                                 'probability-unknown', 'probability-interrupted',
-                                'mine-candidate', 'mine-candidate-strong');
+                                'mine-candidate');
         });
         
         // 全体確率表示をクリア
@@ -1273,7 +1287,7 @@ class PCProMinesweeper extends PCMinesweeper {
                             cell.classList.remove('probability-safe', 'probability-low', 
                                                 'probability-medium', 'probability-high', 
                                                 'probability-certain', 'probability-unknown', 'probability-interrupted',
-                                                'mine-candidate', 'mine-candidate-strong');
+                                                'mine-candidate');
                         }
                     }
                 }
