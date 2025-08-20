@@ -99,7 +99,10 @@ class SoundManager {
     
     // 効果音を再生（重複防止機能付き）
     async playSound(soundName, options = {}) {
+        console.log(`[SoundManager] playSound called: ${soundName}, enabled: ${this.enabled}, soundExists: ${!!this.sounds[soundName]}`);
+        
         if (!this.enabled || !this.sounds[soundName]) {
+            console.log(`[SoundManager] Skipping sound: ${soundName} (enabled: ${this.enabled}, exists: ${!!this.sounds[soundName]})`);
             return;
         }
         
@@ -137,6 +140,7 @@ class SoundManager {
         
         try {
             const soundConfig = this.sounds[soundName];
+            console.log(`[SoundManager] Playing sound: ${soundName}, type: ${soundConfig.type}, file: ${soundConfig.file || 'none'}`);
             
             switch (soundConfig.type) {
                 case 'beep':
@@ -211,17 +215,20 @@ class SoundManager {
     // 音声ファイルを再生（加工オプション付き）
     playAudioFile(config) {
         try {
+            console.log(`[SoundManager] Loading audio file: ${config.file}`);
             const audio = this.getAudioElement(config.file);
             
             // 音を中断せず、常に最初から再生
             audio.currentTime = 0;
             
             const volume = config.volume * this.masterVolume;
+            console.log(`[SoundManager] Setting volume: ${volume}, file: ${config.file}`);
             
             // 音量設定
             audio.volume = volume;
             
             // 再生開始
+            console.log(`[SoundManager] Starting playback: ${config.file}`);
             const playPromise = audio.play();
             
             if (playPromise !== undefined) {

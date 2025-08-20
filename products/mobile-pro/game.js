@@ -361,13 +361,9 @@ class MobileMinesweeper extends MinesweeperCore {
         const volumeUpBtn = document.getElementById('volume-up-btn');
         if (volumeUpBtn) {
             if (this.isTouchDevice) {
-                let isProcessing = false;
                 volumeUpBtn.addEventListener('touchstart', (e) => {
-                    if (isProcessing) return;
-                    isProcessing = true;
                     e.preventDefault();
                     this.increaseVolume();
-                    setTimeout(() => { isProcessing = false; }, 20);
                 });
             } else {
                 volumeUpBtn.addEventListener('click', () => {
@@ -379,13 +375,9 @@ class MobileMinesweeper extends MinesweeperCore {
         const volumeDownBtn = document.getElementById('volume-down-btn');
         if (volumeDownBtn) {
             if (this.isTouchDevice) {
-                let isProcessing = false;
                 volumeDownBtn.addEventListener('touchstart', (e) => {
-                    if (isProcessing) return;
-                    isProcessing = true;
                     e.preventDefault();
                     this.decreaseVolume();
-                    setTimeout(() => { isProcessing = false; }, 20);
                 });
             } else {
                 volumeDownBtn.addEventListener('click', () => {
@@ -842,31 +834,45 @@ class MobileMinesweeper extends MinesweeperCore {
                         this.chordReveal(row, col);
                         lastTapTime = 0;
                     } else {
-                        // シングルタップの処理
-                        if (this.flagged[row][col]) {
-                            console.log('Playing flagRemove sound (single tap)');
-                            this.soundManager.playSound('flagRemove');
-                            const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-                            this.flagged[row][col] = false;
-                            this.questioned[row][col] = true;
-                            cell.classList.remove('flagged');
-                            cell.classList.add('questioned');
-                            cell.textContent = '?';
-                            this.updateMineCount();
-                        } else if (this.questioned[row][col]) {
-                            console.log('Playing flagPlace sound (single tap)');
-                            this.soundManager.playSound('flagPlace');
-                            const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-                            this.questioned[row][col] = false;
-                            this.flagged[row][col] = true;
-                            cell.classList.remove('questioned');
-                            cell.classList.add('flagged');
-                            cell.textContent = '';
-                            this.updateMineCount();
-                            this.checkWin();
+                        // シングルタップの処理（リバースモード対応）
+                        if (this.reverseMode) {
+                            // リバースモード: タップで旗操作
+                            if (this.flagged[row][col]) {
+                                console.log('Playing flagRemove sound (single tap - reverse mode)');
+                                this.soundManager.playSound('flagRemove');
+                                const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                                this.flagged[row][col] = false;
+                                this.questioned[row][col] = true;
+                                cell.classList.remove('flagged');
+                                cell.classList.add('questioned');
+                                cell.textContent = '?';
+                                this.updateMineCount();
+                            } else if (this.questioned[row][col]) {
+                                console.log('Playing flagPlace sound (single tap - reverse mode)');
+                                this.soundManager.playSound('flagPlace');
+                                const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                                this.questioned[row][col] = false;
+                                this.flagged[row][col] = true;
+                                cell.classList.remove('questioned');
+                                cell.classList.add('flagged');
+                                cell.textContent = '';
+                                this.updateMineCount();
+                                this.checkWin();
+                            } else {
+                                console.log('Playing flagPlace sound (single tap - reverse mode new flag)');
+                                this.soundManager.playSound('flagPlace');
+                                const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                                this.flagged[row][col] = true;
+                                cell.classList.add('flagged');
+                                this.updateMineCount();
+                                this.checkWin();
+                            }
                         } else {
-                            console.log('Calling revealCell from touch end');
-                            this.revealCell(row, col);
+                            // 通常モード: タップでマス開け
+                            if (!this.flagged[row][col] && !this.questioned[row][col]) {
+                                console.log('Calling revealCell from touch end (normal mode)');
+                                this.revealCell(row, col);
+                            }
                         }
                         lastTapTime = currentTime;
                     }
