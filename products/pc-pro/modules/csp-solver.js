@@ -2035,22 +2035,31 @@ class CSPSolver {
         for (const constraint of constraints) {
             const newCells = [];
             let adjustedRequiredMines = constraint.requiredMines;
+            let excludedCells = 0;
             
             // この制約に含まれるセルのうち、選択されたものを新しいインデックスに変換
             for (const oldIndex of constraint.cells) {
                 if (oldToNewIndex.has(oldIndex)) {
                     newCells.push(oldToNewIndex.get(oldIndex));
                 } else {
-                    // 選択されなかったセルは平均確率で処理
-                    // ここでは簡単のため、制約から除外
+                    // 選択されなかったセルをカウント
+                    excludedCells++;
                 }
             }
             
+            // 選択されたセルが制約に含まれる場合のみ追加
             if (newCells.length > 0) {
-                sampleConstraints.push({
-                    cells: newCells,
-                    requiredMines: Math.min(adjustedRequiredMines, newCells.length)
-                });
+                // 除外されたセルの平均的な地雷確率を考慮して制約を調整
+                // 簡易的に除外されたセルの50%が地雷と仮定
+                const estimatedMinesInExcluded = Math.round(excludedCells * 0.5);
+                const finalRequiredMines = Math.max(0, adjustedRequiredMines - estimatedMinesInExcluded);
+                
+                if (finalRequiredMines <= newCells.length) {
+                    sampleConstraints.push({
+                        cells: newCells,
+                        requiredMines: finalRequiredMines
+                    });
+                }
             }
         }
         
@@ -2067,7 +2076,15 @@ class CSPSolver {
         
         // 全ての配置パターンをチェック
         for (let config = 0; config < totalConfigs; config++) {
-            if (this.isValidConfiguration(config, sampleConstraints, cellCount)) {
+            // ビット配置を地雷インデックス配列に変換
+            const mineIndices = [];
+            for (let i = 0; i < cellCount; i++) {
+                if ((config >> i) & 1) {
+                    mineIndices.push(i);
+                }
+            }
+            
+            if (this.isValidConfiguration(sampleGroup, mineIndices, sampleConstraints)) {
                 validConfigurations.push(config);
             }
         }
