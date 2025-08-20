@@ -912,6 +912,88 @@ class PCProMinesweeper extends PCMinesweeper {
     }
     
     displayAssist(probabilities) {
+        // 確率モードが有効な場合は地雷候補マスの追加表示のみ行う
+        if (this.probabilityMode) {
+            // 地雷候補マスのみ追加表示（確率表示は維持）
+            for (let row = 0; row < this.rows; row++) {
+                for (let col = 0; col < this.cols; col++) {
+                    // 開示済みまたは旗付きのセルはスキップ
+                    if (this.revealed[row][col] || this.flagged[row][col]) {
+                        continue;
+                    }
+
+                    const probability = probabilities[row][col];
+                    if (probability === -5) {
+                        // 地雷候補マス：アルファベットIDがある場合のみ追加表示
+                        const alphabetIds = this.cspSolver ? this.cspSolver.getAlphabetIdsForCell(row, col) : null;
+                        if (alphabetIds) {
+                            const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                            if (cell) {
+                                cell.classList.add('mine-candidate');
+                                // アルファベットオーバーレイが既に存在するかチェック
+                                const existingAlphabetOverlay = cell.querySelector('.mine-candidate-overlay');
+                                if (!existingAlphabetOverlay) {
+                                    const alphabetOverlay = document.createElement('div');
+                                    alphabetOverlay.className = 'probability-overlay mine-candidate-overlay';
+                                    alphabetOverlay.textContent = alphabetIds.charAt(0);
+                                    alphabetOverlay.style.position = 'absolute';
+                                    alphabetOverlay.style.bottom = '2px';
+                                    alphabetOverlay.style.right = '2px';
+                                    alphabetOverlay.style.fontSize = '10px';
+                                    alphabetOverlay.style.color = 'white';
+                                    alphabetOverlay.style.fontWeight = 'bold';
+                                    cell.appendChild(alphabetOverlay);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // 補助モード単体時：アルファベット付きマスのみ表示
+            for (let row = 0; row < this.rows; row++) {
+                for (let col = 0; col < this.cols; col++) {
+                    // 開示済みまたは旗付きのセルはスキップ
+                    if (this.revealed[row][col] || this.flagged[row][col]) {
+                        continue;
+                    }
+
+                    const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                    if (!cell) continue;
+
+                    // 既存のオーバーレイをクリア
+                    const existingOverlay = cell.querySelector('.probability-overlay');
+                    if (existingOverlay) {
+                        existingOverlay.remove();
+                    }
+
+                    // アシストクラスをクリア
+                    cell.classList.remove('probability-safe', 'probability-low', 
+                                        'probability-medium', 'probability-high', 'probability-certain',
+                                        'probability-unknown', 'probability-interrupted',
+                                        'mine-candidate');
+
+                    const probability = probabilities[row][col];
+
+                    if (probability === -5) {
+                        // 地雷候補マス：アルファベットIDがある場合のみ表示
+                        const alphabetIds = this.cspSolver ? this.cspSolver.getAlphabetIdsForCell(row, col) : null;
+                        if (alphabetIds) {
+                            cell.classList.add('mine-candidate');
+                            const overlay = document.createElement('div');
+                            overlay.className = 'probability-overlay mine-candidate-overlay';
+                            overlay.textContent = alphabetIds.charAt(0);
+                            cell.appendChild(overlay);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // ポップアップ表示のための処理（早期リターン前に実行）
+        this.showAssistPopup(probabilities);
+        return; // 以下の処理は実行しない
+        
         // 優先順位: 0% > 100% > その他の最低確率
         let hasSafeCell = false; // 0%のセルがあるか
         let hasUnflaggedCertainMine = false; // 旗が立っていない100%のセルがあるか
@@ -1021,6 +1103,130 @@ class PCProMinesweeper extends PCMinesweeper {
         if (display) {
             display.classList.remove('show');
         }
+        
+        // 確率モードが有効な場合は補助機能の追加表示のみクリア
+        if (this.probabilityMode) {
+            // 地雷候補の色付けと小さなアルファベットのみクリア
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                // アルファベットオーバーレイのみ削除
+                const alphabetOverlay = cell.querySelector('.mine-candidate-overlay');
+                if (alphabetOverlay) {
+                    alphabetOverlay.remove();
+                }
+                // 地雷候補の色付けのみ削除
+                cell.classList.remove('mine-candidate');
+            });
+        } else {
+            // 補助モード単体時は全ての表示をクリア
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                const overlay = cell.querySelector('.probability-overlay');
+                if (overlay) {
+                    overlay.remove();
+                }
+                cell.classList.remove('probability-safe', 'probability-low', 
+                                    'probability-medium', 'probability-high', 'probability-certain',
+                                    'probability-unknown', 'probability-interrupted',
+                                    'mine-candidate');
+            });
+        }
+    }
+    
+    showAssistPopup(probabilities) {
+        // 優先順位: 0% > 100% > その他の最低確率
+        let hasSafeCell = false; // 0%のセルがあるか
+        let hasUnflaggedCertainMine = false; // 旗が立っていない100%のセルがあるか
+        let minProbability = 101; // その他の確率の最小値（100%より大きい値で初期化）
+        let displayProbability = 101; // 実際に表示する確率
+        
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                // 開示済みのセルはスキップ
+                if (this.revealed[row][col]) {
+                    continue;
+                }
+                
+                const probability = probabilities[row][col];
+                
+                // 旗付きのセルはスキップ（最低確率の計算から除外）
+                if (this.flagged[row][col]) {
+                    continue;
+                }
+                
+                // 制約ベースの確率のみ考慮（-2は平均確率なので無視）
+                if (probability >= 0) {
+                    // 0%のセルをチェック（最優先）
+                    if (probability === 0) {
+                        hasSafeCell = true;
+                    }
+                    // 旗が立っていない100%のセルをチェック（2番目の優先度）
+                    else if (probability === 100 && !this.flagged[row][col]) {
+                        hasUnflaggedCertainMine = true;
+                    }
+                    // その他の確率の最小値を更新
+                    else if (probability < minProbability) {
+                        minProbability = probability;
+                    }
+                }
+            }
+        }
+        
+        // 表示する確率を決定（優先順位順）
+        if (hasSafeCell) {
+            displayProbability = 0;
+        } else if (hasUnflaggedCertainMine) {
+            displayProbability = 100;
+        } else if (minProbability <= 100) {
+            displayProbability = minProbability;
+        }
+        
+        // ポップアップに表示
+        this.updateAssistDisplay(displayProbability, hasUnflaggedCertainMine);
+    }
+    
+    updateAssistDisplay(displayProbability, hasCertainMine) {
+        let display = document.querySelector('.assist-display');
+        
+        if (!display) {
+            display = document.createElement('div');
+            display.className = 'assist-display';
+            
+            const container = document.querySelector('.global-stats-display-container');
+            if (container) {
+                container.appendChild(display);
+            } else {
+                document.body.appendChild(display);
+            }
+        }
+        
+        let statusText = '';
+        let assistClass = '';
+        
+        if (displayProbability === 101) {
+            // 確率が計算できない場合は表示しない
+            display.classList.remove('show');
+            return;
+        } else if (displayProbability === 0) {
+            statusText = '0%';
+            assistClass = 'safe';
+        } else if (displayProbability === 100) {
+            statusText = '100%';
+            assistClass = 'mine';
+            if (hasCertainMine) {
+                statusText += ' 💣';
+            }
+        } else {
+            statusText = `${displayProbability}%`;
+            assistClass = 'probability';
+        }
+        
+        display.innerHTML = `
+            <div class="assist-content ${assistClass}">
+                <span class="assist-text">${statusText}</span>
+            </div>
+        `;
+        display.classList.add('show');
     }
     
     calculateAndDisplayProbabilities() {
@@ -1099,33 +1305,37 @@ class PCProMinesweeper extends PCMinesweeper {
                     overlay.textContent = '---';
                     cell.appendChild(overlay);
                 } else if (probability === 0) {
-                    // 確定安全マス（0%） - アルファベットIDがあれば表示
-                    cell.classList.add('probability-safe');
-                    const overlay = document.createElement('div');
-                    overlay.className = 'probability-overlay';
-                    
-                    // アルファベットIDを取得
-                    const alphabetId = this.cspSolver ? this.cspSolver.getAlphabetIdForCell(row, col) : null;
-                    if (alphabetId) {
-                        overlay.textContent = `0% ${alphabetId}`;
+                    // 確定安全マス（0%）
+                    if (this.assistMode) {
+                        // 補助モード時：アルファベット表示のみ
+                        const alphabetId = this.cspSolver ? this.cspSolver.getAlphabetIdForCell(row, col) : null;
+                        if (alphabetId) {
+                            cell.classList.add('probability-safe');
+                            const overlay = document.createElement('div');
+                            overlay.className = 'probability-overlay';
+                            overlay.textContent = `0% ${alphabetId}`;
+                            cell.appendChild(overlay);
+                        }
                     } else {
+                        // 確率モード時：通常の0%表示
+                        cell.classList.add('probability-safe');
+                        const overlay = document.createElement('div');
+                        overlay.className = 'probability-overlay';
                         overlay.textContent = '0%';
+                        cell.appendChild(overlay);
                     }
-                    cell.appendChild(overlay);
                 } else if (probability === -5) {
-                    // 地雷候補マス
-                    cell.classList.add('mine-candidate');
-                    const overlay = document.createElement('div');
-                    overlay.className = 'probability-overlay mine-candidate-overlay';
-                    
-                    // アルファベットIDを取得（複数の場合は最初の一つだけ表示）
-                    const alphabetIds = this.cspSolver ? this.cspSolver.getAlphabetIdsForCell(row, col) : null;
-                    if (alphabetIds) {
-                        overlay.textContent = alphabetIds.charAt(0); // 最初の文字のみ表示
-                    } else {
-                        overlay.textContent = '？';
+                    // 地雷候補マス（補助モード時のみ表示）
+                    if (this.assistMode) {
+                        const alphabetIds = this.cspSolver ? this.cspSolver.getAlphabetIdsForCell(row, col) : null;
+                        if (alphabetIds) {
+                            cell.classList.add('mine-candidate');
+                            const overlay = document.createElement('div');
+                            overlay.className = 'probability-overlay mine-candidate-overlay';
+                            overlay.textContent = alphabetIds.charAt(0); // 最初の文字のみ表示
+                            cell.appendChild(overlay);
+                        }
                     }
-                    cell.appendChild(overlay);
                 }
             }
         }
@@ -1134,14 +1344,30 @@ class PCProMinesweeper extends PCMinesweeper {
     clearProbabilityDisplay() {
         const cells = document.querySelectorAll('.cell');
         cells.forEach(cell => {
-            const overlay = cell.querySelector('.probability-overlay');
-            if (overlay) {
-                overlay.remove();
+            // 補助機能が有効な場合はアルファベットオーバーレイを保持
+            if (this.assistMode) {
+                // 確率オーバーレイのみ削除（アルファベットオーバーレイは保持）
+                const overlays = cell.querySelectorAll('.probability-overlay');
+                overlays.forEach(overlay => {
+                    if (!overlay.classList.contains('mine-candidate-overlay')) {
+                        overlay.remove();
+                    }
+                });
+                // 確率関連のクラスのみ削除（mine-candidateは保持）
+                cell.classList.remove('probability-safe', 'probability-low', 
+                                    'probability-medium', 'probability-high', 'probability-certain',
+                                    'probability-unknown', 'probability-interrupted');
+            } else {
+                // 補助機能が無効な場合は全て削除
+                const overlay = cell.querySelector('.probability-overlay');
+                if (overlay) {
+                    overlay.remove();
+                }
+                cell.classList.remove('probability-safe', 'probability-low', 
+                                    'probability-medium', 'probability-high', 'probability-certain',
+                                    'probability-unknown', 'probability-interrupted',
+                                    'mine-candidate');
             }
-            cell.classList.remove('probability-safe', 'probability-low', 
-                                'probability-medium', 'probability-high', 'probability-certain',
-                                'probability-unknown', 'probability-interrupted',
-                                'mine-candidate');
         });
         
         // 全体確率表示をクリア
