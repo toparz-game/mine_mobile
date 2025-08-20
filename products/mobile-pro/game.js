@@ -80,7 +80,7 @@ class MobileMinesweeper extends MinesweeperCore {
                     isProcessing = true;
                     e.preventDefault();
                     this.newGame();
-                    setTimeout(() => { isProcessing = false; }, 100);
+                    setTimeout(() => { isProcessing = false; }, 30);
                 });
             } else {
                 resetBtn.addEventListener('click', () => this.newGame());
@@ -106,7 +106,7 @@ class MobileMinesweeper extends MinesweeperCore {
                     isProcessing = true;
                     e.preventDefault();
                     this.zoomIn();
-                    setTimeout(() => { isProcessing = false; }, 50);
+                    setTimeout(() => { isProcessing = false; }, 20);
                 });
             } else {
                 zoomInBtn.addEventListener('click', () => this.zoomIn());
@@ -122,7 +122,7 @@ class MobileMinesweeper extends MinesweeperCore {
                     isProcessing = true;
                     e.preventDefault();
                     this.zoomOut();
-                    setTimeout(() => { isProcessing = false; }, 50);
+                    setTimeout(() => { isProcessing = false; }, 20);
                 });
             } else {
                 zoomOutBtn.addEventListener('click', () => this.zoomOut());
@@ -138,7 +138,7 @@ class MobileMinesweeper extends MinesweeperCore {
                     isProcessing = true;
                     e.preventDefault();
                     this.openSettings();
-                    setTimeout(() => { isProcessing = false; }, 100);
+                    setTimeout(() => { isProcessing = false; }, 30);
                 });
             } else {
                 settingsBtn.addEventListener('click', () => {
@@ -156,7 +156,7 @@ class MobileMinesweeper extends MinesweeperCore {
                     isProcessing = true;
                     e.preventDefault();
                     this.openHelp();
-                    setTimeout(() => { isProcessing = false; }, 100);
+                    setTimeout(() => { isProcessing = false; }, 30);
                 });
             } else {
                 helpBtn.addEventListener('click', () => {
@@ -174,7 +174,7 @@ class MobileMinesweeper extends MinesweeperCore {
                     isProcessing = true;
                     e.preventDefault();
                     this.closeSettings();
-                    setTimeout(() => { isProcessing = false; }, 100);
+                    setTimeout(() => { isProcessing = false; }, 30);
                 });
             } else {
                 closeSettingsBtn.addEventListener('click', () => {
@@ -192,7 +192,7 @@ class MobileMinesweeper extends MinesweeperCore {
                     isProcessing = true;
                     e.preventDefault();
                     this.closeHelp();
-                    setTimeout(() => { isProcessing = false; }, 100);
+                    setTimeout(() => { isProcessing = false; }, 30);
                 });
             } else {
                 closeHelpBtn.addEventListener('click', () => {
@@ -210,7 +210,7 @@ class MobileMinesweeper extends MinesweeperCore {
                     isProcessing = true;
                     e.preventDefault();
                     this.increaseFontSize();
-                    setTimeout(() => { isProcessing = false; }, 50);
+                    setTimeout(() => { isProcessing = false; }, 20);
                 });
             } else {
                 fontSizeUpBtn.addEventListener('click', () => {
@@ -228,7 +228,7 @@ class MobileMinesweeper extends MinesweeperCore {
                     isProcessing = true;
                     e.preventDefault();
                     this.decreaseFontSize();
-                    setTimeout(() => { isProcessing = false; }, 50);
+                    setTimeout(() => { isProcessing = false; }, 20);
                 });
             } else {
                 fontSizeDownBtn.addEventListener('click', () => {
@@ -367,7 +367,7 @@ class MobileMinesweeper extends MinesweeperCore {
                     isProcessing = true;
                     e.preventDefault();
                     this.increaseVolume();
-                    setTimeout(() => { isProcessing = false; }, 50);
+                    setTimeout(() => { isProcessing = false; }, 20);
                 });
             } else {
                 volumeUpBtn.addEventListener('click', () => {
@@ -385,7 +385,7 @@ class MobileMinesweeper extends MinesweeperCore {
                     isProcessing = true;
                     e.preventDefault();
                     this.decreaseVolume();
-                    setTimeout(() => { isProcessing = false; }, 50);
+                    setTimeout(() => { isProcessing = false; }, 20);
                 });
             } else {
                 volumeDownBtn.addEventListener('click', () => {
@@ -772,6 +772,7 @@ class MobileMinesweeper extends MinesweeperCore {
                         const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
                         if (this.flagged[row][col] || this.questioned[row][col]) {
                             // 旗または?がある場合は消去
+                            console.log('Playing flagRemove sound (long press)');
                             this.soundManager.playSound('flagRemove');
                             this.flagged[row][col] = false;
                             this.questioned[row][col] = false;
@@ -780,6 +781,7 @@ class MobileMinesweeper extends MinesweeperCore {
                             this.updateMineCount();
                         } else {
                             // 何もない場合は旗を立てる
+                            console.log('Playing flagPlace sound (long press)');
                             this.soundManager.playSound('flagPlace');
                             this.flagged[row][col] = true;
                             cell.classList.add('flagged');
@@ -842,6 +844,7 @@ class MobileMinesweeper extends MinesweeperCore {
                     } else {
                         // シングルタップの処理
                         if (this.flagged[row][col]) {
+                            console.log('Playing flagRemove sound (single tap)');
                             this.soundManager.playSound('flagRemove');
                             const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
                             this.flagged[row][col] = false;
@@ -851,6 +854,7 @@ class MobileMinesweeper extends MinesweeperCore {
                             cell.textContent = '?';
                             this.updateMineCount();
                         } else if (this.questioned[row][col]) {
+                            console.log('Playing flagPlace sound (single tap)');
                             this.soundManager.playSound('flagPlace');
                             const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
                             this.questioned[row][col] = false;
@@ -861,6 +865,7 @@ class MobileMinesweeper extends MinesweeperCore {
                             this.updateMineCount();
                             this.checkWin();
                         } else {
+                            console.log('Calling revealCell from touch end');
                             this.revealCell(row, col);
                         }
                         lastTapTime = currentTime;
@@ -987,6 +992,7 @@ class MobileMinesweeper extends MinesweeperCore {
         
         if (this.flagged[row][col]) {
             // 旗を外す効果音
+            console.log('Playing flagRemove sound');
             this.soundManager.playSound('flagRemove');
             
             this.flagged[row][col] = false;
@@ -997,6 +1003,7 @@ class MobileMinesweeper extends MinesweeperCore {
             this.updateMineCount();
         } else if (this.questioned[row][col]) {
             // ?を外す効果音
+            console.log('Playing flagRemove sound (question)');
             this.soundManager.playSound('flagRemove');
             
             this.questioned[row][col] = false;
@@ -1004,6 +1011,7 @@ class MobileMinesweeper extends MinesweeperCore {
             cell.textContent = '';
         } else {
             // 旗を立てる効果音
+            console.log('Playing flagPlace sound');
             this.soundManager.playSound('flagPlace');
             
             this.flagged[row][col] = true;
@@ -1574,10 +1582,12 @@ class MobileMinesweeper extends MinesweeperCore {
                 // 連鎖開示中は最初の1回のみ音を再生
                 this.revealCount++;
                 if (this.revealCount === 1) {
+                    console.log('Playing cellClick sound (chain reveal)');
                     this.soundManager.playSound('cellClick');
                 }
             } else {
                 // 通常のクリックは即座に再生
+                console.log('Playing cellClick sound (normal click)');
                 this.soundManager.playSound('cellClick');
             }
         }
