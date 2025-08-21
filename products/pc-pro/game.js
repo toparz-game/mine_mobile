@@ -849,10 +849,9 @@ class PCProMinesweeper extends PCMinesweeper {
         // 補助表示をクリア  
         this.clearAssistDisplay();
         
-        // CSPソルバーの永続確率と近似確率をクリア
+        // CSPソルバーの永続確率をクリア
         if (this.cspSolver) {
             this.cspSolver.persistentProbabilities = [];
-            this.cspSolver.approximateProbabilities = [];
             console.log('[DEBUG] Cleared persistent probabilities on game reset');
         }
         
@@ -1118,7 +1117,7 @@ class PCProMinesweeper extends PCMinesweeper {
                 cell.classList.remove('probability-safe', 'probability-low', 
                                     'probability-medium', 'probability-high', 'probability-certain',
                                     'probability-unknown', 'probability-interrupted', 'probability-skipped',
-                                    'probability-approximate', 'mine-candidate');
+                                    'mine-candidate');
             });
         }
     }
@@ -1272,7 +1271,7 @@ class PCProMinesweeper extends PCMinesweeper {
                 cell.classList.remove('probability-safe', 'probability-low', 
                                     'probability-medium', 'probability-high', 'probability-certain',
                                     'probability-unknown', 'probability-interrupted', 'probability-skipped',
-                                    'probability-approximate', 'mine-candidate');
+                                    'mine-candidate');
                 
                 const probability = probabilities[row][col];
                 
@@ -1286,9 +1285,8 @@ class PCProMinesweeper extends PCMinesweeper {
                     const overlay = document.createElement('div');
                     overlay.className = 'probability-overlay';
                     
-                    // 近似確率かどうかをチェック
-                    const isApproximate = this.cspSolver && this.cspSolver.isApproximate(row, col);
-                    overlay.textContent = isApproximate ? `${probability}%~` : `${probability}%`;
+                    // 近似機能は廃止済み
+                    overlay.textContent = `${probability}%`;
                     
                     // 確率に応じてクラスを設定
                     if (probability === 0) {
@@ -1303,10 +1301,7 @@ class PCProMinesweeper extends PCMinesweeper {
                         cell.classList.add('probability-certain');
                     }
                     
-                    // 近似確率の場合は特別なクラスを追加
-                    if (isApproximate) {
-                        cell.classList.add('probability-approximate');
-                    }
+                    // 近似機能は廃止済み
                     
                     cell.appendChild(overlay);
                 } else if (probability === -2) {
@@ -1390,7 +1385,7 @@ class PCProMinesweeper extends PCMinesweeper {
                 cell.classList.remove('probability-safe', 'probability-low', 
                                     'probability-medium', 'probability-high', 'probability-certain',
                                     'probability-unknown', 'probability-interrupted', 'probability-skipped',
-                                    'probability-approximate', 'mine-candidate');
+                                    'mine-candidate');
             }
         });
         

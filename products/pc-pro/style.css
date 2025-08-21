@@ -1161,16 +1161,7 @@ body.power-save-mode .control-btn.active {
     border: 1px dashed rgba(255, 165, 0, 0.4);
 }
 
-/* 近似確率のセル */
-.cell.probability-approximate {
-    border: 1px dotted rgba(138, 43, 226, 0.5);
-    background: rgba(138, 43, 226, 0.05);
-}
-
-.cell.probability-approximate .probability-overlay {
-    color: rgba(138, 43, 226, 0.9);
-    font-style: italic;
-}
+/* 近似確率機能は廃止済み */
 
 /* 地雷候補マス（通常） */
 .cell.mine-candidate {
