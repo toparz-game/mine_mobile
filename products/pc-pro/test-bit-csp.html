@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ビットCSPソルバー動作テスト</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #f0f0f0; }
+        .test-section { margin: 20px 0; padding: 15px; background: white; border-radius: 8px; }
+        .test-title { font-weight: bold; color: #2196F3; margin-bottom: 10px; }
+        .test-result { margin: 5px 0; }
+        .success { color: #4CAF50; }
+        .error { color: #F44336; }
+        .info { color: #666; }
+        .performance { background: #e3f2fd; padding: 10px; margin: 10px 0; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>🎯 ビットCSPソルバー動作テスト</h1>
+    <div id="test-results"></div>
+
+    <script src="../../core/minesweeper-core.js"></script>
+    <script src="../pc/game.js"></script>
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/bit-csp-solver.js"></script>
+    <script src="modules/bit-csp-operations.js"></script>
+
+    <script>
+        class BitCSPTester {
+            constructor() {
+                this.results = [];
+                this.testContainer = document.getElementById('test-results');
+            }
+
+            log(message, type = 'info') {
+                this.results.push({ message, type });
+                console.log(`[${type.toUpperCase()}] ${message}`);
+            }
+
+            addTestSection(title) {
+                const section = document.createElement('div');
+                section.className = 'test-section';
+                section.innerHTML = `<div class="test-title">${title}</div>`;
+                this.testContainer.appendChild(section);
+                return section;
+            }
+
+            addResult(section, message, type = 'info') {
+                const result = document.createElement('div');
+                result.className = `test-result ${type}`;
+                result.textContent = message;
+                section.appendChild(result);
+            }
+
+            // テスト1: 基本的なビット演算のテスト
+            testBasicBitOperations() {
+                const section = this.addTestSection('1. 基本ビット演算テスト');
+                
+                try {
+                    // モックのゲームオブジェクトを作成
+                    const mockGame = {
+                        rows: 9, cols: 9, mineCount: 10,
+                        revealed: Array(9).fill().map(() => Array(9).fill(false)),
+                        flagged: Array(9).fill().map(() => Array(9).fill(false)),
+                        board: Array(9).fill().map(() => Array(9).fill(0))
+                    };
+                    
+                    const bitSystem = new BitMinesweeperSystem(9, 9);
+                    const bitCSP = new BitCSPSolver(mockGame, bitSystem);
+                    
+                    // ビット設定・取得テスト
+                    bitCSP.setBit(bitCSP.candidateBits, 0, 0, true);
+                    bitCSP.setBit(bitCSP.candidateBits, 4, 4, true);
+                    bitCSP.setBit(bitCSP.candidateBits, 8, 8, true);
+                    
+                    const bit00 = bitCSP.getBit(bitCSP.candidateBits, 0, 0);
+                    const bit44 = bitCSP.getBit(bitCSP.candidateBits, 4, 4);
+                    const bit88 = bitCSP.getBit(bitCSP.candidateBits, 8, 8);
+                    const bit11 = bitCSP.getBit(bitCSP.candidateBits, 1, 1);
+                    
+                    this.addResult(section, `ビット設定テスト: ${bit00 && bit44 && bit88 && !bit11 ? 'PASS' : 'FAIL'}`, 
+                                 bit00 && bit44 && bit88 && !bit11 ? 'success' : 'error');
+                    
+                    // ポピュレーションカウントテスト
+                    const popCount = bitCSP.popCountBits(bitCSP.candidateBits);
+                    this.addResult(section, `ポピュレーションカウント: ${popCount} (期待値: 3) ${popCount === 3 ? 'PASS' : 'FAIL'}`, 
+                                 popCount === 3 ? 'success' : 'error');
+                    
+                    // 座標変換テスト
+                    const coords = bitCSP.bitsToCoordList(bitCSP.candidateBits);
+                    const expectedCoords = [{row: 0, col: 0}, {row: 4, col: 4}, {row: 8, col: 8}];
+                    const coordsMatch = coords.length === 3 && 
+                                      coords.every((c, i) => c.row === expectedCoords[i].row && c.col === expectedCoords[i].col);
+                    
+                    this.addResult(section, `座標変換テスト: ${coordsMatch ? 'PASS' : 'FAIL'}`, 
+                                 coordsMatch ? 'success' : 'error');
+                    
+                    // メモリ使用量テスト
+                    const memUsage = bitCSP.getMemoryUsage();
+                    this.addResult(section, `メモリ削減率: ${memUsage.reduction}%`, 'info');
+                    
+                } catch (error) {
+                    this.addResult(section, `エラー: ${error.message}`, 'error');
+                }
+            }
+
+            // テスト2: セット演算のテスト
+            testSetOperations() {
+                const section = this.addTestSection('2. セット演算テスト');
+                
+                try {
+                    const mockGame = {
+                        rows: 5, cols: 5, mineCount: 5,
+                        revealed: Array(5).fill().map(() => Array(5).fill(false)),
+                        flagged: Array(5).fill().map(() => Array(5).fill(false)),
+                        board: Array(5).fill().map(() => Array(5).fill(0))
+                    };
+                    
+                    const bitSystem = new BitMinesweeperSystem(5, 5);
+                    const bitCSP = new BitCSPOperations(mockGame, bitSystem);
+                    
+                    // セット1: (0,0), (1,1), (2,2)
+                    bitCSP.clearBits(bitCSP.tempBits1);
+                    bitCSP.setBit(bitCSP.tempBits1, 0, 0, true);
+                    bitCSP.setBit(bitCSP.tempBits1, 1, 1, true);
+                    bitCSP.setBit(bitCSP.tempBits1, 2, 2, true);
+                    
+                    // セット2: (1,1), (2,2), (3,3)
+                    bitCSP.clearBits(bitCSP.tempBits2);
+                    bitCSP.setBit(bitCSP.tempBits2, 1, 1, true);
+                    bitCSP.setBit(bitCSP.tempBits2, 2, 2, true);
+                    bitCSP.setBit(bitCSP.tempBits2, 3, 3, true);
+                    
+                    // AND演算テスト（積集合）
+                    bitCSP.andBits(bitCSP.tempBits1, bitCSP.tempBits2, bitCSP.tempBits3);
+                    const andResult = bitCSP.popCountBits(bitCSP.tempBits3);
+                    this.addResult(section, `AND演算 (積集合): ${andResult} セル (期待値: 2) ${andResult === 2 ? 'PASS' : 'FAIL'}`, 
+                                 andResult === 2 ? 'success' : 'error');
+                    
+                    // OR演算テスト（和集合）
+                    bitCSP.orBits(bitCSP.tempBits1, bitCSP.tempBits2, bitCSP.tempBits3);
+                    const orResult = bitCSP.popCountBits(bitCSP.tempBits3);
+                    this.addResult(section, `OR演算 (和集合): ${orResult} セル (期待値: 4) ${orResult === 4 ? 'PASS' : 'FAIL'}`, 
+                                 orResult === 4 ? 'success' : 'error');
+                    
+                    // XOR演算テスト（対称差集合）
+                    bitCSP.xorBits(bitCSP.tempBits1, bitCSP.tempBits2, bitCSP.tempBits3);
+                    const xorResult = bitCSP.popCountBits(bitCSP.tempBits3);
+                    this.addResult(section, `XOR演算 (対称差): ${xorResult} セル (期待値: 2) ${xorResult === 2 ? 'PASS' : 'FAIL'}`, 
+                                 xorResult === 2 ? 'success' : 'error');
+                    
+                } catch (error) {
+                    this.addResult(section, `エラー: ${error.message}`, 'error');
+                }
+            }
+
+            // テスト3: 制約生成のテスト
+            testConstraintGeneration() {
+                const section = this.addTestSection('3. 制約生成テスト');
+                
+                try {
+                    const mockGame = {
+                        rows: 3, cols: 3, mineCount: 2,
+                        revealed: [
+                            [false, false, false],
+                            [false, true,  false],
+                            [false, false, false]
+                        ],
+                        flagged: Array(3).fill().map(() => Array(3).fill(false)),
+                        board: [
+                            [0, 0, 0],
+                            [0, 2, 0],  // 中央セルは周囲に地雷2個
+                            [0, 0, 0]
+                        ]
+                    };
+                    
+                    const bitSystem = new BitMinesweeperSystem(3, 3);
+                    const bitCSP = new BitCSPOperations(mockGame, bitSystem);
+                    
+                    // 未知セル一覧
+                    const unknownCells = [];
+                    for (let row = 0; row < 3; row++) {
+                        for (let col = 0; col < 3; col++) {
+                            if (!mockGame.revealed[row][col]) {
+                                unknownCells.push({row, col});
+                            }
+                        }
+                    }
+                    
+                    const constraints = bitCSP.generateConstraintsFromGroup(unknownCells);
+                    
+                    this.addResult(section, `生成された制約数: ${constraints.length}`, 'info');
+                    
+                    if (constraints.length > 0) {
+                        const constraint = constraints[0];
+                        this.addResult(section, `制約1 - セル数: ${constraint.cells.length}, 期待地雷数: ${constraint.expectedMines}`, 'info');
+                        this.addResult(section, `制約生成テスト: PASS`, 'success');
+                    } else {
+                        this.addResult(section, `制約生成テスト: FAIL (制約が生成されませんでした)`, 'error');
+                    }
+                    
+                } catch (error) {
+                    this.addResult(section, `エラー: ${error.message}`, 'error');
+                }
+            }
+
+            // テスト4: パフォーマンステスト
+            testPerformance() {
+                const section = this.addTestSection('4. パフォーマンステスト');
+                
+                try {
+                    const sizes = [
+                        {rows: 9, cols: 9, desc: '初級 (9×9)'},
+                        {rows: 16, cols: 16, desc: '中級 (16×16)'},
+                        {rows: 16, cols: 30, desc: '上級 (16×30)'}
+                    ];
+                    
+                    for (const size of sizes) {
+                        const mockGame = {
+                            rows: size.rows, cols: size.cols, mineCount: 40,
+                            revealed: Array(size.rows).fill().map(() => Array(size.cols).fill(false)),
+                            flagged: Array(size.rows).fill().map(() => Array(size.cols).fill(false)),
+                            board: Array(size.rows).fill().map(() => Array(size.cols).fill(0))
+                        };
+                        
+                        const bitSystem = new BitMinesweeperSystem(size.rows, size.cols);
+                        const bitCSP = new BitCSPOperations(mockGame, bitSystem);
+                        
+                        // パフォーマンステスト: 大量のビット演算
+                        const startTime = performance.now();
+                        
+                        for (let i = 0; i < 1000; i++) {
+                            // ランダムなセルにビットを設定
+                            const row = Math.floor(Math.random() * size.rows);
+                            const col = Math.floor(Math.random() * size.cols);
+                            bitCSP.setBit(bitCSP.candidateBits, row, col, true);
+                        }
+                        
+                        // セット演算を実行
+                        for (let i = 0; i < 100; i++) {
+                            bitCSP.andBits(bitCSP.candidateBits, bitCSP.tempBits1, bitCSP.tempBits2);
+                            bitCSP.orBits(bitCSP.tempBits1, bitCSP.tempBits2, bitCSP.tempBits3);
+                            bitCSP.popCountBits(bitCSP.tempBits3);
+                        }
+                        
+                        const endTime = performance.now();
+                        const duration = (endTime - startTime).toFixed(2);
+                        
+                        const memUsage = bitCSP.getMemoryUsage();
+                        
+                        this.addResult(section, `${size.desc}: ${duration}ms, メモリ削減: ${memUsage.reduction}%`, 'info');
+                    }
+                    
+                } catch (error) {
+                    this.addResult(section, `エラー: ${error.message}`, 'error');
+                }
+            }
+
+            // 全テストを実行
+            runAllTests() {
+                this.log('ビットCSPソルバーのテストを開始します...', 'info');
+                
+                this.testBasicBitOperations();
+                this.testSetOperations();
+                this.testConstraintGeneration();
+                this.testPerformance();
+                
+                this.log('全テストが完了しました', 'info');
+            }
+        }
+
+        // テスト実行
+        document.addEventListener('DOMContentLoaded', () => {
+            const tester = new BitCSPTester();
+            tester.runAllTests();
+        });
+    </script>
+</body>
+</html>

@@ -3,6 +3,9 @@ class PCProMinesweeper extends PCMinesweeper {
     constructor() {
         super();
         
+        // ビット管理システムの初期化
+        this.bitSystem = null;
+        
         // PRO版専用の機能
         this.statistics = {
             gamesPlayed: 0,
@@ -63,6 +66,19 @@ class PCProMinesweeper extends PCMinesweeper {
         this.setupProEventListeners();
         this.initSounds();
         this.initCSPSolver();
+    }
+    
+    initBoard(rows, cols, mines) {
+        super.initBoard(rows, cols, mines);
+        
+        // ビット管理システムに移行
+        this.bitSystem = new BitMinesweeperSystem(rows, cols);
+        
+        // 既存のプロパティをビット管理システムのものに置き換え
+        this.board = this.bitSystem.board;
+        this.revealed = this.bitSystem.revealed;
+        this.flagged = this.bitSystem.flagged;
+        this.questioned = this.bitSystem.questioned;
     }
     
     setupProEventListeners() {
@@ -883,6 +899,13 @@ class PCProMinesweeper extends PCMinesweeper {
     initCSPSolver() {
         if (typeof CSPSolver !== 'undefined') {
             this.cspSolver = new CSPSolver(this);
+            
+            // ビット管理CSPソルバーも初期化（実験的機能）
+            if (typeof BitCSPOperations !== 'undefined' && this.bitSystem) {
+                this.bitCSPSolver = new BitCSPOperations(this, this.bitSystem);
+                console.log('[DEBUG] BitCSPSolver initialized with memory reduction:', 
+                           this.bitCSPSolver.getMemoryUsage().reduction + '%');
+            }
         }
     }
     
