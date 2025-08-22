@@ -1296,30 +1296,16 @@ class PCProMinesweeper extends PCMinesweeper {
     }
     
     calculateAndDisplayProbabilities() {
-        console.log('[DEBUG] calculateAndDisplayProbabilities called');
-        console.log('[DEBUG] this.cspSolver:', this.cspSolver);
-        
         if (!this.cspSolver) {
-            console.log('[WARNING] No CSP solver available');
             return;
         }
         
-        console.log('[DEBUG] CSP solver available, starting calculation');
+        // 計算を実行
+        const result = this.cspSolver.calculateProbabilities();
         
-        // 計算中インジケーターを表示
-        this.showCalculatingIndicator();
-        
-        // 非同期で計算を実行
-        setTimeout(() => {
-            console.log('[DEBUG] Calling cspSolver.calculateProbabilities()');
-            const result = this.cspSolver.calculateProbabilities();
-            console.log('[DEBUG] CSP calculation result:', result);
-            
-            // 永続確率と通常確率をマージして表示用の確率を作成
-            const displayProbabilities = this.mergeWithPersistentProbabilities(result.probabilities);
-            this.displayProbabilities(displayProbabilities, result.globalProbability);
-            this.hideCalculatingIndicator();
-        }, 10);
+        // 永続確率と通常確率をマージして表示用の確率を作成
+        const displayProbabilities = this.mergeWithPersistentProbabilities(result.probabilities);
+        this.displayProbabilities(displayProbabilities, result.globalProbability);
     }
     
     displayProbabilities(probabilities, globalProbability) {

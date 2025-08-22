@@ -512,28 +512,84 @@ class CSPSolver {
     }
     
     // 局所制約完全性をチェック（セル集合が独立して解けるか判定）
+    // ビットマスク版：高速化のため内部でビット演算を使用
     checkLocalConstraintCompleteness(cellSet, constraintSet, allConstraints) {
-        const cellIndices = new Set(cellSet);
+        // セル集合をビットマスクに変換（最大32セル）
+        const cellMask = this.arrayToBitmask(cellSet);
+        
+        // 制約にビットマスクを追加（まだ追加されていない場合）
+        const constraintsBitmask = this.addBitmaskToConstraints(allConstraints);
+        
+        // 制約集合のインデックスを取得してビットマスクに変換
+        const constraintIndices = constraintSet.map(constraint => 
+            constraintsBitmask.findIndex(c => c === constraint || 
+                (c.numberCell && constraint.numberCell && 
+                 c.numberCell.row === constraint.numberCell.row && 
+                 c.numberCell.col === constraint.numberCell.col))
+        );
+        const constraintMask = this.arrayToBitmask(constraintIndices);
         
         // 条件1: セル集合内の各セルが関与する制約が、すべて制約集合内に含まれているか
-        for (const cellIdx of cellIndices) {
-            // このセルが関与するすべての制約を取得
-            const cellConstraints = allConstraints.filter(constraint => 
-                constraint.cells.includes(cellIdx)
-            );
-            
-            // このセルの制約がすべて制約集合に含まれているかチェック
-            for (const cellConstraint of cellConstraints) {
-                if (!constraintSet.includes(cellConstraint)) {
+        // ビット演算版で高速化
+        for (let cellIdx = 0; cellIdx < 32; cellIdx++) {
+            if ((cellMask >> cellIdx) & 1) { // このセルがセル集合に含まれている
+                // このセルが関与する制約のビットマスクを生成
+                let cellConstraintMask = 0;
+                for (let constraintIdx = 0; constraintIdx < constraintsBitmask.length; constraintIdx++) {
+                    if (constraintIdx < 32 && (constraintsBitmask[constraintIdx].cellsMask >> cellIdx) & 1) {
+                        cellConstraintMask |= (1 << constraintIdx);
+                    }
+                }
+                
+                // このセルの制約がすべて制約集合に含まれているかビット演算でチェック
+                if ((constraintMask & cellConstraintMask) !== cellConstraintMask) {
                     return false; // 制約集合外の制約がセルに影響している
                 }
             }
         }
         
         // 条件2: 制約集合内の各制約が影響するセルが、すべてセル集合内に含まれているか
-        for (const constraint of constraintSet) {
-            for (const cellIdx of constraint.cells) {
-                if (!cellIndices.has(cellIdx)) {
+        // ビット演算版で高速化
+        for (let constraintIdx = 0; constraintIdx < Math.min(32, constraintsBitmask.length); constraintIdx++) {
+            if ((constraintMask >> constraintIdx) & 1) { // この制約が制約集合に含まれている
+                const constraintCellMask = constraintsBitmask[constraintIdx].cellsMask;
+                // この制約が影響するセルがすべてセル集合に含まれているかビット演算でチェック
+                if ((cellMask & constraintCellMask) !== constraintCellMask) {
+                    return false; // セル集合外のセルに制約が影響している
+                }
+            }
+        }
+        
+        return true; // 完全性が確認された
+    }
+    
+    // 局所制約完全性をチェック（完全ビットマスク版）
+    // 引数も戻り値もビットマスクのみで、配列変換を一切行わない最高速版
+    checkLocalConstraintCompletenessWithBitmask(cellMask, constraintMask, allConstraintsBitmask) {
+        // 条件1: セル集合内の各セルが関与する制約が、すべて制約集合内に含まれているか
+        for (let cellIdx = 0; cellIdx < 32; cellIdx++) {
+            if ((cellMask >> cellIdx) & 1) { // このセルがセル集合に含まれている
+                // このセルが関与する制約のビットマスクを生成
+                let cellConstraintMask = 0;
+                for (let constraintIdx = 0; constraintIdx < Math.min(32, allConstraintsBitmask.length); constraintIdx++) {
+                    if ((allConstraintsBitmask[constraintIdx].cellsMask >> cellIdx) & 1) {
+                        cellConstraintMask |= (1 << constraintIdx);
+                    }
+                }
+                
+                // このセルの制約がすべて制約集合に含まれているかビット演算でチェック
+                if ((constraintMask & cellConstraintMask) !== cellConstraintMask) {
+                    return false; // 制約集合外の制約がセルに影響している
+                }
+            }
+        }
+        
+        // 条件2: 制約集合内の各制約が影響するセルが、すべてセル集合内に含まれているか
+        for (let constraintIdx = 0; constraintIdx < Math.min(32, allConstraintsBitmask.length); constraintIdx++) {
+            if ((constraintMask >> constraintIdx) & 1) { // この制約が制約集合に含まれている
+                const constraintCellMask = allConstraintsBitmask[constraintIdx].cellsMask;
+                // この制約が影響するセルがすべてセル集合に含まれているかビット演算でチェック
+                if ((cellMask & constraintCellMask) !== constraintCellMask) {
                     return false; // セル集合外のセルに制約が影響している
                 }
             }
@@ -543,113 +599,123 @@ class CSPSolver {
     }
     
     // 独立した部分集合を検出
+    // ビットマスク版：Set操作をビット演算で高速化
     findIndependentSubsets(group, constraints) {
         const independentSubsets = [];
-        const processedConstraints = new Set();
+        let processedConstraintsMask = 0; // 処理済み制約をビットマスクで管理
         
-        for (const constraint of constraints) {
-            if (processedConstraints.has(constraint)) continue;
+        // 制約にビットマスクを追加
+        const constraintsBitmask = this.addBitmaskToConstraints(constraints);
+        
+        for (let constraintIdx = 0; constraintIdx < Math.min(32, constraintsBitmask.length); constraintIdx++) {
+            if ((processedConstraintsMask >> constraintIdx) & 1) continue; // 既に処理済み
+            
+            const constraint = constraintsBitmask[constraintIdx];
             
             // この制約から開始して関連する制約とセルを収集
             const relatedConstraints = [constraint];
-            const relatedCells = new Set(constraint.cells);
-            const constraintQueue = [constraint];
-            const processedInThisSet = new Set([constraint]);
+            let relatedCellsMask = constraint.cellsMask; // セル集合をビットマスクで管理
+            const constraintQueue = [constraintIdx];
+            let processedInThisSetMask = (1 << constraintIdx); // この集合で処理済みの制約
             
-            // 制約の連鎖を辿る
+            // 制約の連鎖を辿る（ビット演算版）
             while (constraintQueue.length > 0) {
-                const currentConstraint = constraintQueue.shift();
+                const currentConstraintIdx = constraintQueue.shift();
+                const currentConstraint = constraintsBitmask[currentConstraintIdx];
                 
-                // この制約に関わるセルを追加
-                for (const cellIdx of currentConstraint.cells) {
-                    relatedCells.add(cellIdx);
-                }
+                // この制約に関わるセルを追加（ビット演算）
+                relatedCellsMask |= currentConstraint.cellsMask;
                 
                 // セルを共有する他の制約を探す
-                for (const otherConstraint of constraints) {
-                    if (processedInThisSet.has(otherConstraint)) continue;
+                for (let otherIdx = 0; otherIdx < Math.min(32, constraintsBitmask.length); otherIdx++) {
+                    if ((processedInThisSetMask >> otherIdx) & 1) continue; // 既に処理済み
                     
-                    // セルの重複をチェック
-                    const hasOverlap = otherConstraint.cells.some(cellIdx => 
-                        relatedCells.has(cellIdx)
-                    );
+                    const otherConstraint = constraintsBitmask[otherIdx];
+                    
+                    // セルの重複をビット演算でチェック（高速化）
+                    const hasOverlap = (otherConstraint.cellsMask & relatedCellsMask) !== 0;
                     
                     if (hasOverlap) {
                         relatedConstraints.push(otherConstraint);
-                        constraintQueue.push(otherConstraint);
-                        processedInThisSet.add(otherConstraint);
+                        constraintQueue.push(otherIdx);
+                        processedInThisSetMask |= (1 << otherIdx); // ビット演算で追加
                     }
                 }
             }
             
-            // 完全性をチェック
-            const cellArray = Array.from(relatedCells);
-            if (this.checkLocalConstraintCompleteness(cellArray, relatedConstraints, constraints)) {
+            // 完全性をチェック（ビットマスク版を直接使用）
+            if (this.checkLocalConstraintCompletenessWithBitmask(relatedCellsMask, processedInThisSetMask, constraintsBitmask)) {
                 independentSubsets.push({
-                    cells: cellArray,
+                    cellsMask: relatedCellsMask, // ビットマスクで管理
+                    cells: this.bitmaskToArray(relatedCellsMask), // 互換性のため配列も保持
                     constraints: relatedConstraints,
                     isComplete: true
                 });
             }
             
-            // 処理済みとしてマーク
-            for (const processedConstraint of relatedConstraints) {
-                processedConstraints.add(processedConstraint);
-            }
+            // 処理済みとしてマーク（ビット演算）
+            processedConstraintsMask |= processedInThisSetMask;
         }
         
         return independentSubsets;
     }
     
     // 独立部分集合を完全探索で解く
+    // 完全ビットマスク版：配列変換を一切行わずビット演算のみで処理
     // 戻り値: true = 0%か100%のセルが見つかった, false = 見つからなかった
     solveIndependentSubset(subset, group) {
-        // 部分集合のセルをグループ内インデックスから実際のセル情報に変換
-        const subsetCells = subset.cells.map(idx => group[idx]);
+        // ビットマスクから直接セル数を取得（配列変換不要）
+        const cellCount = subset.cellsMask ? this.popcount(subset.cellsMask) : subset.cells.length;
         
         // サイズチェック（安全性のため）
-        if (subsetCells.length > this.maxConstraintSize) {
-            console.warn(`Independent subset too large (${subsetCells.length} cells). Skipping.`);
+        if (cellCount > this.maxConstraintSize) {
+            console.warn(`Independent subset too large (${cellCount} cells). Skipping.`);
             return false;
         }
         
-        console.log(`[LOCAL COMPLETENESS] Solving independent subset: ${subsetCells.length} cells, ${subset.constraints.length} constraints`);
+        console.log(`[LOCAL COMPLETENESS] Solving independent subset: ${cellCount} cells, ${subset.constraints.length} constraints`);
         
-        // 完全探索を実行
-        const validConfigurations = [];
-        const totalConfigs = Math.pow(2, subsetCells.length);
+        // 完全探索を実行（ビットマスク版）
+        const validConfigurations = []; // ビットマスクで地雷配置を保存
+        const totalConfigs = Math.pow(2, cellCount);
         
         // パフォーマンス測定用カウンター更新
         this.totalConfigurations += totalConfigs;
         this.totalExhaustiveSearches += 1;
-        this.totalCellsProcessed += subsetCells.length;
+        this.totalCellsProcessed += cellCount;
         
-        // すべての可能な配置を試す
+        // 制約にビットマスクを追加（まだ追加されていない場合）
+        const constraintsWithBitmask = this.addBitmaskToConstraints(subset.constraints);
+        
+        // すべての可能な配置を試す（ビット演算版）
         for (let config = 0; config < totalConfigs; config++) {
-            const mines = [];
-            for (let i = 0; i < subsetCells.length; i++) {
-                if ((config >> i) & 1) {
-                    mines.push(i);
-                }
-            }
-            
-            if (this.isValidConfigurationForSubset(mines, subset.constraints)) {
-                validConfigurations.push(mines);
+            // ビットマスクで直接検証
+            if (this.isValidConfigurationForSubsetWithBitmask(config, constraintsWithBitmask)) {
+                validConfigurations.push(config); // ビットマスクで保存
             }
         }
         
-        // 有効な配置から確率を計算
+        // 有効な配置から確率を計算（ビット演算版）
         let hasActionableCell = false;
         if (validConfigurations.length > 0) {
-            for (let i = 0; i < subsetCells.length; i++) {
+            // ビットマスクから実際のセル座標を取得（確率設定のみに使用）
+            const cellIndices = subset.cellsMask ? this.bitmaskToArray(subset.cellsMask) : subset.cells;
+            
+            for (let i = 0; i < cellCount; i++) {
                 let mineCount = 0;
-                for (const config of validConfigurations) {
-                    if (config.includes(i)) {
+                
+                // 各有効配置でこのセルが地雷かどうかをビット演算でチェック
+                for (const configMask of validConfigurations) {
+                    if ((configMask >> i) & 1) { // ビット演算で高速チェック
                         mineCount++;
                     }
                 }
+                
                 const probability = Math.round((mineCount / validConfigurations.length) * 100);
-                const cell = subsetCells[i];
+                
+                // 実際のセル座標を取得して確率を設定
+                const cellIdx = cellIndices[i];
+                const cell = group[cellIdx];
                 this.probabilities[cell.row][cell.col] = probability;
                 
                 // 0%または100%の場合は永続的に保存
@@ -661,7 +727,9 @@ class CSPSolver {
         } else {
             // 有効な配置がない場合（エラー状態）
             console.warn('No valid configurations found for independent subset');
-            for (const cell of subsetCells) {
+            const cellIndices = subset.cellsMask ? this.bitmaskToArray(subset.cellsMask) : subset.cells;
+            for (const cellIdx of cellIndices) {
+                const cell = group[cellIdx];
                 this.probabilities[cell.row][cell.col] = 50; // デフォルト値
             }
         }
@@ -670,16 +738,42 @@ class CSPSolver {
     }
     
     // 独立部分集合用の配置検証
+    // ビットマスク版：ビット演算で高速化
     isValidConfigurationForSubset(mineIndices, constraints) {
-        // 各制約をチェック
+        // 地雷インデックス配列をビットマスクに変換
+        const mineMask = this.arrayToBitmask(mineIndices);
+        
+        // 各制約をビット演算でチェック
         for (const constraint of constraints) {
-            let actualMines = 0;
-            
-            for (const cellIndex of constraint.cells) {
-                if (mineIndices.includes(cellIndex)) {
-                    actualMines++;
-                }
+            // 制約にビットマスクが含まれていない場合は追加
+            let constraintCellMask;
+            if (constraint.cellsMask !== undefined) {
+                constraintCellMask = constraint.cellsMask;
+            } else {
+                constraintCellMask = this.arrayToBitmask(constraint.cells);
             }
+            
+            // この制約内の地雷数をビット演算で高速計算
+            const minesInConstraint = constraintCellMask & mineMask; // 制約内の地雷を抽出
+            const actualMines = this.popcount(minesInConstraint); // ビット数をカウント
+            
+            // 必要な地雷数をチェック（旗の数は既に引かれている）
+            if (actualMines !== constraint.requiredMines) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    // 独立部分集合用の配置検証（ビットマスク直接版）
+    // 最高速度を実現：地雷配置を直接ビットマスクで受け取り
+    isValidConfigurationForSubsetWithBitmask(mineMask, constraints) {
+        // 各制約をビット演算で直接チェック
+        for (const constraint of constraints) {
+            // 制約内の地雷数をビット演算で高速計算
+            const minesInConstraint = constraint.cellsMask & mineMask; // 制約内の地雷を抽出
+            const actualMines = this.popcount(minesInConstraint); // ビット数をカウント
             
             // 必要な地雷数をチェック（旗の数は既に引かれている）
             if (actualMines !== constraint.requiredMines) {
@@ -1943,5 +2037,65 @@ class CSPSolver {
     
     // 近似機能関連メソッドは廃止済み
     
+    // ======================================
+    // ビットマスク操作ユーティリティ関数群
+    // ======================================
+    
+    // セルインデックス配列をビットマスクに変換
+    arrayToBitmask(indices) {
+        let mask = 0;
+        for (const index of indices) {
+            if (index >= 0 && index < 32) { // 32ビット制限チェック
+                mask |= (1 << index);
+            }
+        }
+        return mask;
+    }
+    
+    // ビットマスクをセルインデックス配列に変換
+    bitmaskToArray(mask) {
+        const indices = [];
+        for (let i = 0; i < 32; i++) {
+            if ((mask >> i) & 1) {
+                indices.push(i);
+            }
+        }
+        return indices;
+    }
+    
+    // ビットマスクの立っているビット数をカウント（popcount）
+    popcount(mask) {
+        let count = 0;
+        while (mask) {
+            count += mask & 1;
+            mask >>= 1;
+        }
+        return count;
+    }
+    
+    // ビットマスクAがビットマスクBに完全に含まれているかチェック
+    isSubset(subset, superset) {
+        return (superset & subset) === subset;
+    }
+    
+    // 制約にビットマスクを追加（既存の制約配列を拡張）
+    addBitmaskToConstraints(constraints) {
+        return constraints.map(constraint => ({
+            ...constraint,
+            cellsMask: this.arrayToBitmask(constraint.cells) // セル配列をビットマスクに変換
+        }));
+    }
+    
+    // 制約集合のビットマスクを生成
+    constraintArrayToBitmask(constraintIndices, allConstraints) {
+        let mask = 0;
+        for (const index of constraintIndices) {
+            if (index >= 0 && index < 32 && index < allConstraints.length) {
+                mask |= (1 << index);
+            }
+        }
+        return mask;
+    }
+
     // 近似確率機能は廃止済み
 }
