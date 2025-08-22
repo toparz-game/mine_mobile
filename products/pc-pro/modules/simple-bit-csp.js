@@ -72,6 +72,54 @@ class SimpleBitCSP {
         return count;
     }
     
+    // 隣接セル取得のビット化メソッド
+    getNeighborCellsBit(row, col, targetBitArray, resultBitArray) {
+        // resultBitArrayをクリア
+        this.clearBits(resultBitArray);
+        
+        // 指定されたセルの8方向の隣接セルをチェック
+        for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+                if (dr === 0 && dc === 0) continue; // 自分自身はスキップ
+                
+                const newRow = row + dr;
+                const newCol = col + dc;
+                
+                // 盤面範囲内かチェック
+                if (newRow >= 0 && newRow < this.rows && 
+                    newCol >= 0 && newCol < this.cols) {
+                    
+                    // targetBitArrayに含まれているかチェック
+                    if (this.getBit(targetBitArray, newRow, newCol)) {
+                        this.setBit(resultBitArray, newRow, newCol, true);
+                    }
+                }
+            }
+        }
+    }
+    
+    // 指定セルの隣接セル数をカウント（ビット化版）
+    countNeighborsBit(row, col, targetBitArray) {
+        let count = 0;
+        
+        for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                
+                const newRow = row + dr;
+                const newCol = col + dc;
+                
+                if (newRow >= 0 && newRow < this.rows && 
+                    newCol >= 0 && newCol < this.cols &&
+                    this.getBit(targetBitArray, newRow, newCol)) {
+                    count++;
+                }
+            }
+        }
+        
+        return count;
+    }
+    
     // 未知セルの取得（従来版）
     getUnknownCells() {
         const unknownCells = [];

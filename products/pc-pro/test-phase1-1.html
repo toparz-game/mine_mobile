@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase1-1 Test</title>
+</head>
+<body>
+    <h1>Phase1-1: 隣接セル取得のビット化メソッドテスト</h1>
+    <div id="test-results"></div>
+    <script src="../../core/minesweeper-core.js"></script>
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+    <script>
+        function runPhase1_1Tests() {
+            const results = [];
+            
+            try {
+                // テスト用の小さなゲーム作成（10x10）
+                const game = {
+                    rows: 10,
+                    cols: 10,
+                    mineCount: 10,
+                    board: Array(10).fill(null).map(() => Array(10).fill(0)),
+                    revealed: Array(10).fill(null).map(() => Array(10).fill(false)),
+                    flagged: Array(10).fill(null).map(() => Array(10).fill(false))
+                };
+                
+                const bitSystem = new BitMinesweeperSystem(10, 10);
+                const csp = new SimpleBitCSP(game, bitSystem);
+                
+                results.push("✅ SimpleBitCSP インスタンス作成成功");
+                
+                // Test 1: 基本的な隣接セル取得テスト
+                const testBits = new Uint32Array(csp.intsNeeded);
+                const resultBits = new Uint32Array(csp.intsNeeded);
+                
+                // 座標(5,5), (6,6), (4,4)にビット設定
+                csp.setBit(testBits, 5, 5, true);
+                csp.setBit(testBits, 6, 6, true);
+                csp.setBit(testBits, 4, 4, true);
+                
+                // 座標(5,5)の隣接セル取得
+                csp.getNeighborCellsBit(5, 5, testBits, resultBits);
+                
+                // 結果確認
+                const bit_6_6 = csp.getBit(resultBits, 6, 6);
+                const bit_4_4 = csp.getBit(resultBits, 4, 4);
+                const bit_5_5 = csp.getBit(resultBits, 5, 5);
+                
+                if (bit_6_6 && bit_4_4 && !bit_5_5) {
+                    results.push("✅ Test 1: getNeighborCellsBit() - 正常動作");
+                } else {
+                    results.push(`❌ Test 1: getNeighborCellsBit() - 異常 (6,6:${bit_6_6}, 4,4:${bit_4_4}, 5,5:${bit_5_5})`);
+                }
+                
+                // Test 2: 隣接セル数カウントテスト
+                const count = csp.countNeighborsBit(5, 5, testBits);
+                if (count === 2) {
+                    results.push("✅ Test 2: countNeighborsBit() - 正常動作 (count: 2)");
+                } else {
+                    results.push(`❌ Test 2: countNeighborsBit() - 異常 (count: ${count}, expected: 2)`);
+                }
+                
+                // Test 3: 境界条件テスト（角のセル）
+                csp.clearBits(testBits);
+                csp.clearBits(resultBits);
+                csp.setBit(testBits, 0, 1, true);
+                csp.setBit(testBits, 1, 0, true);
+                csp.setBit(testBits, 1, 1, true);
+                
+                csp.getNeighborCellsBit(0, 0, testBits, resultBits);
+                const cornerCount = csp.countNeighborsBit(0, 0, testBits);
+                
+                if (cornerCount === 3) {
+                    results.push("✅ Test 3: 境界条件テスト(角) - 正常動作 (count: 3)");
+                } else {
+                    results.push(`❌ Test 3: 境界条件テスト(角) - 異常 (count: ${cornerCount}, expected: 3)`);
+                }
+                
+                // Test 4: 空の配列テスト
+                csp.clearBits(testBits);
+                const emptyCount = csp.countNeighborsBit(5, 5, testBits);
+                
+                if (emptyCount === 0) {
+                    results.push("✅ Test 4: 空配列テスト - 正常動作 (count: 0)");
+                } else {
+                    results.push(`❌ Test 4: 空配列テスト - 異常 (count: ${emptyCount}, expected: 0)`);
+                }
+                
+            } catch (error) {
+                results.push(`❌ エラー発生: ${error.message}`);
+                console.error(error);
+            }
+            
+            // 結果表示
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '<h2>テスト結果</h2>' + 
+                results.map(result => `<p>${result}</p>`).join('');
+            
+            console.log('Phase1-1 テスト結果:', results);
+            
+            return results.every(r => r.startsWith('✅'));
+        }
+        
+        // ページ読み込み完了後にテスト実行
+        window.addEventListener('load', () => {
+            setTimeout(runPhase1_1Tests, 100);
+        });
+    </script>
+</body>
+</html>
