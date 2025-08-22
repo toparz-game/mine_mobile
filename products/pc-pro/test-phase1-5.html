@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase1-5 Test</title>
+</head>
+<body>
+    <h1>Phase1-5: 制約生成の完全ビット化テスト</h1>
+    <div id="test-results"></div>
+    <script src="../../core/minesweeper-core.js"></script>
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+    <script>
+        function runPhase1_5Tests() {
+            const results = [];
+            
+            try {
+                // テスト用のゲーム状態を作成（複雑な制約パターン）
+                const game = {
+                    rows: 6,
+                    cols: 6,
+                    mineCount: 8,
+                    board: [
+                        [1, 2, -1, 2, 1, 0],
+                        [1, -1, 3, -1, 2, 1], // -1は地雷
+                        [2, 2, -1, 3, 3, -1],
+                        [1, -1, 2, 2, -1, 2],
+                        [1, 1, 1, 1, 1, 1],
+                        [0, 0, 0, 0, 0, 0]
+                    ],
+                    revealed: [
+                        [true,  true,  false, false, true,  false],
+                        [true,  false, true,  false, false, true ],
+                        [false, true,  false, true,  true,  false],
+                        [true,  false, false, true,  false, true ],
+                        [false, false, true,  false, false, false],
+                        [false, false, false, false, false, false]
+                    ],
+                    flagged: [
+                        [false, false, true,  false, false, false], // (0,2)に旗
+                        [false, true,  false, true,  false, false], // (1,1), (1,3)に旗
+                        [false, false, true,  false, false, true ], // (2,2), (2,5)に旗
+                        [false, true,  false, false, true,  false], // (3,1), (3,4)に旗
+                        [false, false, false, false, false, false],
+                        [false, false, false, false, false, false]
+                    ]
+                };
+                
+                const bitSystem = new BitMinesweeperSystem(6, 6);
+                const csp = new SimpleBitCSP(game, bitSystem);
+                
+                results.push("✅ テスト環境セットアップ成功");
+                
+                // Test 1: 完全ビット版制約生成
+                const bitConstraints = csp.generateConstraintsBit();
+                const traditionalConstraints = csp.generateConstraints(csp.getBorderCells());
+                const hybridConstraints = csp.generateConstraintsHybrid();
+                
+                results.push(`📊 制約数比較: Bit(${bitConstraints.length}) vs Hybrid(${hybridConstraints.length}) vs Traditional(${traditionalConstraints.length})`);
+                
+                // Test 2: ビット制約から従来形式への変換テスト
+                const convertedConstraints = csp.bitConstraintsToTraditional(bitConstraints);
+                
+                // 制約数の一致確認
+                if (convertedConstraints.length === traditionalConstraints.length) {
+                    results.push("✅ Test 2a: 変換後制約数一致");
+                } else {
+                    results.push(`❌ Test 2a: 変換後制約数不一致 (converted:${convertedConstraints.length}, traditional:${traditionalConstraints.length})`);
+                }
+                
+                // 制約内容の詳細比較（ソート後比較）
+                const sortConstraints = (constraints) => {
+                    return constraints.sort((a, b) => {
+                        if (a.sourceCell.row !== b.sourceCell.row) return a.sourceCell.row - b.sourceCell.row;
+                        if (a.sourceCell.col !== b.sourceCell.col) return a.sourceCell.col - b.sourceCell.col;
+                        return a.expectedMines - b.expectedMines;
+                    });
+                };
+                
+                const convertedSorted = sortConstraints([...convertedConstraints]);
+                const traditionalSorted = sortConstraints([...traditionalConstraints]);
+                
+                let detailMatch = true;
+                for (let i = 0; i < Math.min(convertedSorted.length, traditionalSorted.length); i++) {
+                    const c = convertedSorted[i];
+                    const t = traditionalSorted[i];
+                    
+                    if (c.expectedMines !== t.expectedMines ||
+                        c.sourceCell.row !== t.sourceCell.row ||
+                        c.sourceCell.col !== t.sourceCell.col ||
+                        c.cells.length !== t.cells.length) {
+                        detailMatch = false;
+                        break;
+                    }
+                    
+                    // セル配列の比較
+                    const sortCells = (cells) => cells.sort((a, b) => a.row === b.row ? a.col - b.col : a.row - b.row);
+                    const cCellsSorted = sortCells([...c.cells]);
+                    const tCellsSorted = sortCells([...t.cells]);
+                    
+                    for (let j = 0; j < cCellsSorted.length; j++) {
+                        if (cCellsSorted[j].row !== tCellsSorted[j].row || 
+                            cCellsSorted[j].col !== tCellsSorted[j].col) {
+                            detailMatch = false;
+                            break;
+                        }
+                    }
+                    
+                    if (!detailMatch) break;
+                }
+                
+                if (detailMatch) {
+                    results.push("✅ Test 2b: 変換後制約内容完全一致");
+                } else {
+                    results.push("❌ Test 2b: 変換後制約内容不一致");
+                }
+                
+                // Test 3: 従来制約からビット制約への変換テスト
+                const backConvertedBitConstraints = csp.traditionalConstraintsToBit(traditionalConstraints);
+                const backConvertedTraditional = csp.bitConstraintsToTraditional(backConvertedBitConstraints);
+                
+                const backConvertMatch = backConvertedTraditional.length === traditionalConstraints.length;
+                
+                if (backConvertMatch) {
+                    results.push("✅ Test 3: 双方向変換テスト - 正常動作");
+                } else {
+                    results.push("❌ Test 3: 双方向変換テスト - 異常");
+                }
+                
+                // Test 4: ビット制約統計情報テスト
+                const stats = csp.getBitConstraintsStats(bitConstraints);
+                
+                const expectedTotalCells = convertedConstraints.reduce((sum, c) => sum + c.cells.length, 0);
+                const expectedTotalMines = convertedConstraints.reduce((sum, c) => sum + c.expectedMines, 0);
+                
+                const statsMatch = stats.constraintCount === bitConstraints.length &&
+                                 stats.totalCells === expectedTotalCells &&
+                                 stats.totalExpectedMines === expectedTotalMines;
+                
+                if (statsMatch) {
+                    results.push(`✅ Test 4: 統計情報 - 正常動作 (制約:${stats.constraintCount}, セル:${stats.totalCells}, 地雷:${stats.totalExpectedMines})`);
+                    results.push(`   平均セル数/制約: ${stats.avgCellsPerConstraint.toFixed(1)}, 最大:${stats.maxCellsPerConstraint}, 最小:${stats.minCellsPerConstraint}`);
+                } else {
+                    results.push("❌ Test 4: 統計情報 - 異常");
+                }
+                
+                // Test 5: 統合インターフェーステスト（全モード）
+                const advancedTraditional = csp.generateConstraintsAdvanced(null, 'traditional', 'traditional');
+                const advancedHybrid = csp.generateConstraintsAdvanced(null, 'hybrid', 'traditional');
+                const advancedBit = csp.generateConstraintsAdvanced(null, 'bit', 'traditional');
+                const advancedBitNative = csp.generateConstraintsAdvanced(null, 'bit', 'bit');
+                
+                const advancedMatch = advancedTraditional.length === advancedHybrid.length &&
+                                    advancedHybrid.length === advancedBit.length &&
+                                    advancedBitNative.length === bitConstraints.length;
+                
+                if (advancedMatch) {
+                    results.push("✅ Test 5: 統合インターフェース（全モード） - 正常動作");
+                } else {
+                    results.push(`❌ Test 5: 統合インターフェース（全モード） - 異常 (trad:${advancedTraditional.length}, hyb:${advancedHybrid.length}, bit:${advancedBit.length}, bitNative:${advancedBitNative.length})`);
+                }
+                
+                // Test 6: カスタムセルビットでの制約生成テスト
+                const customCells = [
+                    { row: 0, col: 3 },
+                    { row: 1, col: 2 },
+                    { row: 2, col: 0 }
+                ];
+                
+                const customCellsBits = new Uint32Array(csp.intsNeeded);
+                csp.coordsToBits(customCells, customCellsBits);
+                
+                const customBitConstraints = csp.generateConstraintsBit(customCellsBits);
+                const customTraditionalConstraints = csp.generateConstraints(customCells);
+                
+                const customMatch = customBitConstraints.length === customTraditionalConstraints.length;
+                
+                if (customMatch) {
+                    results.push(`✅ Test 6: カスタムセル制約生成 - 正常動作 (${customBitConstraints.length}個の制約)`);
+                } else {
+                    results.push(`❌ Test 6: カスタムセル制約生成 - 異常 (bit:${customBitConstraints.length}, traditional:${customTraditionalConstraints.length})`);
+                }
+                
+                // Test 7: エッジケース（空の制約）
+                const emptyGame = {
+                    rows: 3,
+                    cols: 3,
+                    mineCount: 0,
+                    board: [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+                    revealed: [[true, true, true], [true, true, true], [true, true, true]],
+                    flagged: [[false, false, false], [false, false, false], [false, false, false]]
+                };
+                
+                const emptyBitSystem = new BitMinesweeperSystem(3, 3);
+                const emptyCSP = new SimpleBitCSP(emptyGame, emptyBitSystem);
+                const emptyBitConstraints = emptyCSP.generateConstraintsBit();
+                
+                if (emptyBitConstraints.length === 0) {
+                    results.push("✅ Test 7: エッジケース（空制約） - 正常動作");
+                } else {
+                    results.push(`❌ Test 7: エッジケース（空制約） - 異常 (count: ${emptyBitConstraints.length})`);
+                }
+                
+                // Test 8: メモリ効率テスト
+                const memoryTestIterations = 100;
+                const startMemTest = performance.now();
+                
+                for (let i = 0; i < memoryTestIterations; i++) {
+                    const testBitConstraints = csp.generateConstraintsBit();
+                    // メモリリークを防ぐため参照を削除
+                    testBitConstraints.length = 0;
+                }
+                
+                const memTestTime = performance.now() - startMemTest;
+                
+                results.push(`📊 Test 8: メモリ効率テスト - ${memoryTestIterations}回実行: ${memTestTime.toFixed(2)}ms`);
+                
+                // Test 9: パフォーマンス比較（最終）
+                const iterations = 200;
+                
+                const startBit = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    csp.generateConstraintsBit();
+                }
+                const timeBit = performance.now() - startBit;
+                
+                const startHybrid = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    csp.generateConstraintsHybrid();
+                }
+                const timeHybrid = performance.now() - startHybrid;
+                
+                const startTraditional = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    csp.generateConstraints(csp.getBorderCells());
+                }
+                const timeTraditional = performance.now() - startTraditional;
+                
+                const bitImprovement = timeTraditional > 0 ? ((timeTraditional - timeBit) / timeTraditional * 100).toFixed(1) : "0.0";
+                const hybridImprovement = timeTraditional > 0 ? ((timeTraditional - timeHybrid) / timeTraditional * 100).toFixed(1) : "0.0";
+                
+                results.push(`📊 Test 9: 最終パフォーマンス比較 (${iterations}回実行)`);
+                results.push(`   完全ビット版: ${timeBit.toFixed(2)}ms (改善率: ${bitImprovement}%)`);
+                results.push(`   ハイブリッド版: ${timeHybrid.toFixed(2)}ms (改善率: ${hybridImprovement}%)`);
+                results.push(`   従来版: ${timeTraditional.toFixed(2)}ms`);
+                
+                // Test 10: 統合動作確認
+                try {
+                    // 全機能を組み合わせた動作テスト
+                    const borderBits = new Uint32Array(csp.intsNeeded);
+                    csp.getBorderCellsBit(borderBits);
+                    const finalBitConstraints = csp.generateConstraintsBit(borderBits);
+                    const finalStats = csp.getBitConstraintsStats(finalBitConstraints);
+                    
+                    results.push(`✅ Test 10: 統合動作確認 - 成功 (境界+制約+統計: ${finalStats.constraintCount}個の制約)`);
+                } catch (integrationError) {
+                    results.push(`❌ Test 10: 統合動作確認 - エラー: ${integrationError.message}`);
+                }
+                
+            } catch (error) {
+                results.push(`❌ エラー発生: ${error.message}`);
+                console.error(error);
+            }
+            
+            // 結果表示
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '<h2>テスト結果</h2>' + 
+                results.map(result => `<p>${result}</p>`).join('');
+            
+            console.log('Phase1-5 テスト結果:', results);
+            
+            return results.filter(r => r.startsWith('❌')).length === 0;
+        }
+        
+        // ページ読み込み完了後にテスト実行
+        window.addEventListener('load', () => {
+            setTimeout(runPhase1_5Tests, 100);
+        });
+    </script>
+</body>
+</html>

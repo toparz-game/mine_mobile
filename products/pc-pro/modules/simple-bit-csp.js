@@ -475,6 +475,165 @@ class SimpleBitCSP {
         }
     }
     
+    // Phase1-5: 制約生成の完全ビット化
+    
+    // ビット制約構造体の定義
+    // BitConstraint = {
+    //   cellsBits: Uint32Array,    // 制約対象セルのビット配列
+    //   expectedMines: number,      // 期待地雷数
+    //   sourceRow: number,          // ソースセルの行
+    //   sourceCol: number           // ソースセルの列
+    // }
+    
+    // 完全ビット化版制約生成
+    generateConstraintsBit(cellsBits = null) {
+        const constraints = [];
+        
+        // セルビットが指定されていない場合は境界セルを使用
+        let targetCellsBits;
+        if (!cellsBits) {
+            targetCellsBits = new Uint32Array(this.intsNeeded);
+            this.getBorderCellsBit(targetCellsBits);
+        } else {
+            targetCellsBits = cellsBits;
+        }
+        
+        // 数字セルと未開セル、旗セルのビットマップを準備
+        const numberBits = this.tempBits1;
+        const unknownBits = this.tempBits2;
+        const neighborBits = this.tempBits3;
+        
+        this.getNumberCellsBit(numberBits);
+        this.getUnknownCellsBit(unknownBits);
+        
+        // 旗セルのビットマップも取得
+        const flaggedBits = new Uint32Array(this.intsNeeded);
+        this.getFlaggedCellsBit(flaggedBits);
+        
+        // 各数字セルから制約を生成
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                if (this.getBit(numberBits, row, col)) {
+                    // この数字セルの隣接する対象セルを取得
+                    this.getNeighborCellsBit(row, col, targetCellsBits, neighborBits);
+                    
+                    // 隣接セルが存在する場合のみ処理
+                    if (!this.isEmptyBits(neighborBits)) {
+                        // 隣接する旗セルの数をカウント
+                        const flaggedNeighborBits = new Uint32Array(this.intsNeeded);
+                        this.getNeighborCellsBit(row, col, flaggedBits, flaggedNeighborBits);
+                        const flaggedNeighbors = this.popCountBits(flaggedNeighborBits);
+                        
+                        // 制約対象セル（隣接セルから旗セルを除く）
+                        const constraintCellsBits = new Uint32Array(this.intsNeeded);
+                        const notFlaggedBits = new Uint32Array(this.intsNeeded);
+                        this.notBits(flaggedBits, notFlaggedBits);
+                        this.andBits(neighborBits, notFlaggedBits, constraintCellsBits);
+                        
+                        // 制約対象セルが存在する場合のみ制約を追加
+                        if (!this.isEmptyBits(constraintCellsBits)) {
+                            constraints.push({
+                                cellsBits: new Uint32Array(constraintCellsBits), // コピーを作成
+                                expectedMines: this.game.board[row][col] - flaggedNeighbors,
+                                sourceRow: row,
+                                sourceCol: col
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        
+        return constraints;
+    }
+    
+    // ビット制約から従来制約への変換
+    bitConstraintsToTraditional(bitConstraints) {
+        return bitConstraints.map(bitConstraint => ({
+            cells: this.bitsToCoords(bitConstraint.cellsBits),
+            expectedMines: bitConstraint.expectedMines,
+            sourceCell: { row: bitConstraint.sourceRow, col: bitConstraint.sourceCol }
+        }));
+    }
+    
+    // 従来制約からビット制約への変換
+    traditionalConstraintsToBit(traditionalConstraints) {
+        return traditionalConstraints.map(constraint => {
+            const cellsBits = new Uint32Array(this.intsNeeded);
+            this.coordsToBits(constraint.cells, cellsBits);
+            return {
+                cellsBits: cellsBits,
+                expectedMines: constraint.expectedMines,
+                sourceRow: constraint.sourceCell.row,
+                sourceCol: constraint.sourceCell.col
+            };
+        });
+    }
+    
+    // ビット制約の統計情報を取得
+    getBitConstraintsStats(bitConstraints) {
+        const stats = {
+            constraintCount: bitConstraints.length,
+            totalCells: 0,
+            totalExpectedMines: 0,
+            avgCellsPerConstraint: 0,
+            maxCellsPerConstraint: 0,
+            minCellsPerConstraint: Infinity
+        };
+        
+        for (const constraint of bitConstraints) {
+            const cellCount = this.popCountBits(constraint.cellsBits);
+            stats.totalCells += cellCount;
+            stats.totalExpectedMines += constraint.expectedMines;
+            stats.maxCellsPerConstraint = Math.max(stats.maxCellsPerConstraint, cellCount);
+            stats.minCellsPerConstraint = Math.min(stats.minCellsPerConstraint, cellCount);
+        }
+        
+        if (bitConstraints.length > 0) {
+            stats.avgCellsPerConstraint = stats.totalCells / bitConstraints.length;
+            if (stats.minCellsPerConstraint === Infinity) {
+                stats.minCellsPerConstraint = 0;
+            }
+        } else {
+            stats.minCellsPerConstraint = 0;
+        }
+        
+        return stats;
+    }
+    
+    // 制約生成の最終統合インターフェース（全バージョン対応）
+    generateConstraintsAdvanced(cells = null, mode = 'hybrid', returnFormat = 'traditional') {
+        let constraints;
+        
+        switch (mode) {
+            case 'traditional':
+                constraints = this.generateConstraints(cells);
+                break;
+            case 'hybrid':
+                constraints = this.generateConstraintsHybrid(cells);
+                break;
+            case 'bit':
+                const cellsBits = cells ? (() => {
+                    const bits = new Uint32Array(this.intsNeeded);
+                    this.coordsToBits(cells, bits);
+                    return bits;
+                })() : null;
+                constraints = this.generateConstraintsBit(cellsBits);
+                break;
+            default:
+                throw new Error(`Unknown mode: ${mode}`);
+        }
+        
+        // 返却形式の変換
+        if (mode === 'bit' && returnFormat === 'traditional') {
+            return this.bitConstraintsToTraditional(constraints);
+        } else if (mode !== 'bit' && returnFormat === 'bit') {
+            return this.traditionalConstraintsToBit(constraints);
+        }
+        
+        return constraints;
+    }
+    
     // 未知セルの取得（従来版）
     getUnknownCells() {
         const unknownCells = [];
