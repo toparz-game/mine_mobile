@@ -263,15 +263,19 @@ class SimpleBitCSP {
         return this.generateConstraintsBit(borderMask);
     }
     
-    // ビット版フィンガープリント生成
+    // ビット版フィンガープリント生成（局所情報のみ）
     getBitConstraintPropFingerprint(borderMask, bitConstraints) {
-        let hash = borderMask.toString();
+        // 境界マスクを相対位置に正規化
+        const normalizedBorderMask = this.normalizeCellsMaskToRelative(borderMask);
+        let hash = normalizedBorderMask.toString(16);
         
+        // 制約も相対位置で正規化
         for (const constraint of bitConstraints) {
-            hash += `|${constraint.cellsMask.toString()}-${constraint.expectedMines}`;
+            const normalizedConstraintMask = this.normalizeCellsMaskToRelative(constraint.cellsMask);
+            hash += `|${normalizedConstraintMask.toString(16)}-${constraint.expectedMines}`;
         }
         
-        return hash;
+        return `relbit-${hash}`;
     }
     
     // ビット版キャッシュ保存
@@ -293,10 +297,14 @@ class SimpleBitCSP {
             }
         }
         
+        // 制約伝播キャッシュにも影響範囲を記録
+        const influenceAreaMask = this.calculateInfluenceMask(borderMask);
+        
         this.constraintPropCache.set(fingerprint, {
             safeMask: safeMask,
             mineMask: mineMask,
-            foundActionable: foundActionable
+            foundActionable: foundActionable,
+            influenceAreaMask: influenceAreaMask
         });
     }
     
@@ -425,6 +433,7 @@ class SimpleBitCSP {
         
         // 盤面の変更を検出してキャッシュを無効化
         const changes = this.detectBoardChanges();
+        console.log(`盤面変化: ${changes.join(',')}`);
         this.invalidateCache(changes);
         
         // 確率配列を初期化
@@ -625,7 +634,7 @@ class SimpleBitCSP {
         };
     }
     
-    // キャッシュの無効化
+    // キャッシュの無効化（ビット演算版）
     invalidateCache(changes) {
         if (changes.length === 0) return;
         
@@ -636,47 +645,86 @@ class SimpleBitCSP {
             return;
         }
         
-        // 部分的な変化の場合は全キャッシュをクリア（簡易実装）
-        this.groupCache.clear();
-        this.constraintPropCache.clear();
+        // 変化影響範囲をビットマスクで計算
+        const changedAreaMask = this.detectChangedAreaMask();
+        
+        // グループキャッシュの選択的無効化
+        const groupToRemove = [];
+        let groupAffectedCount = 0;
+        
+        for (const [fingerprint, cached] of this.groupCache) {
+            // ビット演算で影響判定: 積集合が空でない = 影響あり
+            if (cached.influenceAreaMask && (cached.influenceAreaMask & changedAreaMask) !== 0n) {
+                groupToRemove.push(fingerprint);
+                groupAffectedCount++;
+            }
+        }
+        
+        // 制約伝播キャッシュの選択的無効化
+        const constraintToRemove = [];
+        let constraintAffectedCount = 0;
+        
+        for (const [fingerprint, cached] of this.constraintPropCache) {
+            // safeMask/mineMaskまたは影響範囲と変化範囲の重複チェック
+            if ((cached.safeMask && (cached.safeMask & changedAreaMask) !== 0n) ||
+                (cached.mineMask && (cached.mineMask & changedAreaMask) !== 0n) ||
+                (cached.influenceAreaMask && (cached.influenceAreaMask & changedAreaMask) !== 0n)) {
+                constraintToRemove.push(fingerprint);
+                constraintAffectedCount++;
+            }
+        }
+        
+        // console.log(`🗑️ ビット演算キャッシュクリア: グループ${groupAffectedCount}/${this.groupCache.size}, 制約伝播${constraintAffectedCount}/${this.constraintPropCache.size}`);
+        
+        // 影響キャッシュを削除
+        for (const fingerprint of groupToRemove) {
+            this.groupCache.delete(fingerprint);
+        }
+        for (const fingerprint of constraintToRemove) {
+            this.constraintPropCache.delete(fingerprint);
+        }
     }
     
-    // ビットベースのグループフィンガープリント生成
+    // ビットベースのグループフィンガープリント生成（コンテキスト付き）
     getBitGroupFingerprint(cellsMask, constraints) {
-        // セルマスクをそのまま使用（32bit以内の場合）
-        let fingerprint = cellsMask;
+        // セルマスクを相対位置に正規化
+        const normalizedCellsMask = this.normalizeCellsMaskToRelative(cellsMask);
+        let fingerprint = normalizedCellsMask.toString(16);
         
-        // 制約情報をハッシュ化して組み合わせ
+        // 制約情報を相対位置で正規化してハッシュ化
         let constraintHash = 0n;
         for (const constraint of constraints) {
-            // 制約のセルマスクとexpectedMinesを組み合わせてハッシュ
-            const constraintData = constraint.cellsMask ^ (BigInt(constraint.expectedMines) << 28n);
+            // 制約セルマスクを相対位置に正規化
+            const normalizedConstraintMask = this.normalizeCellsMaskToRelative(constraint.cellsMask);
+            // expectedMinesと組み合わせてハッシュ（絶対位置情報を排除）
+            const constraintData = normalizedConstraintMask ^ (BigInt(constraint.expectedMines) << 28n);
             constraintHash ^= constraintData;
         }
         
-        // セルマスクと制約ハッシュを組み合わせ（64bit相当の一意性確保）
-        return `${fingerprint}-${constraintHash}`;
+        // 周辺コンテキスト（影響範囲の盤面状態）をハッシュ化
+        const contextHash = this.calculateContextHash(cellsMask);
+        
+        // 相対位置 + コンテキストベースのフィンガープリント
+        return `ctx-${fingerprint}-${constraintHash.toString(16)}-${contextHash.toString(16)}`;
     }
     
-    // 制約伝播専用のビットベースフィンガープリント生成
+    // 制約伝播専用のビットベースフィンガープリント生成（局所情報のみ）
     getConstraintPropFingerprint(constraints) {
         let constraintHash = 0n;
         let constraintCount = 0;
         
-        // 制約の順序に依存しないハッシュを生成
+        // 制約の順序に依存しないハッシュを生成（相対位置ベース）
         for (const constraint of constraints) {
-            // セルマスク、expectedMines、ソース位置を組み合わせ
-            const sourceHash = constraint.sourceCell ? 
-                (constraint.sourceCell.row * 100 + constraint.sourceCell.col) : 0;
-            const constraintData = constraint.cellsMask ^ 
-                                 (BigInt(constraint.expectedMines) << 28n) ^ 
-                                 (BigInt(sourceHash) << 16n);
+            // セルマスクを相対位置に正規化
+            const normalizedCellsMask = this.normalizeCellsMaskToRelative(constraint.cellsMask);
+            // expectedMinesのみを組み合わせ（ソース位置は除外）
+            const constraintData = normalizedCellsMask ^ (BigInt(constraint.expectedMines) << 28n);
             constraintHash ^= constraintData;
             constraintCount++;
         }
         
-        // 制約数も含めて一意性を確保
-        return `prop-${constraintHash}-${constraintCount}`;
+        // 制約数も含めて一意性を確保（相対位置ベース）
+        return `relprop-${constraintHash.toString(16)}-${constraintCount}`;
     }
     
     // 旗の数をカウント（ビット版 O(1)）
@@ -713,8 +761,44 @@ class SimpleBitCSP {
         // 制約グループを分割（ビット演算版）
         const constraintGroups = this.partitionConstraintGroupsBit(borderMask, constraints);
         
-        // 各グループを処理（確定マス発見時に早期終了）
+        // 変化範囲を取得
+        const changedAreaMask = this.detectChangedAreaMask();
+        
+        // 盤面変化の種類をチェック
+        const changes = this.detectBoardChanges();
+        const isReset = changes.includes('reset');
+        
+        // 各グループを処理（変化チェック付き）
         for (const group of constraintGroups) {
+            // 永続確率が存在するかチェック（実際に前回計算結果があるか）
+            let hasPreviousResults = false;
+            for (let bitIndex = 0; bitIndex < this.rows * this.cols; bitIndex++) {
+                const bitMask = 1n << BigInt(bitIndex);
+                if ((group.cellsMask & bitMask) !== 0n) {
+                    const coord = this.bitIndexToCoord(bitIndex);
+                    if (this.persistentProbabilities[coord.row] && 
+                        this.persistentProbabilities[coord.row][coord.col] !== undefined && 
+                        this.persistentProbabilities[coord.row][coord.col] !== -1) {
+                        hasPreviousResults = true;
+                        break;
+                    }
+                }
+            }
+            
+            // 前回結果がない場合、またはリセット時は必ず計算実行
+            if (isReset || !hasPreviousResults) {
+                // console.log(`🔄 グループ計算実行: ${this.popcount(group.cellsMask)}セル（初回/リセット/前回結果なし）`);
+            }
+            // このグループが変化範囲と重複するかをビット演算でチェック
+            else if ((group.cellsMask & changedAreaMask) === 0n) {
+                // console.log(`📌 グループスキップ: ${this.popcount(group.cellsMask)}セル（変化なし）`);
+                // 前回の確率結果を復元
+                this.restorePreviousProbabilitiesForGroup(group.cellsMask);
+                continue; // このグループの計算をスキップ
+            } else {
+                // console.log(`🔄 グループ計算実行: ${this.popcount(group.cellsMask)}セル（変化あり）`);
+            }
+            
             const foundInGroup = this.processConstraintGroupBit(group, borderMask);
             if (foundInGroup) {
                 return true; // 確定マス発見時は即座に終了
@@ -724,7 +808,7 @@ class SimpleBitCSP {
         return false;
     }
     
-    // 制約グループを分割（ビット演算版）
+    // 制約グループを分割（ビット演算版）- 距離ベース分離
     partitionConstraintGroupsBit(borderMask, constraints) {
         const groups = [];
         const processedConstraints = new Set();
@@ -732,7 +816,7 @@ class SimpleBitCSP {
         for (const constraint of constraints) {
             if (processedConstraints.has(constraint)) continue;
             
-            // この制約から連結成分を探索
+            // この制約から連結成分を探索（厳密な隣接チェック）
             const groupConstraints = [];
             const queue = [constraint];
             const visited = new Set([constraint]);
@@ -742,12 +826,16 @@ class SimpleBitCSP {
                 const current = queue.shift();
                 groupConstraints.push(current);
                 
-                // 隣接する制約を探索
+                // 隣接する制約を探索（より厳密な条件）
                 for (const other of constraints) {
                     if (visited.has(other)) continue;
                     
-                    // ビット演算でセルの重複をチェック
-                    if ((other.cellsMask & groupCellsMask) !== 0) {
+                    // 制約のソースセル間の距離をチェック
+                    const distance = this.calculateConstraintDistance(current, other);
+                    const hasDirectCellOverlap = (other.cellsMask & current.cellsMask) !== 0n;
+                    
+                    // 直接的なセル重複があるか、距離が近い（隣接している）場合のみグループ化
+                    if (hasDirectCellOverlap || distance <= 2) {
                         groupCellsMask |= other.cellsMask;
                         visited.add(other);
                         queue.push(other);
@@ -766,12 +854,17 @@ class SimpleBitCSP {
             }
         }
         
+        // console.log(`🔍 制約グループ分割結果: ${groups.length}グループ`);
+        // for (let i = 0; i < groups.length; i++) {
+        //     console.log(`  グループ${i + 1}: ${this.popcount(groups[i].cellsMask)}セル, ${groups[i].constraints.length}制約`);
+        // }
+        
         return groups;
     }
     
     // 制約グループを処理（ビット演算版）
     processConstraintGroupBit(group, borderMask) {
-        console.log(`グループ処理開始: ${this.popcount(group.cellsMask)}セル`);
+        // console.log(`グループ処理開始: ${this.popcount(group.cellsMask)}セル`);
         const independentSubsets = this.findIndependentSubsetsBit(borderMask, group.constraints);
         
         if (independentSubsets.length === 0) {
@@ -797,9 +890,9 @@ class SimpleBitCSP {
             const cellCount = this.popcount(subset.cellsMask);
             
             if (cellCount <= 30) {
-                console.log(`部分集合処理開始: ${cellCount}セル`);
+                // console.log(`部分集合処理開始: ${cellCount}セル`);
                 const hasActionable = this.solveSubsetWithCache(subset, borderMask);
-                console.log(`部分集合処理結果: ${hasActionable}`);
+                // console.log(`部分集合処理結果: ${hasActionable}`);
                 if (hasActionable) {
                     // 確定マスが見つかったので、このグループの残りセルを中断マーク
                     this.markRemainingCellsAsInterrupted(borderMask, group.cellsMask);
@@ -809,7 +902,7 @@ class SimpleBitCSP {
             }
         }
         
-        console.log(`グループ処理終了: 確定マス発見=false`);
+        // console.log(`グループ処理終了: 確定マス発見=false`);
         return false;
     }
     
@@ -821,7 +914,9 @@ class SimpleBitCSP {
         const fingerprint = this.getBitGroupFingerprint(subset.cellsMask, subset.constraints);
         
         // キャッシュをチェック
+        // console.log(`キャッシュ確認: ${fingerprint.substring(0,20)}...`);
         if (this.groupCache.has(fingerprint)) {
+            // console.log(`✅ キャッシュヒット`);
             const cached = this.groupCache.get(fingerprint);
             
             // ビットマスクから確率を復元
@@ -843,6 +938,7 @@ class SimpleBitCSP {
         }
         
         // キャッシュにない場合は計算
+        // console.log(`❌ キャッシュミス - 新規計算開始`);
         const result = this.solveSubsetWithBits(subset, borderMask);
         
         // 制約矛盾が検出された場合は特別な処理
@@ -862,10 +958,16 @@ class SimpleBitCSP {
             }
         }
         
+        // 影響範囲マスクを計算してキャッシュに保存
+        const influenceAreaMask = this.calculateInfluenceMask(subset.cellsMask);
+        
         this.groupCache.set(fingerprint, {
             probabilities,
-            hasActionable
+            hasActionable,
+            dependentCellsMask: subset.cellsMask,
+            influenceAreaMask: influenceAreaMask
         });
+        // console.log(`💾 キャッシュ保存完了`);
         
         return hasActionable;
     }
@@ -966,6 +1068,246 @@ class SimpleBitCSP {
     // ======================================
     // ビットマスク操作ユーティリティ
     // ======================================
+    
+    // セルマスクを相対位置に正規化（局所的なキャッシュ用）
+    normalizeCellsMaskToRelative(cellsMask) {
+        // セルマスクから実際のセル座標を抽出
+        const cells = [];
+        for (let bitIndex = 0; bitIndex < this.rows * this.cols; bitIndex++) {
+            const bitMask = 1n << BigInt(bitIndex);
+            if ((cellsMask & bitMask) !== 0n) {
+                const coord = this.bitIndexToCoord(bitIndex);
+                cells.push(coord);
+            }
+        }
+        
+        if (cells.length === 0) return 0n;
+        
+        // 最小座標を基準点として設定
+        const minRow = Math.min(...cells.map(c => c.row));
+        const minCol = Math.min(...cells.map(c => c.col));
+        
+        // 基準点からの相対座標でビットマスクを再構成
+        let normalizedMask = 0n;
+        for (const cell of cells) {
+            const relativeRow = cell.row - minRow;
+            const relativeCol = cell.col - minCol;
+            // 相対位置をハッシュ値として使用（簡易実装）
+            const relativeHash = relativeRow * 1000 + relativeCol; // 十分大きな係数
+            normalizedMask ^= BigInt(relativeHash); // XORで組み合わせ
+        }
+        
+        return normalizedMask;
+    }
+    
+    // 影響範囲マスクを計算（使用セル + 隣接2セル範囲）
+    calculateInfluenceMask(cellsMask) {
+        let influenceMask = cellsMask; // 基本セル
+        
+        // ビット演算で効率的に隣接範囲を拡張
+        for (let expansion = 0; expansion < 2; expansion++) {
+            let expandedMask = 0n;
+            
+            for (let bitIndex = 0; bitIndex < this.rows * this.cols; bitIndex++) {
+                const bitMask = 1n << BigInt(bitIndex);
+                if ((influenceMask & bitMask) !== 0n) {
+                    const coord = this.bitIndexToCoord(bitIndex);
+                    // 8方向隣接セルを追加
+                    expandedMask |= this.getNeighborsMask(coord.row, coord.col);
+                }
+            }
+            
+            influenceMask |= expandedMask;
+        }
+        
+        return influenceMask;
+    }
+    
+    // 指定座標の8方向隣接セルマスクを生成
+    getNeighborsMask(row, col) {
+        let neighborsMask = 0n;
+        
+        for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                
+                const newRow = row + dr;
+                const newCol = col + dc;
+                
+                if (newRow >= 0 && newRow < this.rows && 
+                    newCol >= 0 && newCol < this.cols) {
+                    const bitIndex = this.coordToBitIndex(newRow, newCol);
+                    neighborsMask |= 1n << BigInt(bitIndex);
+                }
+            }
+        }
+        
+        return neighborsMask;
+    }
+    
+    // 現在と前回の盤面状態をビット演算で比較
+    detectChangedAreaMask() {
+        if (!this.previousBoardState) {
+            // 初回は全域変化として扱う（全ビット立てる）
+            let fullMask = 0n;
+            for (let i = 0; i < this.rows * this.cols; i++) {
+                fullMask |= 1n << BigInt(i);
+            }
+            return fullMask;
+        }
+        
+        // 変化検出: 現在XOR前回
+        let changedMask = 0n;
+        
+        for (let i = 0; i < this.intsNeeded; i++) {
+            const revealedDiff = this.tempRevealedBits[i] ^ this.previousBoardState.revealedBits[i];
+            const flaggedDiff = this.tempFlaggedBits[i] ^ this.previousBoardState.flaggedBits[i];
+            
+            // 32bit単位で変化を検出
+            let chunkChanged = revealedDiff | flaggedDiff;
+            
+            // 各ビット位置を影響マスクに変換
+            let bitPos = 0;
+            while (chunkChanged !== 0) {
+                if (chunkChanged & 1) {
+                    const globalBitIndex = i * 32 + bitPos;
+                    if (globalBitIndex < this.rows * this.cols) {
+                        changedMask |= 1n << BigInt(globalBitIndex);
+                    }
+                }
+                chunkChanged >>>= 1;
+                bitPos++;
+            }
+        }
+        
+        return this.expandChangedAreaMask(changedMask);
+    }
+    
+    // 変化範囲を影響エリアに拡張（ビット演算版）
+    expandChangedAreaMask(changedMask) {
+        let influenceMask = changedMask;
+        
+        // 2回の隣接拡張で影響範囲を計算
+        for (let expansion = 0; expansion < 2; expansion++) {
+            let newInfluenceMask = influenceMask;
+            
+            for (let bitIndex = 0; bitIndex < this.rows * this.cols; bitIndex++) {
+                const bitMask = 1n << BigInt(bitIndex);
+                if ((influenceMask & bitMask) !== 0n) {
+                    const coord = this.bitIndexToCoord(bitIndex);
+                    newInfluenceMask |= this.getNeighborsMask(coord.row, coord.col);
+                }
+            }
+            
+            influenceMask = newInfluenceMask;
+        }
+        
+        return influenceMask;
+    }
+    
+    // グループの前回確率結果を復元
+    restorePreviousProbabilitiesForGroup(groupCellsMask) {
+        let restoredCount = 0;
+        
+        for (let bitIndex = 0; bitIndex < this.rows * this.cols; bitIndex++) {
+            const bitMask = 1n << BigInt(bitIndex);
+            if ((groupCellsMask & bitMask) !== 0n) {
+                const coord = this.bitIndexToCoord(bitIndex);
+                
+                // 永続確率が設定されている場合は復元
+                if (this.persistentProbabilities[coord.row] && 
+                    this.persistentProbabilities[coord.row][coord.col] !== undefined && 
+                    this.persistentProbabilities[coord.row][coord.col] !== -1) {
+                    
+                    this.probabilities[coord.row][coord.col] = this.persistentProbabilities[coord.row][coord.col];
+                    restoredCount++;
+                }
+            }
+        }
+        
+        // console.log(`🔄 確率復元: ${restoredCount}セル`);
+        return restoredCount > 0;
+    }
+    
+    // 制約間の距離を計算（ソースセル間のマンハッタン距離）
+    calculateConstraintDistance(constraint1, constraint2) {
+        if (!constraint1.sourceCell || !constraint2.sourceCell) {
+            return 999; // ソースセル情報がない場合は遠いとみなす
+        }
+        
+        const row1 = constraint1.sourceCell.row;
+        const col1 = constraint1.sourceCell.col;
+        const row2 = constraint2.sourceCell.row;
+        const col2 = constraint2.sourceCell.col;
+        
+        return Math.abs(row1 - row2) + Math.abs(col1 - col2);
+    }
+    
+    // 周辺コンテキストをハッシュ化（影響範囲の盤面状態）
+    calculateContextHash(cellsMask) {
+        // 対象セル群の拡張範囲を計算（隣接1セル範囲）
+        const extendedMask = this.expandMaskByOneCell(cellsMask);
+        
+        let contextHash = 0n;
+        let hashIndex = 0;
+        
+        // セル群の重心座標を計算（位置の一意性確保）
+        let centerRow = 0, centerCol = 0, cellCount = 0;
+        for (let bitIndex = 0; bitIndex < this.rows * this.cols; bitIndex++) {
+            const bitMask = 1n << BigInt(bitIndex);
+            if ((cellsMask & bitMask) !== 0n) {
+                const coord = this.bitIndexToCoord(bitIndex);
+                centerRow += coord.row;
+                centerCol += coord.col;
+                cellCount++;
+            }
+        }
+        if (cellCount > 0) {
+            centerRow = Math.floor(centerRow / cellCount);
+            centerCol = Math.floor(centerCol / cellCount);
+            // 重心座標をハッシュに含める（位置の一意性）
+            contextHash ^= BigInt(centerRow * 1000 + centerCol) << 32n;
+        }
+        
+        // 拡張範囲内の各セルの状態をハッシュに含める
+        for (let bitIndex = 0; bitIndex < this.rows * this.cols; bitIndex++) {
+            const bitMask = 1n << BigInt(bitIndex);
+            if ((extendedMask & bitMask) !== 0n) {
+                const coord = this.bitIndexToCoord(bitIndex);
+                let cellState = 0; // 0=未開示, 1=開示, 2=フラグ, 3=開示+数字
+                
+                if (this.game.revealed[coord.row][coord.col]) {
+                    cellState = this.game.board[coord.row][coord.col] + 10; // 数字+10でユニーク化
+                } else if (this.game.flagged[coord.row][coord.col]) {
+                    cellState = 2;
+                }
+                
+                // セル状態 + 相対位置をハッシュに組み込み
+                const relativeRow = coord.row - centerRow;
+                const relativeCol = coord.col - centerCol;
+                const positionHash = (relativeRow + 10) * 100 + (relativeCol + 10); // オフセットで負数回避
+                contextHash ^= BigInt(cellState * 10000 + positionHash) << (BigInt(hashIndex % 4) * 16n);
+                hashIndex++;
+            }
+        }
+        
+        return contextHash;
+    }
+    
+    // セルマスクを1セル分拡張
+    expandMaskByOneCell(cellsMask) {
+        let expandedMask = cellsMask;
+        
+        for (let bitIndex = 0; bitIndex < this.rows * this.cols; bitIndex++) {
+            const bitMask = 1n << BigInt(bitIndex);
+            if ((cellsMask & bitMask) !== 0n) {
+                const coord = this.bitIndexToCoord(bitIndex);
+                expandedMask |= this.getNeighborsMask(coord.row, coord.col);
+            }
+        }
+        
+        return expandedMask;
+    }
     
     // セルインデックス配列をビットマスクに変換
     arrayToBitmask(indices) {
