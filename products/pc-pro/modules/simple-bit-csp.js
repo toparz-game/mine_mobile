@@ -393,6 +393,88 @@ class SimpleBitCSP {
         }
     }
     
+    // Phase1-4: 制約生成の部分ビット化
+    
+    // ハイブリッド版制約生成（処理はビット、出力は従来形式）
+    generateConstraintsHybrid(cells = null) {
+        const constraints = [];
+        
+        // セルリストが指定されていない場合は境界セルを使用
+        if (!cells) {
+            cells = this.getBorderCellsHybrid();
+        }
+        
+        // 効率化のため、セルをビット配列に変換
+        const targetCellsBits = new Uint32Array(this.intsNeeded);
+        this.coordsToBits(cells, targetCellsBits);
+        
+        // 数字セルと未開セルのビットマップを準備
+        const numberBits = this.tempBits1;
+        const unknownBits = this.tempBits2;
+        const neighborBits = this.tempBits3;
+        
+        this.getNumberCellsBit(numberBits);
+        this.getUnknownCellsBit(unknownBits);
+        
+        // 各数字セルから制約を生成
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                if (this.getBit(numberBits, row, col)) {
+                    // この数字セルの隣接する対象セルを取得
+                    this.getNeighborCellsBit(row, col, targetCellsBits, neighborBits);
+                    
+                    // ビット配列から座標リストに変換
+                    const neighborCells = this.bitsToCoords(neighborBits);
+                    
+                    if (neighborCells.length > 0) {
+                        // 既に旗が立っている隣接セル数を計算
+                        let flaggedNeighbors = 0;
+                        for (const neighbor of neighborCells) {
+                            if (this.game.flagged[neighbor.row][neighbor.col]) {
+                                flaggedNeighbors++;
+                            }
+                        }
+                        
+                        // 旗が立っていないセルのみを制約対象とする
+                        const constraintCells = neighborCells.filter(cell => 
+                            !this.game.flagged[cell.row][cell.col]
+                        );
+                        
+                        if (constraintCells.length > 0) {
+                            constraints.push({
+                                cells: constraintCells,
+                                expectedMines: this.game.board[row][col] - flaggedNeighbors,
+                                sourceCell: { row, col }
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        
+        return constraints;
+    }
+    
+    // 数字セル周辺の未開セル取得（ビット化版）
+    getNumberCellNeighborsHybrid(row, col) {
+        const unknownBits = this.tempBits1;
+        const neighborBits = this.tempBits2;
+        
+        this.getUnknownCellsBit(unknownBits);
+        this.getNeighborCellsBit(row, col, unknownBits, neighborBits);
+        
+        return this.bitsToCoords(neighborBits);
+    }
+    
+    // 制約生成の統合インターフェース
+    generateConstraintsUnified(cells = null, useBitVersion = true) {
+        if (useBitVersion) {
+            return this.generateConstraintsHybrid(cells);
+        } else {
+            return this.generateConstraints(cells);
+        }
+    }
+    
     // 未知セルの取得（従来版）
     getUnknownCells() {
         const unknownCells = [];

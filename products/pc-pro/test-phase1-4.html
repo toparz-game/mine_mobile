@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase1-4 Test</title>
+</head>
+<body>
+    <h1>Phase1-4: 制約生成の部分ビット化テスト</h1>
+    <div id="test-results"></div>
+    <script src="../../core/minesweeper-core.js"></script>
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+    <script>
+        function runPhase1_4Tests() {
+            const results = [];
+            
+            try {
+                // テスト用のゲーム状態を作成
+                const game = {
+                    rows: 5,
+                    cols: 5,
+                    mineCount: 5,
+                    board: [
+                        [1, 2, 2, 1, 0],
+                        [1, -1, -1, 2, 1], // -1は地雷
+                        [1, 2, 3, -1, 1],
+                        [0, 1, -1, 2, 1],
+                        [0, 1, 1, 1, 0]
+                    ],
+                    revealed: [
+                        [true,  true,  false, false, false],
+                        [true,  false, false, false, false],
+                        [true,  true,  true,  false, true ],
+                        [false, true,  false, true,  true ],
+                        [false, false, false, false, false]
+                    ],
+                    flagged: [
+                        [false, false, false, false, false],
+                        [false, true,  false, false, false], // (1,1)に旗
+                        [false, false, false, true,  false], // (2,3)に旗
+                        [false, false, true,  false, false], // (3,2)に旗
+                        [false, false, false, false, false]
+                    ]
+                };
+                
+                const bitSystem = new BitMinesweeperSystem(5, 5);
+                const csp = new SimpleBitCSP(game, bitSystem);
+                
+                results.push("✅ テスト環境セットアップ成功");
+                
+                // Test 1: ハイブリッド版制約生成と従来版の比較
+                const hybridConstraints = csp.generateConstraintsHybrid();
+                const traditionalConstraints = csp.generateConstraints(csp.getBorderCells());
+                
+                // 制約数の比較
+                if (hybridConstraints.length === traditionalConstraints.length) {
+                    results.push(`✅ Test 1a: 制約数一致 (${hybridConstraints.length}個)`);
+                } else {
+                    results.push(`❌ Test 1a: 制約数不一致 (hybrid:${hybridConstraints.length}, traditional:${traditionalConstraints.length})`);
+                }
+                
+                // 制約内容の詳細比較
+                let constraintsMatch = true;
+                const sortConstraints = (constraints) => {
+                    return constraints.sort((a, b) => {
+                        if (a.sourceCell.row !== b.sourceCell.row) return a.sourceCell.row - b.sourceCell.row;
+                        if (a.sourceCell.col !== b.sourceCell.col) return a.sourceCell.col - b.sourceCell.col;
+                        return a.expectedMines - b.expectedMines;
+                    });
+                };
+                
+                const hybridSorted = sortConstraints([...hybridConstraints]);
+                const traditionalSorted = sortConstraints([...traditionalConstraints]);
+                
+                for (let i = 0; i < hybridSorted.length && i < traditionalSorted.length; i++) {
+                    const h = hybridSorted[i];
+                    const t = traditionalSorted[i];
+                    
+                    if (h.expectedMines !== t.expectedMines ||
+                        h.sourceCell.row !== t.sourceCell.row ||
+                        h.sourceCell.col !== t.sourceCell.col ||
+                        h.cells.length !== t.cells.length) {
+                        constraintsMatch = false;
+                        break;
+                    }
+                    
+                    // セル配列の比較
+                    const sortCells = (cells) => cells.sort((a, b) => a.row === b.row ? a.col - b.col : a.row - b.row);
+                    const hCellsSorted = sortCells([...h.cells]);
+                    const tCellsSorted = sortCells([...t.cells]);
+                    
+                    for (let j = 0; j < hCellsSorted.length; j++) {
+                        if (hCellsSorted[j].row !== tCellsSorted[j].row || 
+                            hCellsSorted[j].col !== tCellsSorted[j].col) {
+                            constraintsMatch = false;
+                            break;
+                        }
+                    }
+                    
+                    if (!constraintsMatch) break;
+                }
+                
+                if (constraintsMatch) {
+                    results.push("✅ Test 1b: 制約内容完全一致");
+                } else {
+                    results.push("❌ Test 1b: 制約内容不一致");
+                    console.log('Hybrid constraints:', hybridSorted);
+                    console.log('Traditional constraints:', traditionalSorted);
+                }
+                
+                // Test 2: 数字セル周辺の未開セル取得テスト
+                const testRow = 2, testCol = 1; // board[2][1] = 2
+                const hybridNeighbors = csp.getNumberCellNeighborsHybrid(testRow, testCol);
+                
+                // 従来方式での期待値を計算
+                const expectedNeighbors = [];
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        const newRow = testRow + dr;
+                        const newCol = testCol + dc;
+                        
+                        if (newRow >= 0 && newRow < game.rows && 
+                            newCol >= 0 && newCol < game.cols &&
+                            !game.revealed[newRow][newCol] && 
+                            !game.flagged[newRow][newCol]) {
+                            expectedNeighbors.push({ row: newRow, col: newCol });
+                        }
+                    }
+                }
+                
+                const sortCells = (cells) => cells.sort((a, b) => a.row === b.row ? a.col - b.col : a.row - b.row);
+                const hybridSorted2 = sortCells([...hybridNeighbors]);
+                const expectedSorted = sortCells([...expectedNeighbors]);
+                
+                const neighborsMatch = hybridSorted2.length === expectedSorted.length &&
+                    hybridSorted2.every((cell, i) => 
+                        cell.row === expectedSorted[i].row && cell.col === expectedSorted[i].col
+                    );
+                
+                if (neighborsMatch) {
+                    results.push(`✅ Test 2: 数字セル周辺取得 - 正常動作 (${hybridNeighbors.length}個)`);
+                } else {
+                    results.push(`❌ Test 2: 数字セル周辺取得 - 異常 (hybrid:${hybridNeighbors.length}, expected:${expectedNeighbors.length})`);
+                }
+                
+                // Test 3: 統合インターフェースのテスト
+                const unifiedHybrid = csp.generateConstraintsUnified(null, true);
+                const unifiedTraditional = csp.generateConstraintsUnified(null, false);
+                
+                const unifiedMatch = unifiedHybrid.length === unifiedTraditional.length &&
+                    unifiedHybrid.length === hybridConstraints.length;
+                
+                if (unifiedMatch) {
+                    results.push("✅ Test 3: 統合インターフェース - 正常動作");
+                } else {
+                    results.push("❌ Test 3: 統合インターフェース - 異常");
+                }
+                
+                // Test 4: カスタムセルリストでの制約生成テスト
+                const customCells = [
+                    { row: 0, col: 2 },
+                    { row: 0, col: 3 },
+                    { row: 1, col: 2 }
+                ];
+                
+                const hybridCustom = csp.generateConstraintsHybrid(customCells);
+                const traditionalCustom = csp.generateConstraints(customCells);
+                
+                const customMatch = hybridCustom.length === traditionalCustom.length;
+                
+                if (customMatch) {
+                    results.push(`✅ Test 4: カスタムセルリスト - 正常動作 (${hybridCustom.length}個の制約)`);
+                } else {
+                    results.push(`❌ Test 4: カスタムセルリスト - 異常 (hybrid:${hybridCustom.length}, traditional:${traditionalCustom.length})`);
+                }
+                
+                // Test 5: エッジケース（制約が生成されない場合）
+                const emptyGame = {
+                    rows: 3,
+                    cols: 3,
+                    mineCount: 0,
+                    board: [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+                    revealed: [[true, true, true], [true, true, true], [true, true, true]],
+                    flagged: [[false, false, false], [false, false, false], [false, false, false]]
+                };
+                
+                const emptyBitSystem = new BitMinesweeperSystem(3, 3);
+                const emptyCSP = new SimpleBitCSP(emptyGame, emptyBitSystem);
+                const emptyConstraints = emptyCSP.generateConstraintsHybrid();
+                
+                if (emptyConstraints.length === 0) {
+                    results.push("✅ Test 5: エッジケース（制約なし） - 正常動作");
+                } else {
+                    results.push(`❌ Test 5: エッジケース（制約なし） - 異常 (count: ${emptyConstraints.length})`);
+                }
+                
+                // Test 6: パフォーマンステスト
+                const iterations = 150;
+                
+                const startHybrid = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    csp.generateConstraintsHybrid();
+                }
+                const timeHybrid = performance.now() - startHybrid;
+                
+                const startTraditional = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    csp.generateConstraints(csp.getBorderCells());
+                }
+                const timeTraditional = performance.now() - startTraditional;
+                
+                const improvement = timeTraditional > 0 ? ((timeTraditional - timeHybrid) / timeTraditional * 100).toFixed(1) : "0.0";
+                
+                results.push(`📊 Test 6: パフォーマンス比較`);
+                results.push(`   ハイブリッド版: ${timeHybrid.toFixed(2)}ms (改善率: ${improvement}%)`);
+                results.push(`   従来版: ${timeTraditional.toFixed(2)}ms`);
+                
+            } catch (error) {
+                results.push(`❌ エラー発生: ${error.message}`);
+                console.error(error);
+            }
+            
+            // 結果表示
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '<h2>テスト結果</h2>' + 
+                results.map(result => `<p>${result}</p>`).join('');
+            
+            console.log('Phase1-4 テスト結果:', results);
+            
+            return results.filter(r => r.startsWith('❌')).length === 0;
+        }
+        
+        // ページ読み込み完了後にテスト実行
+        window.addEventListener('load', () => {
+            setTimeout(runPhase1_4Tests, 100);
+        });
+    </script>
+</body>
+</html>
