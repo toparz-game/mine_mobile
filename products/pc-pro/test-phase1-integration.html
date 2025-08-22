@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase1 Integration Test</title>
+    <style>
+        body { font-family: monospace; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .performance { background-color: #f0f0f0; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Phase1 統合テスト: 基盤機能のビット化完全動作確認</h1>
+    <div id="test-results"></div>
+    
+    <script src="../../core/minesweeper-core.js"></script>
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+    <script>
+        function runPhase1IntegrationTests() {
+            const results = [];
+            let testsPassed = 0;
+            let testsTotal = 0;
+            
+            function addResult(result, category = 'test') {
+                results.push({text: result, category});
+                if (category === 'test') {
+                    testsTotal++;
+                    if (result.startsWith('✅')) testsPassed++;
+                }
+            }
+            
+            try {
+                addResult("=== Phase1 統合テスト開始 ===", 'header');
+                
+                // 複雑なテストケースを作成（実際のゲーム状況を模擬）
+                const game = {
+                    rows: 8,
+                    cols: 8,
+                    mineCount: 12,
+                    board: [
+                        [1, 1, 0, 0, 1, 1, 1, 0],
+                        [1, -1, 1, 1, 2, -1, 1, 0], // -1は地雷
+                        [2, 2, 2, 1, -1, 2, 2, 1],
+                        [1, -1, 1, 1, 1, 1, 1, -1],
+                        [1, 1, 1, 0, 0, 1, 2, 2],
+                        [0, 0, 0, 1, 1, 2, -1, -1],
+                        [1, 1, 1, 2, -1, 3, 3, 3],
+                        [1, -1, 1, 2, 1, 2, -1, 1]
+                    ],
+                    revealed: [
+                        [true,  true,  true,  true,  false, false, false, false],
+                        [true,  false, true,  true,  false, false, true,  true ],
+                        [false, true,  true,  true,  false, true,  true,  false],
+                        [true,  false, true,  true,  true,  true,  true,  false],
+                        [true,  true,  true,  true,  true,  false, false, false],
+                        [true,  true,  true,  false, false, false, false, false],
+                        [false, false, false, false, false, false, false, false],
+                        [false, false, false, false, false, false, false, false]
+                    ],
+                    flagged: [
+                        [false, false, false, false, false, false, false, false],
+                        [false, true,  false, false, false, true,  false, false], // (1,1), (1,5)に旗
+                        [false, false, false, false, true,  false, false, false], // (2,4)に旗
+                        [false, true,  false, false, false, false, false, true ], // (3,1), (3,7)に旗
+                        [false, false, false, false, false, false, false, false],
+                        [false, false, false, false, false, false, false, false],
+                        [false, false, false, false, false, false, false, false],
+                        [false, false, false, false, false, false, false, false]
+                    ]
+                };
+                
+                const bitSystem = new BitMinesweeperSystem(8, 8);
+                const csp = new SimpleBitCSP(game, bitSystem);
+                
+                addResult("✅ 複雑なテストケース環境構築完了");
+                
+                // === セクション1: Phase1-1機能テスト ===
+                addResult("=== Phase1-1: ビット操作基盤テスト ===", 'section');
+                
+                // 隣接セル取得テスト
+                const testBits = new Uint32Array(csp.intsNeeded);
+                const resultBits = new Uint32Array(csp.intsNeeded);
+                
+                csp.setBit(testBits, 3, 3, true);
+                csp.setBit(testBits, 4, 4, true);
+                csp.getNeighborCellsBit(3, 3, testBits, resultBits);
+                
+                const neighborCount = csp.countNeighborsBit(3, 3, testBits);
+                addResult(neighborCount === 1 ? "✅ 隣接セル取得・カウント機能" : "❌ 隣接セル取得・カウント機能");
+                
+                // ビット演算テスト
+                const bits1 = new Uint32Array(csp.intsNeeded);
+                const bits2 = new Uint32Array(csp.intsNeeded);
+                const bitsResult = new Uint32Array(csp.intsNeeded);
+                
+                csp.setBit(bits1, 2, 2, true);
+                csp.setBit(bits2, 2, 2, true);
+                csp.setBit(bits2, 2, 3, true);
+                
+                csp.andBits(bits1, bits2, bitsResult);
+                const andCorrect = csp.getBit(bitsResult, 2, 2) && !csp.getBit(bitsResult, 2, 3);
+                addResult(andCorrect ? "✅ ビット演算機能" : "❌ ビット演算機能");
+                
+                // === セクション2: Phase1-2機能テスト ===
+                addResult("=== Phase1-2: 境界セル検出部分ビット化テスト ===", 'section');
+                
+                const unknownBits = new Uint32Array(csp.intsNeeded);
+                const revealedBits = new Uint32Array(csp.intsNeeded);
+                const numberBits = new Uint32Array(csp.intsNeeded);
+                
+                csp.getUnknownCellsBit(unknownBits);
+                csp.getRevealedCellsBit(revealedBits);
+                csp.getNumberCellsBit(numberBits);
+                
+                const unknownCount = csp.popCountBits(unknownBits);
+                const revealedCount = csp.popCountBits(revealedBits);
+                const numberCount = csp.popCountBits(numberBits);
+                
+                addResult(`📊 セル分類: 未開${unknownCount}個, 開示済${revealedCount}個, 数字${numberCount}個`, 'info');
+                
+                const hybridBorder = csp.getBorderCellsHybrid();
+                const traditionalBorder = csp.getBorderCells();
+                const borderMatch = hybridBorder.length === traditionalBorder.length;
+                
+                addResult(borderMatch ? "✅ ハイブリッド境界セル検出" : "❌ ハイブリッド境界セル検出");
+                
+                // === セクション3: Phase1-3機能テスト ===
+                addResult("=== Phase1-3: 境界セル検出完全ビット化テスト ===", 'section');
+                
+                const borderBits = new Uint32Array(csp.intsNeeded);
+                csp.getBorderCellsBit(borderBits);
+                const bitBorderCoords = csp.bitsToCoords(borderBits);
+                
+                const fullBitMatch = bitBorderCoords.length === hybridBorder.length;
+                addResult(fullBitMatch ? "✅ 完全ビット版境界セル検出" : "❌ 完全ビット版境界セル検出");
+                
+                const unifiedBorder = csp.getBorderCellsUnified(true, true);
+                const unifiedMatch = unifiedBorder.length === bitBorderCoords.length;
+                addResult(unifiedMatch ? "✅ 境界セル検出統合インターフェース" : "❌ 境界セル検出統合インターフェース");
+                
+                // === セクション4: Phase1-4機能テスト ===
+                addResult("=== Phase1-4: 制約生成部分ビット化テスト ===", 'section');
+                
+                const hybridConstraints = csp.generateConstraintsHybrid();
+                const traditionalConstraints = csp.generateConstraints(csp.getBorderCells());
+                const constraintMatch = hybridConstraints.length === traditionalConstraints.length;
+                
+                addResult(constraintMatch ? "✅ ハイブリッド制約生成" : "❌ ハイブリッド制約生成");
+                addResult(`📊 制約数: ${hybridConstraints.length}個`, 'info');
+                
+                // === セクション5: Phase1-5機能テスト ===
+                addResult("=== Phase1-5: 制約生成完全ビット化テスト ===", 'section');
+                
+                const bitConstraints = csp.generateConstraintsBit();
+                const convertedConstraints = csp.bitConstraintsToTraditional(bitConstraints);
+                const fullConstraintMatch = convertedConstraints.length === traditionalConstraints.length;
+                
+                addResult(fullConstraintMatch ? "✅ 完全ビット版制約生成" : "❌ 完全ビット版制約生成");
+                
+                const constraintStats = csp.getBitConstraintsStats(bitConstraints);
+                addResult(`📊 制約統計: 平均${constraintStats.avgCellsPerConstraint.toFixed(1)}セル/制約, 地雷総数${constraintStats.totalExpectedMines}`, 'info');
+                
+                const advancedConstraints = csp.generateConstraintsAdvanced(null, 'bit', 'traditional');
+                const advancedMatch = advancedConstraints.length === traditionalConstraints.length;
+                addResult(advancedMatch ? "✅ 制約生成最終統合インターフェース" : "❌ 制約生成最終統合インターフェース");
+                
+                // === セクション6: 統合動作テスト ===
+                addResult("=== Phase1統合動作テスト ===", 'section');
+                
+                // 全機能を組み合わせた動作テスト
+                try {
+                    // 1. ビット版境界セル検出
+                    const integrationBorderBits = new Uint32Array(csp.intsNeeded);
+                    csp.getBorderCellsBit(integrationBorderBits);
+                    
+                    // 2. ビット版制約生成（境界セルを指定）
+                    const integrationConstraints = csp.generateConstraintsBit(integrationBorderBits);
+                    
+                    // 3. 統計情報取得
+                    const integrationStats = csp.getBitConstraintsStats(integrationConstraints);
+                    
+                    // 4. 従来形式への変換
+                    const integrationTraditional = csp.bitConstraintsToTraditional(integrationConstraints);
+                    
+                    // 5. 逆変換テスト
+                    const integrationBackToBit = csp.traditionalConstraintsToBit(integrationTraditional);
+                    
+                    addResult("✅ Phase1統合動作チェーン実行完了");
+                    addResult(`📊 統合結果: ${integrationStats.constraintCount}制約, ${integrationStats.totalCells}セル処理`, 'info');
+                    
+                } catch (integrationError) {
+                    addResult(`❌ Phase1統合動作エラー: ${integrationError.message}`);
+                }
+                
+                // === セクション7: パフォーマンス総合比較 ===
+                addResult("=== Phase1パフォーマンス総合評価 ===", 'section');
+                
+                const perfIterations = 100;
+                
+                // 境界セル検出パフォーマンス
+                const borderPerf = {
+                    traditional: 0,
+                    hybrid: 0,
+                    bit: 0
+                };
+                
+                let start = performance.now();
+                for (let i = 0; i < perfIterations; i++) csp.getBorderCells();
+                borderPerf.traditional = performance.now() - start;
+                
+                start = performance.now();
+                for (let i = 0; i < perfIterations; i++) csp.getBorderCellsHybrid();
+                borderPerf.hybrid = performance.now() - start;
+                
+                start = performance.now();
+                for (let i = 0; i < perfIterations; i++) {
+                    const tempBits = new Uint32Array(csp.intsNeeded);
+                    csp.getBorderCellsBit(tempBits);
+                }
+                borderPerf.bit = performance.now() - start;
+                
+                // 制約生成パフォーマンス
+                const constraintPerf = {
+                    traditional: 0,
+                    hybrid: 0,
+                    bit: 0
+                };
+                
+                start = performance.now();
+                for (let i = 0; i < perfIterations; i++) csp.generateConstraints(csp.getBorderCells());
+                constraintPerf.traditional = performance.now() - start;
+                
+                start = performance.now();
+                for (let i = 0; i < perfIterations; i++) csp.generateConstraintsHybrid();
+                constraintPerf.hybrid = performance.now() - start;
+                
+                start = performance.now();
+                for (let i = 0; i < perfIterations; i++) csp.generateConstraintsBit();
+                constraintPerf.bit = performance.now() - start;
+                
+                // パフォーマンス結果表示
+                addResult(`📊 境界セル検出パフォーマンス (${perfIterations}回):`, 'performance');
+                addResult(`   従来版: ${borderPerf.traditional.toFixed(2)}ms`, 'performance');
+                addResult(`   ハイブリッド版: ${borderPerf.hybrid.toFixed(2)}ms (改善率: ${((borderPerf.traditional - borderPerf.hybrid) / borderPerf.traditional * 100).toFixed(1)}%)`, 'performance');
+                addResult(`   完全ビット版: ${borderPerf.bit.toFixed(2)}ms (改善率: ${((borderPerf.traditional - borderPerf.bit) / borderPerf.traditional * 100).toFixed(1)}%)`, 'performance');
+                
+                addResult(`📊 制約生成パフォーマンス (${perfIterations}回):`, 'performance');
+                addResult(`   従来版: ${constraintPerf.traditional.toFixed(2)}ms`, 'performance');
+                addResult(`   ハイブリッド版: ${constraintPerf.hybrid.toFixed(2)}ms (改善率: ${((constraintPerf.traditional - constraintPerf.hybrid) / constraintPerf.traditional * 100).toFixed(1)}%)`, 'performance');
+                addResult(`   完全ビット版: ${constraintPerf.bit.toFixed(2)}ms (改善率: ${((constraintPerf.traditional - constraintPerf.bit) / constraintPerf.traditional * 100).toFixed(1)}%)`, 'performance');
+                
+                // === セクション8: Phase2準備状況チェック ===
+                addResult("=== Phase2準備状況チェック ===", 'section');
+                
+                // Phase2で必要になる基盤機能が揃っているかチェック
+                const phase2ReadyChecks = [
+                    () => typeof csp.getBorderCellsBit === 'function',
+                    () => typeof csp.generateConstraintsBit === 'function',
+                    () => typeof csp.bitConstraintsToTraditional === 'function',
+                    () => typeof csp.andBits === 'function',
+                    () => typeof csp.orBits === 'function',
+                    () => typeof csp.debugPrintBits === 'function'
+                ];
+                
+                const phase2Ready = phase2ReadyChecks.every(check => check());
+                addResult(phase2Ready ? "✅ Phase2準備完了 - 必要基盤機能すべて実装済み" : "❌ Phase2準備不完全");
+                
+            } catch (error) {
+                addResult(`❌ 統合テスト中にエラー発生: ${error.message}`);
+                console.error('Integration test error:', error);
+            }
+            
+            // === 最終結果 ===
+            addResult("=== Phase1統合テスト結果 ===", 'header');
+            addResult(`テスト実行結果: ${testsPassed}/${testsTotal} 成功`, testsPassed === testsTotal ? 'success' : 'error');
+            
+            if (testsPassed === testsTotal) {
+                addResult("🎉 Phase1完全成功！Phase2実装準備完了", 'success');
+            } else {
+                addResult("⚠️ 一部テスト失敗。修正が必要です。", 'error');
+            }
+            
+            // 結果表示
+            displayResults(results);
+            
+            return testsPassed === testsTotal;
+        }
+        
+        function displayResults(results) {
+            const resultsDiv = document.getElementById('test-results');
+            let html = '';
+            
+            for (const result of results) {
+                let className = '';
+                switch (result.category) {
+                    case 'header':
+                        html += `<h2>${result.text}</h2>`;
+                        continue;
+                    case 'section':
+                        html += `<h3>${result.text}</h3>`;
+                        continue;
+                    case 'success':
+                        className = 'success';
+                        break;
+                    case 'error':
+                        className = 'error';
+                        break;
+                    case 'info':
+                        className = 'info';
+                        break;
+                    case 'performance':
+                        className = 'performance';
+                        break;
+                }
+                
+                html += `<p class="${className}">${result.text}</p>`;
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        // ページ読み込み完了後にテスト実行
+        window.addEventListener('load', () => {
+            setTimeout(runPhase1IntegrationTests, 100);
+        });
+    </script>
+</body>
+</html>
