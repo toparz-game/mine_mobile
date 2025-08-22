@@ -33,6 +33,8 @@ class SimpleBitCSP {
         this.cachedRevealedMask = 0n;
         this.cachedFlaggedMask = 0n;
         this.cachedUnknownMask = 0n;
+        this.cachedBorderMask = 0n;
+        this.cachedConstraints = null;
         this.gameStateValid = false;
         
     }
@@ -42,30 +44,88 @@ class SimpleBitCSP {
         return this.bitSystem.coordToBitPos(row, col);
     }
     
-    // ゲーム状態をビットマスクで更新
-    updateGameStateMasks() {
+    // 統合された高効率スキャン（ゲーム状態更新 + 境界セル取得 + 制約生成）
+    updateGameStateAndConstraints() {
+        // 初期化
         this.cachedRevealedMask = 0n;
         this.cachedFlaggedMask = 0n;
+        let borderMask = 0n;
+        const constraints = [];
         
+        // 1回の全セルスキャンで全ての処理を実行
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
                 const bitIndex = this.coordToBitIndex(row, col);
                 const bitMask = 1n << BigInt(bitIndex);
                 
+                // ゲーム状態マスクを更新
                 if (this.game.revealed[row][col]) {
                     this.cachedRevealedMask |= bitMask;
-                }
-                if (this.game.flagged[row][col]) {
+                    
+                    // 数字セルの場合、境界セル検出と制約生成を同時実行
+                    if (this.game.board[row][col] > 0) {
+                        let neighborMask = 0n;
+                        let flaggedNeighbors = 0;
+                        
+                        // 8方向の隣接セルを1回でチェック（境界セル + 制約生成）
+                        for (let dr = -1; dr <= 1; dr++) {
+                            for (let dc = -1; dc <= 1; dc++) {
+                                if (dr === 0 && dc === 0) continue;
+                                const newRow = row + dr;
+                                const newCol = col + dc;
+                                
+                                if (newRow >= 0 && newRow < this.rows && 
+                                    newCol >= 0 && newCol < this.cols) {
+                                    
+                                    const neighborBitIndex = this.coordToBitIndex(newRow, newCol);
+                                    const neighborBitMask = 1n << BigInt(neighborBitIndex);
+                                    
+                                    // 隣接セルの状態をチェック
+                                    const isRevealed = this.game.revealed[newRow][newCol];
+                                    const isFlagged = this.game.flagged[newRow][newCol];
+                                    
+                                    if (!isRevealed && !isFlagged) {
+                                        // 未開示かつ未フラグ = 境界セル + 制約対象
+                                        borderMask |= neighborBitMask;
+                                        neighborMask |= neighborBitMask;
+                                    } else if (isFlagged) {
+                                        // フラグ付きセルは制約計算に含める
+                                        flaggedNeighbors++;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 制約を生成（制約対象セルがある場合）
+                        if (neighborMask !== 0n) {
+                            const expectedMines = this.game.board[row][col] - flaggedNeighbors;
+                            if (expectedMines >= 0) {
+                                constraints.push({
+                                    cellsMask: neighborMask,
+                                    expectedMines: expectedMines,
+                                    sourceCell: { row, col }
+                                });
+                            }
+                        }
+                    }
+                } else if (this.game.flagged[row][col]) {
                     this.cachedFlaggedMask |= bitMask;
                 }
             }
         }
         
-        // 未知セルマスク = 全体 - (開示済み | フラグ付き)
+        // 未知セルマスクを計算
         const totalMask = (1n << BigInt(this.rows * this.cols)) - 1n;
         this.cachedUnknownMask = totalMask & ~(this.cachedRevealedMask | this.cachedFlaggedMask);
         this.gameStateValid = true;
+        
+        // 結果をキャッシュ
+        this.cachedBorderMask = borderMask;
+        this.cachedConstraints = constraints;
+        
+        return { borderMask, constraints };
     }
+    
     
     // ビット位置を座標に変換
     bitPosToCoord(bitPos) {
@@ -114,7 +174,7 @@ class SimpleBitCSP {
     // 未知セルの取得（ビット版）
     getUnknownCellsMask() {
         if (!this.gameStateValid) {
-            this.updateGameStateMasks();
+            this.updateGameStateAndConstraints();
         }
         return this.cachedUnknownMask;
     }
@@ -155,42 +215,10 @@ class SimpleBitCSP {
     
     // ビット化された境界セル取得（最適化版）
     getBorderCellsBit() {
-        if (!this.gameStateValid) {
-            this.updateGameStateMasks();
+        if (!this.gameStateValid || !this.cachedBorderMask) {
+            this.updateGameStateAndConstraints();
         }
-        
-        let borderMask = 0n;
-        
-        // 数字セル（開示済みで数字あり）を特定
-        for (let row = 0; row < this.rows; row++) {
-            for (let col = 0; col < this.cols; col++) {
-                if (this.game.revealed[row][col] && this.game.board[row][col] > 0) {
-                    // 8方向の隣接セルをビットシフトで効率的にチェック
-                    const centerBit = this.coordToBitIndex(row, col);
-                    
-                    for (let dr = -1; dr <= 1; dr++) {
-                        for (let dc = -1; dc <= 1; dc++) {
-                            const newRow = row + dr;
-                            const newCol = col + dc;
-                            
-                            if (newRow >= 0 && newRow < this.rows && 
-                                newCol >= 0 && newCol < this.cols) {
-                                
-                                const bitIndex = this.coordToBitIndex(newRow, newCol);
-                                const bitMask = 1n << BigInt(bitIndex);
-                                
-                                // 未開示セルかつ未フラグセルなら境界セル
-                                if ((this.cachedUnknownMask & bitMask) !== 0n) {
-                                    borderMask |= bitMask;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        return borderMask;
+        return this.cachedBorderMask;
     }
     
     // ビット版境界セル取得（メイン）
@@ -200,62 +228,10 @@ class SimpleBitCSP {
     
     // ビット化された制約生成（最適化版）
     generateConstraintsBit(borderMask) {
-        if (!this.gameStateValid) {
-            this.updateGameStateMasks();
+        if (!this.gameStateValid || !this.cachedConstraints) {
+            this.updateGameStateAndConstraints();
         }
-        
-        const constraints = [];
-        
-        for (let row = 0; row < this.rows; row++) {
-            for (let col = 0; col < this.cols; col++) {
-                if (this.game.revealed[row][col] && this.game.board[row][col] > 0) {
-                    let neighborMask = 0n;
-                    let flaggedNeighbors = 0;
-                    
-                    // 周囲8マスをビット演算で効率的にチェック
-                    for (let dr = -1; dr <= 1; dr++) {
-                        for (let dc = -1; dc <= 1; dc++) {
-                            if (dr === 0 && dc === 0) continue;
-                            const newRow = row + dr;
-                            const newCol = col + dc;
-                            
-                            if (newRow >= 0 && newRow < this.rows && 
-                                newCol >= 0 && newCol < this.cols) {
-                                
-                                const bitIndex = this.coordToBitIndex(newRow, newCol);
-                                const bitMask = 1n << BigInt(bitIndex);
-                                
-                                // ビットマスクで状態を高速チェック
-                                if ((borderMask & bitMask) !== 0n) {
-                                    // 境界セルで未フラグなら制約に追加
-                                    if ((this.cachedFlaggedMask & bitMask) === 0n) {
-                                        neighborMask |= bitMask;
-                                    } else {
-                                        flaggedNeighbors++;
-                                    }
-                                } else if ((this.cachedFlaggedMask & bitMask) !== 0n) {
-                                    // 境界外でもフラグが立っている場合は数える
-                                    flaggedNeighbors++;
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (neighborMask !== 0n) {
-                        const expectedMines = this.game.board[row][col] - flaggedNeighbors;
-                        if (expectedMines >= 0) {
-                            constraints.push({
-                                cellsMask: neighborMask,
-                                expectedMines: expectedMines,
-                                sourceCell: { row, col }
-                            });
-                        }
-                    }
-                }
-            }
-        }
-        
-        return constraints;
+        return this.cachedConstraints;
     }
     
     // ビット版制約生成（メイン）
@@ -463,15 +439,15 @@ class SimpleBitCSP {
         // ゲーム状態を無効化して再計算を促す
         this.gameStateValid = false;
         
+        // 統合スキャンで境界セルと制約を同時取得
+        const { borderMask, constraints } = this.updateGameStateAndConstraints();
+        
         // 未知セル数を高速取得
         const unknownCellsCount = this.getUnknownCellsCount();
         
         if (unknownCellsCount === 0) {
             return { probabilities: this.probabilities, globalProbability: 0 };
         }
-        
-        // 境界セルを取得（ビットマスク）
-        const borderMask = this.getBorderCells();
         
         if (borderMask === 0n) {
             // 境界セルがない場合、全て制約外
@@ -481,9 +457,6 @@ class SimpleBitCSP {
             }
             return { probabilities: this.probabilities, globalProbability: 50 };
         }
-        
-        // 制約を生成（ビット版）
-        const constraints = this.generateConstraints(borderMask);
         console.log(`制約数:${constraints.length}`);
         
         // 既に盤面上に確定マス（0%/100%）があるかチェック
@@ -730,7 +703,7 @@ class SimpleBitCSP {
     // 旗の数をカウント（ビット版 O(1)）
     countFlags() {
         if (!this.gameStateValid) {
-            this.updateGameStateMasks();
+            this.updateGameStateAndConstraints();
         }
         return this.popcount(this.cachedFlaggedMask);
     }
