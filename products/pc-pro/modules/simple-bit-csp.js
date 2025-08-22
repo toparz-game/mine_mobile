@@ -20,7 +20,10 @@ class SimpleBitCSP {
         this.probabilities = [];
         this.persistentProbabilities = [];
         
-        console.log('[SIMPLE-BIT-CSP] Initialized successfully');
+        // デバッグログ管理
+        this.debugLogEnabled = true; // デバッグログの有効/無効
+        
+        this.debugLog('Initialized successfully');
     }
     
     // 座標をビット位置に変換
@@ -260,6 +263,33 @@ class SimpleBitCSP {
             }
         }
         return coords;
+    }
+    
+    // デバッグログ管理機能
+    
+    // デバッグログをクリア
+    clearDebugLog() {
+        if (this.debugLogEnabled) {
+            console.clear();
+            console.log('[SIMPLE-BIT-CSP] Debug log cleared');
+        }
+    }
+    
+    // デバッグログの有効/無効を切り替え
+    toggleDebugLog(enabled = null) {
+        if (enabled === null) {
+            this.debugLogEnabled = !this.debugLogEnabled;
+        } else {
+            this.debugLogEnabled = enabled;
+        }
+        this.debugLog(`Debug logging ${this.debugLogEnabled ? 'enabled' : 'disabled'}`);
+    }
+    
+    // デバッグログ出力（制御機能付き）
+    debugLog(message, category = 'INFO') {
+        if (this.debugLogEnabled) {
+            console.log(`[SIMPLE-BIT-CSP] ${category}: ${message}`);
+        }
     }
     
     // Phase1-2: 境界セル検出の部分ビット化
@@ -734,7 +764,7 @@ class SimpleBitCSP {
     
     // シンプルな制約伝播
     applySimpleConstraintPropagation(constraints) {
-        console.log(`[SIMPLE-BIT-CSP] Applying constraint propagation with ${constraints.length} constraints`);
+        this.debugLog(`Applying constraint propagation with ${constraints.length} constraints`);
         
         let changed = true;
         let foundSafeCells = [];
@@ -770,7 +800,7 @@ class SimpleBitCSP {
                         foundMineCells.push(cell);
                         changed = true;
                     }
-                    console.log(`[SIMPLE-BIT-CSP] Found ${undeterminedCells.length} mine cells`);
+                    this.debugLog(`Found ${undeterminedCells.length} mine cells`);
                 }
                 // 全て安全確定の場合
                 else if (neededMines === 0 && undeterminedCells.length > 0) {
@@ -779,7 +809,7 @@ class SimpleBitCSP {
                         foundSafeCells.push(cell);
                         changed = true;
                     }
-                    console.log(`[SIMPLE-BIT-CSP] Found ${undeterminedCells.length} safe cells`);
+                    this.debugLog(`Found ${undeterminedCells.length} safe cells`);
                 }
             }
         }
@@ -789,7 +819,7 @@ class SimpleBitCSP {
     
     // メイン確率計算（シンプル版）
     calculateProbabilities() {
-        console.log('[SIMPLE-BIT-CSP] Starting simple probability calculation');
+        this.debugLog('Starting simple probability calculation');
         
         const rows = this.game.rows;
         const cols = this.game.cols;
@@ -811,7 +841,7 @@ class SimpleBitCSP {
         
         // 未知セルを取得
         const unknownCells = this.getUnknownCells();
-        console.log(`[SIMPLE-BIT-CSP] Unknown cells: ${unknownCells.length}`);
+        this.debugLog(`Unknown cells: ${unknownCells.length}`);
         
         if (unknownCells.length === 0) {
             return { probabilities: this.probabilities, globalProbability: 0 };
@@ -819,7 +849,7 @@ class SimpleBitCSP {
         
         // 境界セルを取得
         const borderCells = this.getBorderCells();
-        console.log(`[SIMPLE-BIT-CSP] Border cells: ${borderCells.length}`);
+        this.debugLog(`Border cells: ${borderCells.length}`);
         
         if (borderCells.length === 0) {
             // 境界セルがない場合、全て制約外
@@ -831,15 +861,15 @@ class SimpleBitCSP {
         
         // 制約を生成
         const constraints = this.generateConstraints(borderCells);
-        console.log(`[SIMPLE-BIT-CSP] Generated ${constraints.length} constraints`);
+        this.debugLog(`Generated ${constraints.length} constraints`);
         
         // 制約伝播を適用
         const foundActionable = this.applySimpleConstraintPropagation(constraints);
         
         if (foundActionable) {
-            console.log('[SIMPLE-BIT-CSP] Found actionable cells through constraint propagation');
+            this.debugLog('Found actionable cells through constraint propagation');
         } else {
-            console.log('[SIMPLE-BIT-CSP] No actionable cells found');
+            this.debugLog('No actionable cells found');
         }
         
         // 残りのセルを制約外としてマーク
@@ -860,7 +890,7 @@ class SimpleBitCSP {
             ? Math.round((remainingMines / constraintFreeCount) * 100)
             : 0;
         
-        console.log(`[SIMPLE-BIT-CSP] Calculation complete. Global probability: ${globalProbability}%`);
+        this.debugLog(`Calculation complete. Global probability: ${globalProbability}%`);
         
         return { probabilities: this.probabilities, globalProbability };
     }

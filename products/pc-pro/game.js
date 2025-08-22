@@ -743,6 +743,12 @@ class PCProMinesweeper extends PCMinesweeper {
     // オーバーライドメソッド
     revealCell(row, col) {
         const wasRevealed = this.revealed[row][col];
+        
+        // セルを開く前にデバッグログをクリア
+        if (!wasRevealed && this.cspSolver) {
+            this.cspSolver.clearDebugLog();
+        }
+        
         super.revealCell(row, col);
         
         if (!wasRevealed && this.revealed[row][col]) {
@@ -1649,6 +1655,24 @@ class PCProMinesweeper extends PCMinesweeper {
         }
     }
 }
+
+// デバッグ用グローバル関数
+window.clearDebugLog = () => {
+    if (window.game && window.game.cspSolver) {
+        window.game.cspSolver.clearDebugLog();
+    } else {
+        console.clear();
+        console.log('Debug log cleared (CSP solver not available)');
+    }
+};
+
+window.toggleDebugLog = (enabled = null) => {
+    if (window.game && window.game.cspSolver) {
+        window.game.cspSolver.toggleDebugLog(enabled);
+    } else {
+        console.log('CSP solver not available');
+    }
+};
 
 // ゲームの初期化
 document.addEventListener('DOMContentLoaded', () => {
