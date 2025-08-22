@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase1-2 Test</title>
+</head>
+<body>
+    <h1>Phase1-2: 境界セル検出の部分ビット化テスト</h1>
+    <div id="test-results"></div>
+    <script src="../../core/minesweeper-core.js"></script>
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+    <script>
+        function runPhase1_2Tests() {
+            const results = [];
+            
+            try {
+                // テスト用のゲーム状態を作成（5x5の小さな盤面）
+                const game = {
+                    rows: 5,
+                    cols: 5,
+                    mineCount: 3,
+                    board: [
+                        [0, 1, 1, 1, 0],
+                        [0, 1, -1, 1, 0], // -1は地雷
+                        [0, 1, 1, 1, 0],
+                        [0, 0, 0, 0, 0],
+                        [0, 0, 0, 0, 0]
+                    ],
+                    revealed: [
+                        [true,  true,  false, false, false],
+                        [true,  true,  false, false, false],
+                        [true,  true,  true,  false, false],
+                        [false, false, false, false, false],
+                        [false, false, false, false, false]
+                    ],
+                    flagged: [
+                        [false, false, false, false, false],
+                        [false, false, true,  false, false], // (1,2)に旗
+                        [false, false, false, false, false],
+                        [false, false, false, false, false],
+                        [false, false, false, false, false]
+                    ]
+                };
+                
+                const bitSystem = new BitMinesweeperSystem(5, 5);
+                const csp = new SimpleBitCSP(game, bitSystem);
+                
+                results.push("✅ テスト環境セットアップ成功");
+                
+                // Test 1: 未開セルビットマップテスト
+                const unknownBits = new Uint32Array(csp.intsNeeded);
+                csp.getUnknownCellsBit(unknownBits);
+                const unknownCoords = csp.bitsToCoords(unknownBits);
+                
+                // 期待値：開示されておらず旗も立っていないセル
+                // (0,2), (0,3), (0,4), (1,3), (1,4), (2,3), (2,4), (3,0)-(4,4)
+                const expectedUnknownCount = 3 + 2 + 2 + 5 + 5; // 17個
+                
+                if (unknownCoords.length === expectedUnknownCount) {
+                    results.push("✅ Test 1: 未開セルビットマップ - 正常動作");
+                } else {
+                    results.push(`❌ Test 1: 未開セルビットマップ - 異常 (count: ${unknownCoords.length}, expected: ${expectedUnknownCount})`);
+                }
+                
+                // Test 2: 開示済みセルビットマップテスト
+                const revealedBits = new Uint32Array(csp.intsNeeded);
+                csp.getRevealedCellsBit(revealedBits);
+                const revealedCoords = csp.bitsToCoords(revealedBits);
+                
+                const expectedRevealedCount = 8; // (0,0), (0,1), (1,0), (1,1), (2,0), (2,1), (2,2)
+                
+                if (revealedCoords.length === expectedRevealedCount) {
+                    results.push("✅ Test 2: 開示済みセルビットマップ - 正常動作");
+                } else {
+                    results.push(`❌ Test 2: 開示済みセルビットマップ - 異常 (count: ${revealedCoords.length}, expected: ${expectedRevealedCount})`);
+                }
+                
+                // Test 3: 数字セルビットマップテスト
+                const numberBits = new Uint32Array(csp.intsNeeded);
+                csp.getNumberCellsBit(numberBits);
+                const numberCoords = csp.bitsToCoords(numberBits);
+                
+                // 期待値：開示済みで地雷数>0のセル
+                // (0,1), (1,0), (1,1), (2,0), (2,1), (2,2)
+                const expectedNumberCount = 6;
+                
+                if (numberCoords.length === expectedNumberCount) {
+                    results.push("✅ Test 3: 数字セルビットマップ - 正常動作");
+                } else {
+                    results.push(`❌ Test 3: 数字セルビットマップ - 異常 (count: ${numberCoords.length}, expected: ${expectedNumberCount})`);
+                }
+                
+                // Test 4: 旗セルビットマップテスト
+                const flaggedBits = new Uint32Array(csp.intsNeeded);
+                csp.getFlaggedCellsBit(flaggedBits);
+                const flaggedCoords = csp.bitsToCoords(flaggedBits);
+                
+                if (flaggedCoords.length === 1 && flaggedCoords[0].row === 1 && flaggedCoords[0].col === 2) {
+                    results.push("✅ Test 4: 旗セルビットマップ - 正常動作");
+                } else {
+                    results.push(`❌ Test 4: 旗セルビットマップ - 異常 (count: ${flaggedCoords.length})`);
+                }
+                
+                // Test 5: ハイブリッド境界セル検出と従来版の比較
+                const hybridBorderCells = csp.getBorderCellsHybrid();
+                const traditionalBorderCells = csp.getBorderCells();
+                
+                // 結果を座標でソートして比較
+                const sortCoords = (coords) => coords.sort((a, b) => a.row === b.row ? a.col - b.col : a.row - b.row);
+                const hybridSorted = sortCoords([...hybridBorderCells]);
+                const traditionalSorted = sortCoords([...traditionalBorderCells]);
+                
+                const borderMatch = hybridSorted.length === traditionalSorted.length &&
+                    hybridSorted.every((coord, i) => 
+                        coord.row === traditionalSorted[i].row && coord.col === traditionalSorted[i].col
+                    );
+                
+                if (borderMatch) {
+                    results.push("✅ Test 5: ハイブリッド境界セル検出 - 従来版と一致");
+                } else {
+                    results.push(`❌ Test 5: ハイブリッド境界セル検出 - 従来版と不一致 (hybrid: ${hybridSorted.length}, traditional: ${traditionalSorted.length})`);
+                    console.log('Hybrid:', hybridSorted);
+                    console.log('Traditional:', traditionalSorted);
+                }
+                
+                // Test 6: パフォーマンステスト（簡易版）
+                const iterations = 100;
+                
+                const startHybrid = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    csp.getBorderCellsHybrid();
+                }
+                const timeHybrid = performance.now() - startHybrid;
+                
+                const startTraditional = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    csp.getBorderCells();
+                }
+                const timeTraditional = performance.now() - startTraditional;
+                
+                const improvement = timeTraditional > 0 ? ((timeTraditional - timeHybrid) / timeTraditional * 100).toFixed(1) : "0.0";
+                results.push(`📊 Test 6: パフォーマンス比較 - ハイブリッド版: ${timeHybrid.toFixed(2)}ms, 従来版: ${timeTraditional.toFixed(2)}ms (改善率: ${improvement}%)`);
+                
+            } catch (error) {
+                results.push(`❌ エラー発生: ${error.message}`);
+                console.error(error);
+            }
+            
+            // 結果表示
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '<h2>テスト結果</h2>' + 
+                results.map(result => `<p>${result}</p>`).join('');
+            
+            console.log('Phase1-2 テスト結果:', results);
+            
+            return results.filter(r => r.startsWith('❌')).length === 0;
+        }
+        
+        // ページ読み込み完了後にテスト実行
+        window.addEventListener('load', () => {
+            setTimeout(runPhase1_2Tests, 100);
+        });
+    </script>
+</body>
+</html>

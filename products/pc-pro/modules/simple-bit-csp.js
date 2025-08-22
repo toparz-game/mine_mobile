@@ -262,6 +262,90 @@ class SimpleBitCSP {
         return coords;
     }
     
+    // Phase1-2: 境界セル検出の部分ビット化
+    
+    // 未開セルのビットマップを生成
+    getUnknownCellsBit(resultBits) {
+        this.clearBits(resultBits);
+        
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                // 未開かつ旗が立っていないセル
+                if (!this.game.revealed[row][col] && !this.game.flagged[row][col]) {
+                    this.setBit(resultBits, row, col, true);
+                }
+            }
+        }
+    }
+    
+    // 開示済みセルのビットマップを生成
+    getRevealedCellsBit(resultBits) {
+        this.clearBits(resultBits);
+        
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                if (this.game.revealed[row][col]) {
+                    this.setBit(resultBits, row, col, true);
+                }
+            }
+        }
+    }
+    
+    // 数字セル（地雷数が1以上の開示済みセル）のビットマップを生成
+    getNumberCellsBit(resultBits) {
+        this.clearBits(resultBits);
+        
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                if (this.game.revealed[row][col] && this.game.board[row][col] > 0) {
+                    this.setBit(resultBits, row, col, true);
+                }
+            }
+        }
+    }
+    
+    // 旗が立っているセルのビットマップを生成
+    getFlaggedCellsBit(resultBits) {
+        this.clearBits(resultBits);
+        
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                if (this.game.flagged[row][col]) {
+                    this.setBit(resultBits, row, col, true);
+                }
+            }
+        }
+    }
+    
+    // ハイブリッド版境界セル検出（処理はビット、出力は従来形式）
+    getBorderCellsHybrid() {
+        // 必要なビット配列を準備
+        const unknownBits = new Uint32Array(this.intsNeeded);
+        const numberBits = new Uint32Array(this.intsNeeded);
+        const borderBits = new Uint32Array(this.intsNeeded);
+        const tempBits = new Uint32Array(this.intsNeeded);
+        
+        // 基本的なセル分類をビット化
+        this.getUnknownCellsBit(unknownBits);
+        this.getNumberCellsBit(numberBits);
+        this.clearBits(borderBits);
+        
+        // 各数字セルの隣接する未開セルを境界セルに追加
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                if (this.getBit(numberBits, row, col)) {
+                    // この数字セルの隣接セルを取得
+                    this.getNeighborCellsBit(row, col, unknownBits, tempBits);
+                    // 境界セルに追加（OR演算）
+                    this.orBits(borderBits, tempBits, borderBits);
+                }
+            }
+        }
+        
+        // ビット配列から従来形式の座標配列に変換
+        return this.bitsToCoords(borderBits);
+    }
+    
     // 未知セルの取得（従来版）
     getUnknownCells() {
         const unknownCells = [];
