@@ -346,6 +346,53 @@ class SimpleBitCSP {
         return this.bitsToCoords(borderBits);
     }
     
+    // 完全ビット化版境界セル検出（入出力すべてビット形式）
+    getBorderCellsBit(resultBits) {
+        // 必要なビット配列を準備（再利用可能な一時配列を使用）
+        const unknownBits = this.tempBits1;
+        const numberBits = this.tempBits2;
+        const tempBits = this.tempBits3;
+        
+        // 基本的なセル分類をビット化
+        this.getUnknownCellsBit(unknownBits);
+        this.getNumberCellsBit(numberBits);
+        this.clearBits(resultBits);
+        
+        // 各数字セルの隣接する未開セルを境界セルに追加
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                if (this.getBit(numberBits, row, col)) {
+                    // この数字セルの隣接セルを取得
+                    this.getNeighborCellsBit(row, col, unknownBits, tempBits);
+                    // 境界セルに追加（OR演算）
+                    this.orBits(resultBits, tempBits, resultBits);
+                }
+            }
+        }
+    }
+    
+    // ビット結果から従来形式への変換ヘルパー
+    getBorderCellsFromBits() {
+        const borderBits = new Uint32Array(this.intsNeeded);
+        this.getBorderCellsBit(borderBits);
+        return this.bitsToCoords(borderBits);
+    }
+    
+    // 境界セル検出の統合インターフェース（フラグで切り替え可能）
+    getBorderCellsUnified(useBitVersion = true, returnAsCoords = true) {
+        if (useBitVersion) {
+            if (returnAsCoords) {
+                return this.getBorderCellsFromBits();
+            } else {
+                const borderBits = new Uint32Array(this.intsNeeded);
+                this.getBorderCellsBit(borderBits);
+                return borderBits;
+            }
+        } else {
+            return this.getBorderCells();
+        }
+    }
+    
     // 未知セルの取得（従来版）
     getUnknownCells() {
         const unknownCells = [];

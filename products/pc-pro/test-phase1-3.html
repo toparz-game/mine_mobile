@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase1-3 Test</title>
+</head>
+<body>
+    <h1>Phase1-3: 境界セル検出の完全ビット化テスト</h1>
+    <div id="test-results"></div>
+    <script src="../../core/minesweeper-core.js"></script>
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+    <script>
+        function runPhase1_3Tests() {
+            const results = [];
+            
+            try {
+                // テスト用のゲーム状態を作成（6x6の盤面）
+                const game = {
+                    rows: 6,
+                    cols: 6,
+                    mineCount: 5,
+                    board: [
+                        [1, 1, 1, 0, 0, 0],
+                        [1, -1, 2, 1, 0, 0], // -1は地雷
+                        [1, 1, 2, -1, 1, 0],
+                        [0, 0, 1, 1, 1, 0],
+                        [0, 0, 0, 0, 0, 0],
+                        [0, 0, 0, 0, 0, 0]
+                    ],
+                    revealed: [
+                        [true,  true,  false, false, false, false],
+                        [true,  false, false, true,  false, false],
+                        [true,  true,  true,  false, false, false],
+                        [false, false, true,  true,  false, false],
+                        [false, false, false, false, false, false],
+                        [false, false, false, false, false, false]
+                    ],
+                    flagged: [
+                        [false, false, false, false, false, false],
+                        [false, true,  false, false, false, false], // (1,1)に旗
+                        [false, false, false, true,  false, false], // (2,3)に旗
+                        [false, false, false, false, false, false],
+                        [false, false, false, false, false, false],
+                        [false, false, false, false, false, false]
+                    ]
+                };
+                
+                const bitSystem = new BitMinesweeperSystem(6, 6);
+                const csp = new SimpleBitCSP(game, bitSystem);
+                
+                results.push("✅ テスト環境セットアップ成功");
+                
+                // Test 1: 完全ビット版境界セル検出
+                const borderBits = new Uint32Array(csp.intsNeeded);
+                csp.getBorderCellsBit(borderBits);
+                const bitBorderCoords = csp.bitsToCoords(borderBits);
+                
+                // Phase1-2の結果と比較
+                const hybridBorderCoords = csp.getBorderCellsHybrid();
+                const traditionalBorderCoords = csp.getBorderCells();
+                
+                const sortCoords = (coords) => coords.sort((a, b) => a.row === b.row ? a.col - b.col : a.row - b.row);
+                const bitSorted = sortCoords([...bitBorderCoords]);
+                const hybridSorted = sortCoords([...hybridBorderCoords]);
+                const traditionalSorted = sortCoords([...traditionalBorderCoords]);
+                
+                const bitVsHybridMatch = bitSorted.length === hybridSorted.length &&
+                    bitSorted.every((coord, i) => 
+                        coord.row === hybridSorted[i].row && coord.col === hybridSorted[i].col
+                    );
+                    
+                const bitVsTraditionalMatch = bitSorted.length === traditionalSorted.length &&
+                    bitSorted.every((coord, i) => 
+                        coord.row === traditionalSorted[i].row && coord.col === traditionalSorted[i].col
+                    );
+                
+                if (bitVsHybridMatch && bitVsTraditionalMatch) {
+                    results.push("✅ Test 1: 完全ビット版境界セル検出 - 全バージョンと一致");
+                } else {
+                    results.push(`❌ Test 1: 完全ビット版境界セル検出 - 不一致 (bit:${bitSorted.length}, hybrid:${hybridSorted.length}, traditional:${traditionalSorted.length})`);
+                    console.log('Bit version:', bitSorted);
+                    console.log('Hybrid version:', hybridSorted);
+                    console.log('Traditional version:', traditionalSorted);
+                }
+                
+                // Test 2: ビット結果から従来形式への変換ヘルパーテスト
+                const helperBorderCoords = csp.getBorderCellsFromBits();
+                const helperSorted = sortCoords([...helperBorderCoords]);
+                
+                const helperMatch = helperSorted.length === bitSorted.length &&
+                    helperSorted.every((coord, i) => 
+                        coord.row === bitSorted[i].row && coord.col === bitSorted[i].col
+                    );
+                
+                if (helperMatch) {
+                    results.push("✅ Test 2: ビット→従来形式変換ヘルパー - 正常動作");
+                } else {
+                    results.push("❌ Test 2: ビット→従来形式変換ヘルパー - 異常");
+                }
+                
+                // Test 3: 統合インターフェースのテスト
+                const unifiedBitCoords = csp.getBorderCellsUnified(true, true);
+                const unifiedTraditionalCoords = csp.getBorderCellsUnified(false, true);
+                const unifiedBitBits = csp.getBorderCellsUnified(true, false);
+                
+                const unifiedBitSorted = sortCoords([...unifiedBitCoords]);
+                const unifiedTraditionalSorted = sortCoords([...unifiedTraditionalCoords]);
+                const unifiedBitFromBits = sortCoords([...csp.bitsToCoords(unifiedBitBits)]);
+                
+                const unifiedMatch = unifiedBitSorted.length === unifiedTraditionalSorted.length &&
+                    unifiedBitSorted.length === unifiedBitFromBits.length &&
+                    unifiedBitSorted.every((coord, i) => 
+                        coord.row === unifiedTraditionalSorted[i].row && coord.col === unifiedTraditionalSorted[i].col &&
+                        coord.row === unifiedBitFromBits[i].row && coord.col === unifiedBitFromBits[i].col
+                    );
+                
+                if (unifiedMatch) {
+                    results.push("✅ Test 3: 統合インターフェース - 全モードで一致");
+                } else {
+                    results.push("❌ Test 3: 統合インターフェース - 不一致");
+                }
+                
+                // Test 4: メモリ効率テスト（一時配列の再利用確認）
+                const tempBits1Before = new Uint32Array(csp.tempBits1);
+                const tempBits2Before = new Uint32Array(csp.tempBits2);
+                const tempBits3Before = new Uint32Array(csp.tempBits3);
+                
+                csp.getBorderCellsBit(borderBits);
+                
+                // 一時配列が変更されていることを確認（再利用されている証拠）
+                const tempBitsUsed = !csp.equalsBits(csp.tempBits1, tempBits1Before) ||
+                                  !csp.equalsBits(csp.tempBits2, tempBits2Before) ||
+                                  !csp.equalsBits(csp.tempBits3, tempBits3Before);
+                
+                if (tempBitsUsed) {
+                    results.push("✅ Test 4: メモリ効率 - 一時配列が正常に再利用されている");
+                } else {
+                    results.push("❌ Test 4: メモリ効率 - 一時配列が使用されていない可能性");
+                }
+                
+                // Test 5: エッジケース（境界セルがない場合）
+                const emptyGame = {
+                    rows: 3,
+                    cols: 3,
+                    mineCount: 0,
+                    board: [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+                    revealed: [[false, false, false], [false, false, false], [false, false, false]],
+                    flagged: [[false, false, false], [false, false, false], [false, false, false]]
+                };
+                
+                const emptyBitSystem = new BitMinesweeperSystem(3, 3);
+                const emptyCSP = new SimpleBitCSP(emptyGame, emptyBitSystem);
+                const emptyBorderBits = new Uint32Array(emptyCSP.intsNeeded);
+                
+                emptyCSP.getBorderCellsBit(emptyBorderBits);
+                const emptyBorderCoords = emptyCSP.bitsToCoords(emptyBorderBits);
+                
+                if (emptyBorderCoords.length === 0) {
+                    results.push("✅ Test 5: エッジケース（境界なし） - 正常動作");
+                } else {
+                    results.push(`❌ Test 5: エッジケース（境界なし） - 異常 (count: ${emptyBorderCoords.length})`);
+                }
+                
+                // Test 6: パフォーマンステスト
+                const iterations = 200;
+                
+                const startBit = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    csp.getBorderCellsBit(borderBits);
+                }
+                const timeBit = performance.now() - startBit;
+                
+                const startHybrid = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    csp.getBorderCellsHybrid();
+                }
+                const timeHybrid = performance.now() - startHybrid;
+                
+                const startTraditional = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    csp.getBorderCells();
+                }
+                const timeTraditional = performance.now() - startTraditional;
+                
+                const bitImprovement = timeTraditional > 0 ? ((timeTraditional - timeBit) / timeTraditional * 100).toFixed(1) : "0.0";
+                const hybridImprovement = timeTraditional > 0 ? ((timeTraditional - timeHybrid) / timeTraditional * 100).toFixed(1) : "0.0";
+                
+                results.push(`📊 Test 6: パフォーマンス比較`);
+                results.push(`   完全ビット版: ${timeBit.toFixed(2)}ms (改善率: ${bitImprovement}%)`);
+                results.push(`   ハイブリッド版: ${timeHybrid.toFixed(2)}ms (改善率: ${hybridImprovement}%)`);
+                results.push(`   従来版: ${timeTraditional.toFixed(2)}ms`);
+                
+            } catch (error) {
+                results.push(`❌ エラー発生: ${error.message}`);
+                console.error(error);
+            }
+            
+            // 結果表示
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '<h2>テスト結果</h2>' + 
+                results.map(result => `<p>${result}</p>`).join('');
+            
+            console.log('Phase1-3 テスト結果:', results);
+            
+            return results.filter(r => r.startsWith('❌')).length === 0;
+        }
+        
+        // ページ読み込み完了後にテスト実行
+        window.addEventListener('load', () => {
+            setTimeout(runPhase1_3Tests, 100);
+        });
+    </script>
+</body>
+</html>
