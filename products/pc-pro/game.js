@@ -50,6 +50,7 @@ class PCProMinesweeper extends PCMinesweeper {
         
         // CSPソルバー
         this.cspSolver = null;
+        console.log('[DEBUG] PCProMinesweeper constructor, initial cspSolver:', this.cspSolver);
         this.probabilityMode = false;
         this.assistMode = false; // 補助モード
         this.isRevealing = false; // 再帰的な開示処理中フラグ
@@ -61,24 +62,32 @@ class PCProMinesweeper extends PCMinesweeper {
     }
     
     initPro() {
+        console.log('[DEBUG] initPro called');
         this.loadStatistics();
         this.loadSettings();
         this.setupProEventListeners();
         this.initSounds();
         this.initCSPSolver();
+        console.log('[DEBUG] initPro completed, cspSolver:', this.cspSolver);
     }
     
     initBoard(rows, cols, mines) {
+        console.log('[DEBUG] initBoard called with', rows, 'x', cols);
         super.initBoard(rows, cols, mines);
         
         // ビット管理システムに移行
         this.bitSystem = new BitMinesweeperSystem(rows, cols);
+        console.log('[DEBUG] BitMinesweeperSystem created:', this.bitSystem);
         
         // 既存のプロパティをビット管理システムのものに置き換え
         this.board = this.bitSystem.board;
         this.revealed = this.bitSystem.revealed;
         this.flagged = this.bitSystem.flagged;
         this.questioned = this.bitSystem.questioned;
+        
+        // CSPソルバーを再初期化（ビットシステムができてから）
+        this.initCSPSolver();
+        console.log('[DEBUG] initBoard completed, cspSolver:', this.cspSolver);
     }
     
     setupProEventListeners() {
@@ -848,6 +857,8 @@ class PCProMinesweeper extends PCMinesweeper {
     }
     
     newGame() {
+        console.log('[DEBUG] newGame called');
+        
         // 現在のモード状態を保存
         const probabilityModeState = this.probabilityMode;
         const assistModeState = this.assistMode;
@@ -877,6 +888,8 @@ class PCProMinesweeper extends PCMinesweeper {
         // 基本的なnewGame処理
         super.newGame();
         
+        console.log('[DEBUG] newGame completed, cspSolver:', this.cspSolver);
+        
         // モード状態を復元
         if (probabilityModeState) {
             this.probabilityMode = true;
@@ -897,27 +910,39 @@ class PCProMinesweeper extends PCMinesweeper {
     
     // CSPソルバー関連メソッド
     initCSPSolver() {
-        if (typeof CSPSolver !== 'undefined') {
-            this.cspSolver = new CSPSolver(this);
-            
-            // ビット管理CSPソルバーも初期化（実験的機能）
-            if (typeof BitCSPOperations !== 'undefined' && this.bitSystem) {
-                this.bitCSPSolver = new BitCSPOperations(this, this.bitSystem);
-                console.log('[DEBUG] BitCSPSolver initialized with memory reduction:', 
-                           this.bitCSPSolver.getMemoryUsage().reduction + '%');
-            }
+        console.log('[DEBUG] initCSPSolver called');
+        console.log('[DEBUG] typeof SimpleBitCSP:', typeof SimpleBitCSP);
+        console.log('[DEBUG] this.bitSystem:', this.bitSystem);
+        console.log('[DEBUG] Current cspSolver:', this.cspSolver);
+        
+        // シンプルビットCSPソルバーを使用（段階的テスト）
+        if (typeof SimpleBitCSP !== 'undefined' && this.bitSystem) {
+            this.cspSolver = new SimpleBitCSP(this, this.bitSystem);
+            console.log('[DEBUG] SimpleBitCSP initialized with memory reduction:', 
+                       this.cspSolver.getMemoryUsage().reduction + '%');
+            console.log('[DEBUG] Traditional CSPSolver disabled - SimpleBitCSP mode');
+        } else {
+            console.log('[WARNING] SimpleBitCSP not available');
+            console.log('[WARNING] SimpleBitCSP undefined:', typeof SimpleBitCSP === 'undefined');
+            console.log('[WARNING] bitSystem null:', !this.bitSystem);
+            this.cspSolver = null;
         }
     }
     
     
     toggleProbabilityMode() {
+        console.log('[DEBUG] toggleProbabilityMode called, cspSolver:', this.cspSolver);
+        
         this.probabilityMode = !this.probabilityMode;
         const btn = document.getElementById('probability-btn');
         const boardElement = document.getElementById('game-board');
         
+        console.log('[DEBUG] probabilityMode:', this.probabilityMode);
+        
         if (this.probabilityMode) {
             btn.classList.add('active');
             boardElement.classList.add('probability-mode');
+            console.log('[DEBUG] About to call calculateAndDisplayProbabilities, cspSolver:', this.cspSolver);
             this.calculateAndDisplayProbabilities();
         } else {
             btn.classList.remove('active');
@@ -944,14 +969,25 @@ class PCProMinesweeper extends PCMinesweeper {
     
 
     calculateAndDisplayAssist() {
-        if (!this.cspSolver) return;
+        console.log('[DEBUG] calculateAndDisplayAssist called');
+        console.log('[DEBUG] this.cspSolver:', this.cspSolver);
+        
+        if (!this.cspSolver) {
+            console.log('[WARNING] No CSP solver available for assist');
+            return;
+        }
+        
+        console.log('[DEBUG] CSP solver available for assist, starting calculation');
         
         // 計算中インジケーターを表示
         this.showCalculatingIndicator();
         
         // 非同期で計算を実行
         setTimeout(() => {
+            console.log('[DEBUG] Calling cspSolver.calculateProbabilities() for assist');
             const result = this.cspSolver.calculateProbabilities();
+            console.log('[DEBUG] CSP assist calculation result:', result);
+            
             // 永続確率と通常確率をマージして表示用の確率を作成
             const displayProbabilities = this.mergeWithPersistentProbabilities(result.probabilities);
             this.displayAssist(displayProbabilities);
@@ -1260,14 +1296,25 @@ class PCProMinesweeper extends PCMinesweeper {
     }
     
     calculateAndDisplayProbabilities() {
-        if (!this.cspSolver) return;
+        console.log('[DEBUG] calculateAndDisplayProbabilities called');
+        console.log('[DEBUG] this.cspSolver:', this.cspSolver);
+        
+        if (!this.cspSolver) {
+            console.log('[WARNING] No CSP solver available');
+            return;
+        }
+        
+        console.log('[DEBUG] CSP solver available, starting calculation');
         
         // 計算中インジケーターを表示
         this.showCalculatingIndicator();
         
         // 非同期で計算を実行
         setTimeout(() => {
+            console.log('[DEBUG] Calling cspSolver.calculateProbabilities()');
             const result = this.cspSolver.calculateProbabilities();
+            console.log('[DEBUG] CSP calculation result:', result);
+            
             // 永続確率と通常確率をマージして表示用の確率を作成
             const displayProbabilities = this.mergeWithPersistentProbabilities(result.probabilities);
             this.displayProbabilities(displayProbabilities, result.globalProbability);
