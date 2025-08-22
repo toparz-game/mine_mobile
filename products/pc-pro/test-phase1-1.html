@@ -88,6 +88,87 @@
                     results.push(`❌ Test 4: 空配列テスト - 異常 (count: ${emptyCount}, expected: 0)`);
                 }
                 
+                // Test 5: ビット演算テスト
+                const bits1 = new Uint32Array(csp.intsNeeded);
+                const bits2 = new Uint32Array(csp.intsNeeded);
+                const resultBitsOp = new Uint32Array(csp.intsNeeded);
+                
+                csp.setBit(bits1, 3, 3, true);
+                csp.setBit(bits1, 4, 4, true);
+                csp.setBit(bits2, 4, 4, true);
+                csp.setBit(bits2, 5, 5, true);
+                
+                // AND演算テスト
+                csp.andBits(bits1, bits2, resultBitsOp);
+                const andResult = csp.getBit(resultBitsOp, 4, 4) && 
+                                !csp.getBit(resultBitsOp, 3, 3) && 
+                                !csp.getBit(resultBitsOp, 5, 5);
+                
+                if (andResult) {
+                    results.push("✅ Test 5a: AND演算 - 正常動作");
+                } else {
+                    results.push("❌ Test 5a: AND演算 - 異常");
+                }
+                
+                // OR演算テスト
+                csp.orBits(bits1, bits2, resultBitsOp);
+                const orResult = csp.getBit(resultBitsOp, 3, 3) && 
+                               csp.getBit(resultBitsOp, 4, 4) && 
+                               csp.getBit(resultBitsOp, 5, 5);
+                
+                if (orResult) {
+                    results.push("✅ Test 5b: OR演算 - 正常動作");
+                } else {
+                    results.push("❌ Test 5b: OR演算 - 異常");
+                }
+                
+                // コピーテスト
+                csp.copyBits(bits1, resultBitsOp);
+                const copyResult = csp.equalsBits(bits1, resultBitsOp);
+                
+                if (copyResult) {
+                    results.push("✅ Test 5c: ビット配列コピー - 正常動作");
+                } else {
+                    results.push("❌ Test 5c: ビット配列コピー - 異常");
+                }
+                
+                // 空チェックテスト
+                csp.clearBits(resultBitsOp);
+                const emptyResult = csp.isEmptyBits(resultBitsOp);
+                const notEmptyResult = !csp.isEmptyBits(bits1);
+                
+                if (emptyResult && notEmptyResult) {
+                    results.push("✅ Test 5d: 空配列チェック - 正常動作");
+                } else {
+                    results.push("❌ Test 5d: 空配列チェック - 異常");
+                }
+                
+                // Test 6: デバッグ機能テスト
+                try {
+                    // ビット表示テスト（エラーなく実行できるか）
+                    csp.debugPrintBits(bits1, "テスト用ビット配列");
+                    csp.debugBitStats(bits1, "テスト統計");
+                    
+                    // 座標変換テスト
+                    const testCoords = [{row: 2, col: 2}, {row: 3, col: 3}];
+                    const coordBits = new Uint32Array(csp.intsNeeded);
+                    csp.coordsToBits(testCoords, coordBits);
+                    const convertedCoords = csp.bitsToCoords(coordBits);
+                    
+                    const coordsMatch = testCoords.length === convertedCoords.length &&
+                        testCoords.every(coord => 
+                            convertedCoords.some(c => c.row === coord.row && c.col === coord.col)
+                        );
+                    
+                    if (coordsMatch) {
+                        results.push("✅ Test 6: デバッグ機能・座標変換 - 正常動作");
+                    } else {
+                        results.push("❌ Test 6: デバッグ機能・座標変換 - 異常");
+                    }
+                } catch (debugError) {
+                    results.push(`❌ Test 6: デバッグ機能でエラー - ${debugError.message}`);
+                }
+                
             } catch (error) {
                 results.push(`❌ エラー発生: ${error.message}`);
                 console.error(error);

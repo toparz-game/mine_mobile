@@ -120,6 +120,148 @@ class SimpleBitCSP {
         return count;
     }
     
+    // ビット配列の基本演算メソッド
+    
+    // AND演算: result = bits1 & bits2
+    andBits(bits1, bits2, result) {
+        for (let i = 0; i < this.intsNeeded; i++) {
+            result[i] = bits1[i] & bits2[i];
+        }
+    }
+    
+    // OR演算: result = bits1 | bits2
+    orBits(bits1, bits2, result) {
+        for (let i = 0; i < this.intsNeeded; i++) {
+            result[i] = bits1[i] | bits2[i];
+        }
+    }
+    
+    // XOR演算: result = bits1 ^ bits2
+    xorBits(bits1, bits2, result) {
+        for (let i = 0; i < this.intsNeeded; i++) {
+            result[i] = bits1[i] ^ bits2[i];
+        }
+    }
+    
+    // NOT演算: result = ~bits（有効な範囲のみ）
+    notBits(bits, result) {
+        for (let i = 0; i < this.intsNeeded; i++) {
+            result[i] = ~bits[i];
+        }
+        // 最後のintで使用していない上位ビットをクリア
+        const lastIntBits = this.totalCells % this.bitsPerInt;
+        if (lastIntBits > 0 && this.intsNeeded > 0) {
+            const mask = (1 << lastIntBits) - 1;
+            result[this.intsNeeded - 1] &= mask;
+        }
+    }
+    
+    // ビット配列のコピー
+    copyBits(source, dest) {
+        for (let i = 0; i < this.intsNeeded; i++) {
+            dest[i] = source[i];
+        }
+    }
+    
+    // ビット配列の比較（同じ内容かチェック）
+    equalsBits(bits1, bits2) {
+        for (let i = 0; i < this.intsNeeded; i++) {
+            if (bits1[i] !== bits2[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    // ビット配列が空かチェック
+    isEmptyBits(bits) {
+        for (let i = 0; i < this.intsNeeded; i++) {
+            if (bits[i] !== 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    // デバッグ用ビット表示メソッド
+    
+    // ビット配列を視覚的に表示（デバッグ用）
+    debugPrintBits(bits, title = "ビット配列") {
+        console.log(`=== ${title} ===`);
+        
+        let output = "";
+        for (let row = 0; row < this.rows; row++) {
+            let rowStr = "";
+            for (let col = 0; col < this.cols; col++) {
+                rowStr += this.getBit(bits, row, col) ? "1" : "0";
+                if (col < this.cols - 1) rowStr += " ";
+            }
+            output += `${row.toString().padStart(2)}: ${rowStr}\n`;
+        }
+        console.log(output);
+    }
+    
+    // ビット配列の統計情報を表示
+    debugBitStats(bits, title = "統計情報") {
+        const count = this.popCountBits(bits);
+        const isEmpty = this.isEmptyBits(bits);
+        const totalCells = this.rows * this.cols;
+        const percentage = totalCells > 0 ? ((count / totalCells) * 100).toFixed(1) : "0.0";
+        
+        console.log(`=== ${title} ===`);
+        console.log(`設定済みビット数: ${count}`);
+        console.log(`総セル数: ${totalCells}`);
+        console.log(`使用率: ${percentage}%`);
+        console.log(`空配列: ${isEmpty ? "はい" : "いいえ"}`);
+    }
+    
+    // 2つのビット配列の差分を表示
+    debugCompareBits(bits1, bits2, title1 = "配列1", title2 = "配列2") {
+        console.log(`=== ${title1} vs ${title2} の比較 ===`);
+        
+        let differences = [];
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                const bit1 = this.getBit(bits1, row, col);
+                const bit2 = this.getBit(bits2, row, col);
+                
+                if (bit1 !== bit2) {
+                    differences.push(`(${row},${col}): ${title1}=${bit1 ? 1 : 0}, ${title2}=${bit2 ? 1 : 0}`);
+                }
+            }
+        }
+        
+        if (differences.length === 0) {
+            console.log("完全一致");
+        } else {
+            console.log(`相違点 ${differences.length}個:`);
+            differences.forEach(diff => console.log(`  ${diff}`));
+        }
+        
+        return differences.length === 0;
+    }
+    
+    // 座標リストからビット配列への変換（デバッグ用）
+    coordsToBits(coords, bits) {
+        this.clearBits(bits);
+        for (const coord of coords) {
+            this.setBit(bits, coord.row, coord.col, true);
+        }
+    }
+    
+    // ビット配列から座標リストへの変換（デバッグ用）
+    bitsToCoords(bits) {
+        const coords = [];
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                if (this.getBit(bits, row, col)) {
+                    coords.push({ row, col });
+                }
+            }
+        }
+        return coords;
+    }
+    
     // 未知セルの取得（従来版）
     getUnknownCells() {
         const unknownCells = [];
