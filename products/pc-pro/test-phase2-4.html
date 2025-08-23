@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase2-4: 制約解決処理のビット化テスト</title>
+    <style>
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .test-section {
+            background-color: #2d2d2d;
+            border: 1px solid #555;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        .info { color: #2196F3; }
+        .test-button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s;
+        }
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+        }
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background-color: #333;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .result-table th, .result-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #555;
+        }
+        .result-table th {
+            background-color: #444;
+            font-weight: bold;
+        }
+        .log-output {
+            background-color: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stats-card {
+            background-color: #333;
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+        }
+        .stats-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .stats-label {
+            color: #aaa;
+            font-size: 12px;
+        }
+        .performance-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .performance-metric {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Phase2-4: 制約解決処理のビット化テスト</h1>
+            <p>ビット化されたCSP制約解決・解の統合・最適化処理のテスト</p>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 テスト実行</h2>
+            <button class="test-button" onclick="runAllTests()">📊 全テスト実行</button>
+            <button class="test-button" onclick="testConstraintSolving()">🔍 制約解決テスト</button>
+            <button class="test-button" onclick="testGroupSolving()">👥 グループ解決テスト</button>
+            <button class="test-button" onclick="testBruteForceAnalysis()">🔢 総当たり解析テスト</button>
+            <button class="test-button" onclick="testHeuristicSolving()">🧠 ヒューリスティック解決テスト</button>
+            <button class="test-button" onclick="testSolutionUnification()">🔗 解統合テスト</button>
+            <button class="test-button" onclick="testConstraintPropagation()">⚡ 制約伝播テスト</button>
+            <button class="test-button" onclick="clearResults()">🗑️ 結果クリア</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 テスト結果</h3>
+            <div id="testResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>⚡ パフォーマンス指標</h3>
+            <div id="performanceMetrics" class="performance-card"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 統計情報</h3>
+            <div id="stats" class="stats-grid"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 デバッグログ</h3>
+            <div id="debugLog" class="log-output"></div>
+        </div>
+    </div>
+
+    <!-- ゲームとビットシステムのロード -->
+    <script src="../../core/minesweeper-core.js"></script>
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+
+    <script>
+        let game, bitSystem, cspSolver;
+        let testResults = [];
+        let performanceData = {};
+
+        function initializeGame() {
+            try {
+                // テスト専用：MinesweeperCoreから直接継承したテストクラス
+                class TestMinesweeper extends MinesweeperCore {
+                    constructor(rows, cols, mines) {
+                        super();
+                        this.rows = rows;
+                        this.cols = cols;
+                        this.mineCount = mines;
+                        // DOM関連の初期化をスキップ
+                    }
+                }
+                
+                game = new TestMinesweeper(9, 9, 10);
+                
+                // ボードを手動で初期化
+                game.board = Array(game.rows).fill(null).map(() => Array(game.cols).fill(0));
+                game.revealed = Array(game.rows).fill(null).map(() => Array(game.cols).fill(false));
+                game.flagged = Array(game.rows).fill(null).map(() => Array(game.cols).fill(false));
+                game.mines = [];
+                
+                // 適当な地雷配置（テスト用）
+                const minePositions = [[0,0], [0,8], [8,0], [8,8], [4,4], [2,6], [6,2], [1,7], [7,1], [3,5]];
+                for (const [row, col] of minePositions) {
+                    game.mines.push({row, col});
+                    game.board[row][col] = -1;
+                }
+                
+                // 数字を計算
+                for (let row = 0; row < game.rows; row++) {
+                    for (let col = 0; col < game.cols; col++) {
+                        if (game.board[row][col] !== -1) {
+                            let count = 0;
+                            for (let dr = -1; dr <= 1; dr++) {
+                                for (let dc = -1; dc <= 1; dc++) {
+                                    const newRow = row + dr;
+                                    const newCol = col + dc;
+                                    if (newRow >= 0 && newRow < game.rows && 
+                                        newCol >= 0 && newCol < game.cols && 
+                                        game.board[newRow][newCol] === -1) {
+                                        count++;
+                                    }
+                                }
+                            }
+                            game.board[row][col] = count;
+                        }
+                    }
+                }
+                
+                // テスト用にいくつかのセルを開いて制約を作れるようにする
+                const cellsToReveal = [
+                    {row: 1, col: 1}, {row: 1, col: 2}, {row: 2, col: 1}, 
+                    {row: 2, col: 2}, {row: 3, col: 3}, {row: 4, col: 4},
+                    {row: 5, col: 5}, {row: 6, col: 6}
+                ];
+                
+                for (const cell of cellsToReveal) {
+                    if (game.board[cell.row][cell.col] !== -1) {
+                        game.revealed[cell.row][cell.col] = true;
+                    }
+                }
+                
+                // ビットシステムとCSPソルバーを初期化
+                game.bitSystem = new BitMinesweeperSystem(game.rows, game.cols);
+                game.cspSolver = new SimpleBitCSP(game, game.bitSystem);
+                
+                bitSystem = game.bitSystem;
+                cspSolver = game.cspSolver;
+                
+                log('✅ ゲーム初期化完了（テスト用）', 'success');
+                log(`📊 ボード: ${game.rows}x${game.cols}, 地雷: ${game.mineCount}個`, 'info');
+                return true;
+            } catch (error) {
+                log(`❌ ゲーム初期化エラー: ${error.message}`, 'error');
+                console.error('Initialization error details:', error);
+                return false;
+            }
+        }
+
+        function log(message, type = 'info') {
+            const logElement = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type;
+            logElement.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function addTestResult(testName, passed, details = '', performance = null) {
+            testResults.push({
+                name: testName,
+                passed: passed,
+                details: details,
+                timestamp: new Date().toLocaleTimeString(),
+                performance: performance
+            });
+            
+            if (performance) {
+                performanceData[testName] = performance;
+            }
+            
+            updateResultsDisplay();
+        }
+
+        function updateResultsDisplay() {
+            const resultsElement = document.getElementById('testResults');
+            
+            if (testResults.length === 0) {
+                resultsElement.innerHTML = '<p class="info">テスト結果がありません。テストを実行してください。</p>';
+                return;
+            }
+
+            let html = '<table class="result-table">';
+            html += '<thead><tr><th>テスト名</th><th>結果</th><th>詳細</th><th>時刻</th></tr></thead><tbody>';
+            
+            for (const result of testResults) {
+                const statusClass = result.passed ? 'success' : 'error';
+                const statusIcon = result.passed ? '✅' : '❌';
+                html += `<tr>
+                    <td>${result.name}</td>
+                    <td class="${statusClass}">${statusIcon} ${result.passed ? '成功' : '失敗'}</td>
+                    <td>${result.details}</td>
+                    <td>${result.timestamp}</td>
+                </tr>`;
+            }
+            
+            html += '</tbody></table>';
+            
+            const passCount = testResults.filter(r => r.passed).length;
+            const totalCount = testResults.length;
+            const passRate = ((passCount / totalCount) * 100).toFixed(1);
+            
+            html += `<div class="info" style="margin-top: 15px;">
+                成功率: ${passCount}/${totalCount} (${passRate}%)
+            </div>`;
+            
+            resultsElement.innerHTML = html;
+        }
+
+        function updatePerformanceDisplay() {
+            const perfElement = document.getElementById('performanceMetrics');
+            
+            if (Object.keys(performanceData).length === 0) {
+                perfElement.innerHTML = '<p>パフォーマンスデータがありません。</p>';
+                return;
+            }
+
+            let html = '<h4>パフォーマンス測定結果</h4>';
+            
+            for (const [testName, perf] of Object.entries(performanceData)) {
+                html += `<div class="performance-metric">
+                    <span>${testName}:</span>
+                    <span>${perf.duration}ms</span>
+                </div>`;
+            }
+            
+            perfElement.innerHTML = html;
+        }
+
+        function updateStatsDisplay(stats) {
+            const statsElement = document.getElementById('stats');
+            
+            if (!stats) {
+                statsElement.innerHTML = '<p class="info">統計情報がありません。</p>';
+                return;
+            }
+
+            let html = '';
+            
+            // 基本統計
+            if (stats.basicOperations) {
+                html += `
+                    <div class="stats-card">
+                        <div class="stats-value">${stats.basicOperations.unionCount}</div>
+                        <div class="stats-label">和集合サイズ</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-value">${stats.basicOperations.intersectionCount}</div>
+                        <div class="stats-label">積集合サイズ</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-value">${stats.basicOperations.differenceCount}</div>
+                        <div class="stats-label">差集合サイズ</div>
+                    </div>
+                `;
+            }
+            
+            // 複数部分集合統計
+            if (stats.multipleSubsetsStats) {
+                const ms = stats.multipleSubsetsStats;
+                html += `
+                    <div class="stats-card">
+                        <div class="stats-value">${ms.totalSubsets}</div>
+                        <div class="stats-label">総部分集合数</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-value">${ms.averageCellCount.toFixed(1)}</div>
+                        <div class="stats-label">平均セル数</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-value">${ms.unionSize}</div>
+                        <div class="stats-label">全体和集合サイズ</div>
+                    </div>
+                `;
+            }
+            
+            // 最適化統計
+            if (stats.optimization) {
+                html += `
+                    <div class="stats-card">
+                        <div class="stats-value">${stats.optimization.original} → ${stats.optimization.optimized}</div>
+                        <div class="stats-label">最適化結果</div>
+                    </div>
+                `;
+            }
+            
+            // 圧縮統計
+            if (stats.compression) {
+                html += `
+                    <div class="stats-card">
+                        <div class="stats-value">${(stats.compression.ratio * 100).toFixed(1)}%</div>
+                        <div class="stats-label">圧縮率</div>
+                    </div>
+                `;
+            }
+            
+            statsElement.innerHTML = html;
+        }
+
+        function clearResults() {
+            testResults = [];
+            performanceData = {};
+            updateResultsDisplay();
+            updatePerformanceDisplay();
+            updateStatsDisplay(null);
+            document.getElementById('debugLog').innerHTML = '';
+            log('🗑️ 結果とログをクリアしました', 'info');
+        }
+
+        async function testConstraintSolving() {
+            log('🔍 制約解決テスト開始', 'info');
+            
+            try {
+                const startTime = performance.now();
+                
+                // テスト用制約を生成
+                let constraints = cspSolver.generateConstraintsHybrid();
+                if (constraints.length === 0) {
+                    log('⚠️ ハイブリッド制約生成失敗。手動制約を作成します。', 'warning');
+                    // 手動でテスト制約を作成
+                    constraints = [
+                        {
+                            cells: [{row: 1, col: 1}, {row: 1, col: 2}, {row: 2, col: 1}],
+                            expectedMines: 1,
+                            requiredMines: 1
+                        },
+                        {
+                            cells: [{row: 3, col: 3}, {row: 3, col: 4}, {row: 4, col: 3}, {row: 4, col: 4}],
+                            expectedMines: 2,
+                            requiredMines: 2
+                        }
+                    ];
+                }
+                
+                // ビット最適化制約解決を実行
+                const solution = cspSolver.solveIndependentSubsetBit(constraints, {
+                    maxIterations: 1000,
+                    timeoutMs: 5000,
+                    useBitOptimization: true
+                });
+                
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                const passed = solution && solution.hasSolution !== undefined;
+                const details = passed ? 
+                    `解決結果: ${solution.hasSolution ? '成功' : '解なし'}, タイプ: ${solution.solutionType}` :
+                    '制約解決失敗';
+                
+                addTestResult('制約解決テスト', passed, details, { duration: duration.toFixed(2) });
+                log(passed ? '✅ 制約解決テスト成功' : '❌ 制約解決テスト失敗', passed ? 'success' : 'error');
+                
+                return solution;
+                
+            } catch (error) {
+                log(`❌ 制約解決テストエラー: ${error.message}`, 'error');
+                addTestResult('制約解決テスト', false, `エラー: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function testGroupSolving() {
+            log('👥 グループ解決テスト開始', 'info');
+            
+            try {
+                const startTime = performance.now();
+                
+                // 制約から独立グループを検出
+                let constraints = cspSolver.generateConstraintsHybrid();
+                if (constraints.length === 0) {
+                    log('⚠️ ハイブリッド制約生成失敗。手動制約を使用します。', 'warning');
+                    // 手動でテスト制約を作成
+                    constraints = [
+                        {
+                            cells: [{row: 1, col: 1}, {row: 1, col: 2}],
+                            expectedMines: 1,
+                            requiredMines: 1
+                        },
+                        {
+                            cells: [{row: 5, col: 5}, {row: 5, col: 6}, {row: 6, col: 5}],
+                            expectedMines: 1,
+                            requiredMines: 1
+                        }
+                    ];
+                }
+                
+                const groups = cspSolver.divideConstraintsIntoGroups(constraints);
+                const independentGroups = cspSolver.identifyIndependentGroups(groups);
+                
+                let groupSolutions = [];
+                for (let i = 0; i < Math.min(independentGroups.length, 3); i++) {
+                    const group = independentGroups[i];
+                    const groupSolution = cspSolver.solveCompleteConstraintGroupBit(group);
+                    groupSolutions.push(groupSolution);
+                }
+                
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                const passed = independentGroups.length > 0 && groupSolutions.length > 0;
+                const details = passed ? 
+                    `${independentGroups.length}グループ検出, ${groupSolutions.filter(s => s.hasSolution).length}グループ解決` :
+                    'グループ解決失敗';
+                
+                addTestResult('グループ解決テスト', passed, details, { duration: duration.toFixed(2) });
+                log(passed ? '✅ グループ解決テスト成功' : '❌ グループ解決テスト失敗', passed ? 'success' : 'error');
+                
+                return { independentGroups, groupSolutions };
+                
+            } catch (error) {
+                log(`❌ グループ解決テストエラー: ${error.message}`, 'error');
+                addTestResult('グループ解決テスト', false, `エラー: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function testBruteForceAnalysis() {
+            log('🔢 総当たり解析テスト開始', 'info');
+            
+            try {
+                const startTime = performance.now();
+                
+                // 小規模グループを作成してテスト
+                const testGroup = {
+                    constraints: [],
+                    cells: [{row: 1, col: 1}, {row: 1, col: 2}, {row: 2, col: 1}]
+                };
+                
+                // テスト用制約を追加
+                const constraintCells = [{row: 1, col: 1}, {row: 1, col: 2}];
+                const testConstraint = {
+                    cells: constraintCells,
+                    expectedMines: 1
+                };
+                testGroup.constraints.push(testConstraint);
+                
+                const cellsBits = new Uint32Array(cspSolver.intsNeeded);
+                cspSolver.coordsToBits(testGroup.cells, cellsBits);
+                
+                // 総当たり解析を実行 (完全制約グループとして処理)
+                const result = cspSolver.solveCompleteConstraintGroupBit(testGroup, cellsBits);
+                
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                const passed = result && result.hasSolution !== undefined;
+                const details = passed ? 
+                    `解析結果: ${result.hasSolution ? '解あり' : '解なし'}, タイプ: ${result.solutionType}` :
+                    '総当たり解析失敗';
+                
+                addTestResult('総当たり解析テスト', passed, details, { duration: duration.toFixed(2) });
+                log(passed ? '✅ 総当たり解析テスト成功' : '❌ 総当たり解析テスト失敗', passed ? 'success' : 'error');
+                
+                return result;
+                
+            } catch (error) {
+                log(`❌ 総当たり解析テストエラー: ${error.message}`, 'error');
+                addTestResult('総当たり解析テスト', false, `エラー: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function testHeuristicSolving() {
+            log('🧠 ヒューリスティック解決テスト開始', 'info');
+            
+            try {
+                const startTime = performance.now();
+                
+                // 大規模グループを作成してテスト
+                const testGroup = {
+                    constraints: [],
+                    cells: []
+                };
+                
+                // 25個のセルを持つ大規模グループを作成
+                for (let row = 0; row < 5; row++) {
+                    for (let col = 0; col < 5; col++) {
+                        testGroup.cells.push({row, col});
+                    }
+                }
+                
+                // テスト用制約を追加
+                const testConstraint = {
+                    cells: [{row: 0, col: 0}, {row: 0, col: 1}, {row: 1, col: 0}],
+                    expectedMines: 1
+                };
+                testGroup.constraints.push(testConstraint);
+                
+                const cellsBits = new Uint32Array(cspSolver.intsNeeded);
+                cspSolver.coordsToBits(testGroup.cells, cellsBits);
+                
+                // ヒューリスティック解析を実行
+                const result = cspSolver.heuristicGroupSolveBit(testGroup, cellsBits);
+                
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                const passed = result && result.hasSolution !== undefined;
+                const details = passed ? 
+                    `解析結果: ${result.hasSolution ? '解あり' : '解なし'}, タイプ: ${result.solutionType}` :
+                    'ヒューリスティック解析失敗';
+                
+                addTestResult('ヒューリスティック解決テスト', passed, details, { duration: duration.toFixed(2) });
+                log(passed ? '✅ ヒューリスティック解決テスト成功' : '❌ ヒューリスティック解決テスト失敗', passed ? 'success' : 'error');
+                
+                return result;
+                
+            } catch (error) {
+                log(`❌ ヒューリスティック解決テストエラー: ${error.message}`, 'error');
+                addTestResult('ヒューリスティック解決テスト', false, `エラー: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function testSolutionUnification() {
+            log('🔗 解統合テスト開始', 'info');
+            
+            try {
+                const startTime = performance.now();
+                
+                // 複数の部分解を作成
+                const solution1 = {
+                    hasSolution: true,
+                    definitiveCells: { mines: [{row: 1, col: 1}], safes: [{row: 1, col: 2}] },
+                    probabilityDistribution: new Map([['2,1', 0.3]]),
+                    solutionType: 'partial'
+                };
+                
+                const solution2 = {
+                    hasSolution: true,
+                    definitiveCells: { mines: [{row: 3, col: 3}], safes: [{row: 3, col: 4}] },
+                    probabilityDistribution: new Map([['4,3', 0.7]]),
+                    solutionType: 'partial'
+                };
+                
+                const partialSolutions = [solution1, solution2];
+                const constraints = [
+                    {
+                        cells: [{row: 1, col: 1}, {row: 1, col: 2}],
+                        expectedMines: 1
+                    }
+                ];
+                
+                // 解を統合
+                const unifiedSolution = cspSolver.unifySolutionsBit(partialSolutions, constraints);
+                
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                const passed = unifiedSolution && unifiedSolution.hasSolution && unifiedSolution.solutionType === 'unified';
+                const details = passed ? 
+                    `統合成功: ${unifiedSolution.definitiveCells.mines.length}地雷, ${unifiedSolution.definitiveCells.safes.length}安全` :
+                    '解統合失敗';
+                
+                addTestResult('解統合テスト', passed, details, { duration: duration.toFixed(2) });
+                log(passed ? '✅ 解統合テスト成功' : '❌ 解統合テスト失敗', passed ? 'success' : 'error');
+                
+                return unifiedSolution;
+                
+            } catch (error) {
+                log(`❌ 解統合テストエラー: ${error.message}`, 'error');
+                addTestResult('解統合テスト', false, `エラー: ${error.message}`);
+                return null;
+            }
+        }
+
+        // testCompression removed - not needed for Phase2-4
+
+        async function testConstraintPropagation() {
+            log('⚡ 制約伝播テスト開始', 'info');
+            
+            try {
+                const startTime = performance.now();
+                
+                // テスト用制約を作成
+                const constraints = [
+                    {
+                        cells: [{row: 1, col: 1}, {row: 1, col: 2}],
+                        expectedMines: 1
+                    },
+                    {
+                        cells: [{row: 1, col: 2}, {row: 2, col: 1}],
+                        expectedMines: 0
+                    }
+                ];
+                
+                // 制約伝播を実行
+                const propagationResult = cspSolver.propagateConstraintsBit(constraints);
+                
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                const passed = propagationResult && !propagationResult.hasContradiction;
+                const details = passed ? 
+                    `伝播成功: ${propagationResult.iterationCount}回反復, 矛盾なし` :
+                    propagationResult?.hasContradiction ? '矛盾検出' : '制約伝播失敗';
+                
+                addTestResult('制約伝播テスト', passed, details, { duration: duration.toFixed(2) });
+                log(passed ? '✅ 制約伝播テスト成功' : '❌ 制約伝播テスト失敗', passed ? 'success' : 'error');
+                
+                return propagationResult;
+                
+            } catch (error) {
+                log(`❌ 制約伝播テストエラー: ${error.message}`, 'error');
+                addTestResult('制約伝播テスト', false, `エラー: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function runPhase24IntegratedTest() {
+            log('🔧 Phase2-4統合テスト開始', 'info');
+            
+            try {
+                const startTime = performance.now();
+                const result = cspSolver.testPhase24Functions();
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                const passed = result && result.testPassed;
+                const details = passed ? 
+                    `統合テスト成功: 全機能動作確認` :
+                    result?.error || '統合テスト失敗';
+                
+                addTestResult('Phase2-4統合テスト', passed, details, { duration: duration.toFixed(2) });
+                log(passed ? '✅ Phase2-4統合テスト成功' : '❌ Phase2-4統合テスト失敗', 
+                    passed ? 'success' : 'error');
+                
+                if (passed) {
+                    updateStatsDisplay(result);
+                }
+                
+                return result;
+                
+            } catch (error) {
+                log(`❌ Phase2-4統合テストエラー: ${error.message}`, 'error');
+                addTestResult('Phase2-4統合テスト', false, `エラー: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function runAllTests() {
+            log('🚀 Phase2-4全テスト開始', 'info');
+            clearResults();
+            
+            // ゲーム初期化
+            if (!initializeGame()) {
+                return;
+            }
+            
+            // 各テストを順次実行
+            await testConstraintSolving();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            await testGroupSolving();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            await testBruteForceAnalysis();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            await testHeuristicSolving();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            await testSolutionUnification();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            await testConstraintPropagation();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            await runPhase24IntegratedTest();
+            
+            // パフォーマンス表示更新
+            updatePerformanceDisplay();
+            
+            // 最終結果
+            const passCount = testResults.filter(r => r.passed).length;
+            const totalCount = testResults.length;
+            
+            if (passCount === totalCount) {
+                log('🎉 Phase2-4全テスト完了！すべて成功', 'success');
+            } else {
+                log(`⚠️ Phase2-4テスト完了: ${passCount}/${totalCount}成功`, 'warning');
+            }
+        }
+
+        // ページ読み込み時の初期化
+        window.addEventListener('load', () => {
+            log('📚 Phase2-4テストページ読み込み完了', 'info');
+            updateResultsDisplay();
+            updatePerformanceDisplay();
+            updateStatsDisplay(null);
+        });
+    </script>
+</body>
+</html>

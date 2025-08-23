@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase2-2: 独立グループ検出のテスト</title>
+    <style>
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .test-section {
+            background-color: #2d2d2d;
+            border: 1px solid #555;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        .info { color: #2196F3; }
+        .test-button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s;
+        }
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+        }
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background-color: #333;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .result-table th, .result-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #555;
+        }
+        .result-table th {
+            background-color: #444;
+            font-weight: bold;
+        }
+        .log-output {
+            background-color: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stats-card {
+            background-color: #333;
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+        }
+        .stats-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .stats-label {
+            color: #aaa;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Phase2-2: 独立グループ検出のテスト</h1>
+            <p>独立グループ検出とグループ分割最適化のビット化機能をテスト</p>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 テスト実行</h2>
+            <button class="test-button" onclick="runAllTests()">📊 全テスト実行</button>
+            <button class="test-button" onclick="testIndependentGroupDetection()">🔍 独立グループ検出</button>
+            <button class="test-button" onclick="testGroupOptimization()">⚡ グループ最適化</button>
+            <button class="test-button" onclick="testCellSharing()">🔗 セル共有チェック</button>
+            <button class="test-button" onclick="clearResults()">🗑️ 結果クリア</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 テスト結果</h3>
+            <div id="testResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 グループ統計</h3>
+            <div id="groupStats" class="stats-grid"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 デバッグログ</h3>
+            <div id="debugLog" class="log-output"></div>
+        </div>
+    </div>
+
+    <!-- ゲームとビットシステムのロード -->
+    <script src="../../core/minesweeper-core.js"></script>
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+
+    <script>
+        let game, bitSystem, cspSolver;
+        let testResults = [];
+        let currentGroupStats = null;
+
+        function initializeGame() {
+            try {
+                // テスト専用：MinesweeperCoreから直接継承したテストクラス
+                class TestMinesweeper extends MinesweeperCore {
+                    constructor(rows, cols, mines) {
+                        super();
+                        this.rows = rows;
+                        this.cols = cols;
+                        this.mineCount = mines;
+                        // DOM関連の初期化をスキップ
+                    }
+                }
+                
+                game = new TestMinesweeper(9, 9, 10);
+                
+                // ボードを手動で初期化
+                game.board = Array(game.rows).fill(null).map(() => Array(game.cols).fill(0));
+                game.revealed = Array(game.rows).fill(null).map(() => Array(game.cols).fill(false));
+                game.flagged = Array(game.rows).fill(null).map(() => Array(game.cols).fill(false));
+                game.mines = [];
+                
+                // 適当な地雷配置（テスト用）
+                const minePositions = [[0,0], [0,8], [8,0], [8,8], [4,4], [2,6], [6,2], [1,7], [7,1], [3,5]];
+                for (const [row, col] of minePositions) {
+                    game.mines.push({row, col});
+                    game.board[row][col] = -1;
+                }
+                
+                // 数字を計算
+                for (let row = 0; row < game.rows; row++) {
+                    for (let col = 0; col < game.cols; col++) {
+                        if (game.board[row][col] !== -1) {
+                            let count = 0;
+                            for (let dr = -1; dr <= 1; dr++) {
+                                for (let dc = -1; dc <= 1; dc++) {
+                                    const newRow = row + dr;
+                                    const newCol = col + dc;
+                                    if (newRow >= 0 && newRow < game.rows && 
+                                        newCol >= 0 && newCol < game.cols && 
+                                        game.board[newRow][newCol] === -1) {
+                                        count++;
+                                    }
+                                }
+                            }
+                            game.board[row][col] = count;
+                        }
+                    }
+                }
+                
+                // より多くのセルを開示してより複雑な制約構造を作成
+                const revealPositions = [
+                    [1, 1], [1, 2], [2, 1], [2, 3], [3, 2],
+                    [4, 5], [5, 4], [5, 6], [6, 5], [7, 1], [7, 2]
+                ];
+                
+                for (const [row, col] of revealPositions) {
+                    if (game.board[row][col] !== -1) {
+                        game.revealed[row][col] = true;
+                    }
+                }
+                
+                // ビットシステムとCSPソルバーを初期化
+                game.bitSystem = new BitMinesweeperSystem(game.rows, game.cols);
+                game.cspSolver = new SimpleBitCSP(game, game.bitSystem);
+                
+                bitSystem = game.bitSystem;
+                cspSolver = game.cspSolver;
+                
+                log('✅ ゲーム初期化完了（テスト用）', 'success');
+                log(`📊 ボード: ${game.rows}x${game.cols}, 地雷: ${game.mineCount}個`, 'info');
+                return true;
+            } catch (error) {
+                log(`❌ ゲーム初期化エラー: ${error.message}`, 'error');
+                console.error('Initialization error details:', error);
+                return false;
+            }
+        }
+
+        function log(message, type = 'info') {
+            const logElement = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type;
+            logElement.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function addTestResult(testName, passed, details = '') {
+            testResults.push({
+                name: testName,
+                passed: passed,
+                details: details,
+                timestamp: new Date().toLocaleTimeString()
+            });
+            
+            updateResultsDisplay();
+        }
+
+        function updateResultsDisplay() {
+            const resultsElement = document.getElementById('testResults');
+            
+            if (testResults.length === 0) {
+                resultsElement.innerHTML = '<p class="info">テスト結果がありません。テストを実行してください。</p>';
+                return;
+            }
+
+            let html = '<table class="result-table">';
+            html += '<thead><tr><th>テスト名</th><th>結果</th><th>詳細</th><th>時刻</th></tr></thead><tbody>';
+            
+            for (const result of testResults) {
+                const statusClass = result.passed ? 'success' : 'error';
+                const statusIcon = result.passed ? '✅' : '❌';
+                html += `<tr>
+                    <td>${result.name}</td>
+                    <td class="${statusClass}">${statusIcon} ${result.passed ? '成功' : '失敗'}</td>
+                    <td>${result.details}</td>
+                    <td>${result.timestamp}</td>
+                </tr>`;
+            }
+            
+            html += '</tbody></table>';
+            
+            const passCount = testResults.filter(r => r.passed).length;
+            const totalCount = testResults.length;
+            const passRate = ((passCount / totalCount) * 100).toFixed(1);
+            
+            html += `<div class="info" style="margin-top: 15px;">
+                成功率: ${passCount}/${totalCount} (${passRate}%)
+            </div>`;
+            
+            resultsElement.innerHTML = html;
+        }
+
+        function updateGroupStatsDisplay(stats) {
+            const statsElement = document.getElementById('groupStats');
+            
+            if (!stats) {
+                statsElement.innerHTML = '<p class="info">統計情報がありません。</p>';
+                return;
+            }
+
+            let html = `
+                <div class="stats-card">
+                    <div class="stats-value">${stats.totalGroups}</div>
+                    <div class="stats-label">総グループ数</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-value">${stats.independentGroups}</div>
+                    <div class="stats-label">独立グループ数</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-value">${stats.totalCells}</div>
+                    <div class="stats-label">総セル数</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-value">${stats.totalConstraints}</div>
+                    <div class="stats-label">総制約数</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-value">${stats.averageCellsPerGroup.toFixed(1)}</div>
+                    <div class="stats-label">平均セル/グループ</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-value">${stats.maxGroupSize}</div>
+                    <div class="stats-label">最大グループサイズ</div>
+                </div>
+            `;
+            
+            statsElement.innerHTML = html;
+        }
+
+        function clearResults() {
+            testResults = [];
+            currentGroupStats = null;
+            updateResultsDisplay();
+            updateGroupStatsDisplay(null);
+            document.getElementById('debugLog').innerHTML = '';
+            log('🗑️ 結果とログをクリアしました', 'info');
+        }
+
+        async function testIndependentGroupDetection() {
+            log('🔍 独立グループ検出テスト開始', 'info');
+            
+            try {
+                if (!cspSolver) {
+                    throw new Error('CSPソルバーが初期化されていません');
+                }
+                
+                // 制約を生成
+                const constraints = cspSolver.generateConstraintsHybrid();
+                log(`📋 ${constraints.length}個の制約を生成`, 'info');
+                
+                if (constraints.length === 0) {
+                    addTestResult('独立グループ検出テスト', false, '制約が生成されませんでした');
+                    return;
+                }
+                
+                // 独立グループを検出
+                const independentGroups = cspSolver.detectIndependentGroupsBit(constraints);
+                
+                const passed = independentGroups && Array.isArray(independentGroups);
+                const details = passed ? 
+                    `${independentGroups.length}個の独立グループを検出` :
+                    '独立グループ検出失敗';
+                
+                addTestResult('独立グループ検出テスト', passed, details);
+                log(passed ? '✅ 独立グループ検出テスト成功' : '❌ 独立グループ検出テスト失敗', 
+                    passed ? 'success' : 'error');
+                
+                // 統計情報を表示
+                if (passed) {
+                    const stats = cspSolver.getGroupStatisticsBit(independentGroups);
+                    currentGroupStats = stats;
+                    updateGroupStatsDisplay(stats);
+                    
+                    // 各グループの詳細をログ出力
+                    for (let i = 0; i < Math.min(independentGroups.length, 5); i++) {
+                        const group = independentGroups[i];
+                        const independentStatus = group.isIndependent ? '独立' : '依存';
+                        log(`📊 グループ${i+1}: ${group.cells.length}セル, ${group.constraints.length}制約, ${independentStatus}`, 'info');
+                    }
+                }
+                
+                return independentGroups;
+                
+            } catch (error) {
+                log(`❌ 独立グループ検出テストエラー: ${error.message}`, 'error');
+                addTestResult('独立グループ検出テスト', false, `エラー: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function testGroupOptimization() {
+            log('⚡ グループ最適化テスト開始', 'info');
+            
+            try {
+                const constraints = cspSolver.generateConstraintsHybrid();
+                if (constraints.length === 0) {
+                    addTestResult('グループ最適化テスト', false, '制約が生成されませんでした');
+                    return;
+                }
+                
+                const independentGroups = cspSolver.detectIndependentGroupsBit(constraints);
+                if (!independentGroups || independentGroups.length === 0) {
+                    addTestResult('グループ最適化テスト', false, '独立グループが検出されませんでした');
+                    return;
+                }
+                
+                const optimizedGroups = cspSolver.optimizeGroupPartitioningBit(independentGroups);
+                
+                const passed = optimizedGroups && Array.isArray(optimizedGroups);
+                const details = passed ? 
+                    `${independentGroups.length} -> ${optimizedGroups.length}グループに最適化` :
+                    'グループ最適化失敗';
+                
+                addTestResult('グループ最適化テスト', passed, details);
+                log(passed ? '✅ グループ最適化テスト成功' : '❌ グループ最適化テスト失敗', 
+                    passed ? 'success' : 'error');
+                
+                return optimizedGroups;
+                
+            } catch (error) {
+                log(`❌ グループ最適化テストエラー: ${error.message}`, 'error');
+                addTestResult('グループ最適化テスト', false, `エラー: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function testCellSharing() {
+            log('🔗 セル共有チェックテスト開始', 'info');
+            
+            try {
+                const constraints = cspSolver.generateConstraintsHybrid();
+                if (constraints.length === 0) {
+                    addTestResult('セル共有チェックテスト', false, '制約が生成されませんでした');
+                    return;
+                }
+                
+                const independentGroups = cspSolver.detectIndependentGroupsBit(constraints);
+                if (!independentGroups || independentGroups.length < 2) {
+                    addTestResult('セル共有チェックテスト', false, '複数のグループが必要です');
+                    return;
+                }
+                
+                const sharingMatrix = cspSolver.checkCellSharingBit(independentGroups);
+                
+                const passed = sharingMatrix && Array.isArray(sharingMatrix);
+                const details = passed ? 
+                    `${independentGroups.length}x${independentGroups.length}共有マトリックス作成` :
+                    'セル共有チェック失敗';
+                
+                addTestResult('セル共有チェックテスト', passed, details);
+                log(passed ? '✅ セル共有チェックテスト成功' : '❌ セル共有チェックテスト失敗', 
+                    passed ? 'success' : 'error');
+                
+                // 共有情報をログ出力
+                if (passed) {
+                    let totalSharedPairs = 0;
+                    for (let i = 0; i < sharingMatrix.length; i++) {
+                        for (let j = i + 1; j < sharingMatrix[i].length; j++) {
+                            if (sharingMatrix[i][j] > 0) {
+                                totalSharedPairs++;
+                                log(`🔗 グループ${i+1}-${j+1}: ${sharingMatrix[i][j]}個の共有セル`, 'info');
+                            }
+                        }
+                    }
+                    log(`📊 ${totalSharedPairs}組のグループがセルを共有`, 'info');
+                }
+                
+                return sharingMatrix;
+                
+            } catch (error) {
+                log(`❌ セル共有チェックテストエラー: ${error.message}`, 'error');
+                addTestResult('セル共有チェックテスト', false, `エラー: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function runPhase22IntegratedTest() {
+            log('🔧 Phase2-2統合テスト開始', 'info');
+            
+            try {
+                const result = cspSolver.testPhase22Functions();
+                
+                const passed = result && result.testPassed;
+                const details = passed ? 
+                    `統合テスト成功: ${result.originalGroups.length}グループ検出, ${result.optimizedGroups.length}最適化後` :
+                    result?.error || '統合テスト失敗';
+                
+                addTestResult('Phase2-2統合テスト', passed, details);
+                log(passed ? '✅ Phase2-2統合テスト成功' : '❌ Phase2-2統合テスト失敗', 
+                    passed ? 'success' : 'error');
+                
+                if (passed && result.stats) {
+                    currentGroupStats = result.stats;
+                    updateGroupStatsDisplay(result.stats);
+                }
+                
+                return result;
+                
+            } catch (error) {
+                log(`❌ Phase2-2統合テストエラー: ${error.message}`, 'error');
+                addTestResult('Phase2-2統合テスト', false, `エラー: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function runAllTests() {
+            log('🚀 Phase2-2全テスト開始', 'info');
+            clearResults();
+            
+            // ゲーム初期化
+            if (!initializeGame()) {
+                return;
+            }
+            
+            // 各テストを順次実行
+            await testIndependentGroupDetection();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            await testGroupOptimization();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            await testCellSharing();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            await runPhase22IntegratedTest();
+            
+            // 最終結果
+            const passCount = testResults.filter(r => r.passed).length;
+            const totalCount = testResults.length;
+            
+            if (passCount === totalCount) {
+                log('🎉 Phase2-2全テスト完了！すべて成功', 'success');
+            } else {
+                log(`⚠️ Phase2-2テスト完了: ${passCount}/${totalCount}成功`, 'warning');
+            }
+        }
+
+        // ページ読み込み時の初期化
+        window.addEventListener('load', () => {
+            log('📚 Phase2-2テストページ読み込み完了', 'info');
+            updateResultsDisplay();
+            updateGroupStatsDisplay(null);
+        });
+    </script>
+</body>
+</html>
