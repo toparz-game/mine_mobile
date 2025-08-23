@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head><title>不足メソッドチェック</title></head>
+<body>
+    <pre id="output"></pre>
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+    <script>
+        const output = document.getElementById('output');
+        
+        try {
+            const bitSystem = new BitMinesweeperSystem(16, 16, 40);
+            const mockGame = {
+                rows: 16, cols: 16, mines: 40,
+                gameBoard: Array(16).fill().map(() => Array(16).fill(0)),
+                revealedCells: new Set(), flaggedCells: new Set(), isGameOver: false
+            };
+            const csp = new SimpleBitCSP(mockGame, bitSystem);
+            
+            // Phase4-3で使用されるメソッドをチェック
+            const requiredMethods = [
+                'analyzeProblemContext',
+                'calculateStrategyScore', 
+                'prepareStrategyExecution',
+                'calculateDynamicParameters',
+                'generateStrategyRecommendation',
+                'getPerformanceHistory',
+                'estimateProcessingPower',
+                'calculateProblemComplexity',
+                'detectComplexPatterns'
+            ];
+            
+            output.textContent += 'Phase4-3必要メソッドチェック:\n';
+            requiredMethods.forEach(method => {
+                const exists = typeof csp[method] === 'function';
+                output.textContent += `  ${method}: ${exists ? 'FOUND' : 'MISSING!'}\n`;
+                
+                if (!exists) {
+                    output.textContent += `    ❌ 不足メソッド発見: ${method}\n`;
+                }
+            });
+            
+        } catch (error) {
+            output.textContent += `エラー: ${error.message}\n`;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Phase4-3デバッグテスト</title>
+</head>
+<body>
+    <h1>Phase4-3デバッグテスト</h1>
+    <button onclick="runTest()">テスト実行</button>
+    <pre id="output"></pre>
+    
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+    
+    <script>
+        function runTest() {
+            const output = document.getElementById('output');
+            output.textContent = '';
+            
+            try {
+                // ビットシステム初期化
+                const bitSystem = new BitMinesweeperSystem(16, 16, 40);
+                
+                // モックゲーム作成
+                const mockGame = {
+                    rows: 16, cols: 16, mines: 40,
+                    gameBoard: Array(16).fill().map(() => Array(16).fill(0)),
+                    revealedCells: new Set(),
+                    flaggedCells: new Set(),
+                    isGameOver: false
+                };
+                
+                // CSPソルバー作成
+                const cspSolver = new SimpleBitCSP(mockGame, bitSystem);
+                
+                output.textContent += `✅ システム初期化成功\n`;
+                output.textContent += `CSPソルバータイプ: ${typeof cspSolver}\n`;
+                output.textContent += `コンストラクタ: ${cspSolver.constructor.name}\n\n`;
+                
+                // Phase4-3メソッドチェック
+                const methods = [
+                    'implementDynamicStrategySelectionBit',
+                    'createAdaptivePerformanceTuningBit', 
+                    'buildPredictiveOptimizationBit',
+                    'implementSelfLearningSystemBit'
+                ];
+                
+                output.textContent += `Phase4-3メソッドチェック:\n`;
+                methods.forEach(method => {
+                    const exists = typeof cspSolver[method] === 'function';
+                    output.textContent += `  ${method}: ${exists ? 'FOUND' : 'MISSING'}\n`;
+                });
+                
+                // Phase4-2メソッド比較チェック
+                output.textContent += `\nPhase4-2メソッド比較:\n`;
+                const phase42Methods = ['optimizeMemoryLayoutBit', 'implementCPUCacheOptimizationBit'];
+                phase42Methods.forEach(method => {
+                    const exists = typeof cspSolver[method] === 'function';
+                    output.textContent += `  ${method}: ${exists ? 'FOUND' : 'MISSING'}\n`;
+                });
+                
+                // 全メソッド数
+                const allMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(cspSolver))
+                    .filter(name => typeof cspSolver[name] === 'function' && name !== 'constructor');
+                output.textContent += `\n総メソッド数: ${allMethods.length}\n`;
+                
+                // Phase4-3メソッドが見つかった場合、実行テスト
+                if (typeof cspSolver.implementDynamicStrategySelectionBit === 'function') {
+                    output.textContent += `\n🎯 動的戦略選択テスト実行中...\n`;
+                    const result = cspSolver.implementDynamicStrategySelectionBit();
+                    output.textContent += `結果: ${JSON.stringify(result, null, 2)}\n`;
+                }
+                
+            } catch (error) {
+                output.textContent += `❌ エラー: ${error.message}\n`;
+                output.textContent += `スタックトレース: ${error.stack}\n`;
+                console.error('詳細エラー:', error);
+            }
+        }
+    </script>
+</body>
+</html>
