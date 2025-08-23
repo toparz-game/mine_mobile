@@ -1042,6 +1042,42 @@ class SimpleBitCSP {
             this.debugLog('No actionable cells found');
         }
         
+        // 確定的でない場合は高度な確率計算を使用
+        this.debugLog(`Checking advanced calculation: foundActionable=${foundActionable}, borderCells=${borderCells.length}`);
+        if (!foundActionable && borderCells.length > 0 && borderCells.length <= 29) {
+            this.debugLog('Starting advanced probability calculation');
+            try {
+                // 制約グループを作成
+                const constraintGroup = {
+                    cells: borderCells,
+                    constraints: constraints
+                };
+                
+                // Phase3の完全探索システムを使用
+                const result = this.optimizeSmallSetSolvingBit(constraintGroup);
+                this.debugLog(`Advanced calculation result: ${JSON.stringify({success: result.success, reason: result.reason, hasProbabilities: !!result.cellProbabilities})}`);
+                this.debugLog(`Constraint group: cells=${constraintGroup.cells.length}, constraints=${constraintGroup.constraints.length}`);
+                if (constraintGroup.constraints.length > 0) {
+                    this.debugLog(`First constraint: ${JSON.stringify(constraintGroup.constraints[0])}`);
+                }
+                
+                if (result.success && result.cellProbabilities) {
+                    let updatedCount = 0;
+                    // 確率分布をprobabilities配列に反映
+                    for (const [cellKey, probability] of Object.entries(result.cellProbabilities)) {
+                        const [row, col] = cellKey.split(',').map(Number);
+                        if (row >= 0 && row < this.game.rows && col >= 0 && col < this.game.cols) {
+                            this.probabilities[row][col] = Math.round(probability * 100);
+                            updatedCount++;
+                        }
+                    }
+                    this.debugLog(`Updated ${updatedCount} cell probabilities`);
+                }
+            } catch (error) {
+                this.debugLog(`Advanced probability calculation failed: ${error.message}`);
+            }
+        }
+        
         // 残りのセルを制約外としてマーク
         for (const cell of unknownCells) {
             if (this.probabilities[cell.row][cell.col] === -1) {
@@ -4371,7 +4407,8 @@ class SimpleBitCSP {
             const actualMines = this.bitSystem.popCountBits(overlapBits);
 
             // 制約の要求地雷数と一致するかチェック
-            if (actualMines !== constraint.count) {
+            const expectedCount = constraint.count || constraint.expectedMines || 0;
+            if (actualMines !== expectedCount) {
                 return false;
             }
         }

@@ -91,47 +91,72 @@ class SubsetManagerBit { ... }
 ### ❌ **問題1: 確率が表示されない**
 
 #### 🔍 症状
-- 完全探索が実行されるが、確率値が0やNaNになる
-- UIに確率が表示されない
-- コンソールエラーは出ない
+- 🎲確率ボタンを押してもUIに確率が表示されない
+- コンソールで「no_valid_configurations」エラーが出る
+- 完全探索は実行されるが結果が反映されない
 
 #### 📍 調査箇所
-1. **確率計算メソッド**:
+1. **メイン確率計算メソッド**:
    ```javascript
-   // Phase3で実装済み（line 4587-4685）
-   calculateCellProbabilitiesBit(validConfigs, boundaryCells)
+   // line 991-1106: calculateProbabilities()
+   // ここで高度な確率計算が呼び出されているか確認
    ```
 
-2. **完全探索メソッド**:
+2. **完全探索システム**:
    ```javascript
-   // Phase3で実装済み（line 4985-5085）
-   enumerateValidConfigsBit(constraintGroups)
+   // line 4435-4505: optimizeSmallSetSolvingBit()
+   // 完全探索の成功/失敗を確認
    
-   // Phase3で実装済み（line 4123-4185）
-   generateConfigurationsBit(constraintGroup)
+   // line 4402-4431: enumerateValidConfigsBit()
+   // 有効な設定パターンが見つかるか確認
    ```
 
-3. **データフロー確認箇所**:
+3. **制約検証メソッド**:
    ```javascript
-   // line 186-245: メイン解決フロー
-   solveBoundaryConstraintsBit() {
-       // ここで確率計算が呼ばれているか確認
-       const probabilities = this.calculateCellProbabilitiesBit();
-       return { probabilities, ... };
-   }
+   // line 4388-4417: validateConfigurationBit() ⭐最重要
+   // 制約データ形式の不一致が最も多い原因
    ```
 
-#### 🔧 修正方法
-1. **データ型確認**: `validConfigs`がUint32Array形式か確認
-2. **境界セル確認**: `boundaryCells`配列に正しい座標が入っているか
-3. **戻り値確認**: 確率配列が正しい形式（座標→確率のマップ）で返されているか
+#### 🔧 修正方法（頻度順）
+1. **制約データ形式不一致（最頻出）**: 
+   ```javascript
+   // 修正箇所: validateConfigurationBit() line 4410
+   // 修正前
+   if (actualMines !== constraint.count) {
+   
+   // 修正後
+   const expectedCount = constraint.count || constraint.expectedMines || 0;
+   if (actualMines !== expectedCount) {
+   ```
+
+2. **デバッグログの追加**:
+   ```javascript
+   // calculateProbabilities() 内にログ追加
+   this.debugLog(`Advanced calc result: success=${result.success}, reason=${result.reason}`);
+   ```
+
+3. **制約グループ形式の確認**:
+   ```javascript
+   const constraintGroup = {
+       cells: borderCells,
+       constraints: constraints  // この形式が正しいか確認
+   };
+   ```
 
 #### ✅ テスト方法
 ```javascript
-// ブラウザコンソールで確認
-const solver = new SimpleBitCSP(game, bitSystem);
-const result = solver.solveBoundaryConstraintsBit();
-console.log('確率結果:', result.probabilities);
+// ブラウザコンソールでデバッグ
+// 1. 制約データ確認
+console.log('制約:', constraintGroup.constraints[0]);
+
+// 2. 完全探索結果確認
+const result = solver.optimizeSmallSetSolvingBit(constraintGroup);
+console.log('完全探索結果:', result.success, result.reason);
+
+// 3. UI表示確認
+if (result.success) {
+    console.log('確率データ:', result.cellProbabilities);
+}
 ```
 
 ---

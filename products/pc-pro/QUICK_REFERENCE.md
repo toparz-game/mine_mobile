@@ -6,13 +6,17 @@
 
 #### ❌ **1. 確率が表示されない**
 ```javascript
-// 📍 確認箇所: line 4587-4685
-calculateCellProbabilitiesBit(validConfigs, boundaryCells)
+// 📍 確認箇所: line 991-1106 (calculateProbabilities)
+// 症状: 🎲ボタンを押しても確率が表示されない
 
-// 🔧 即座デバッグ
-const result = solver.solveBoundaryConstraintsBit();
-console.log('確率:', result.probabilities);
-console.log('境界セル:', result.boundaryCells);
+// 🔧 即座デバッグ: コンソールで原因特定
+console.log('Border cells:', borderCells.length);
+console.log('Advanced calc success:', result.success);
+console.log('Failure reason:', result.reason);
+
+// ✅ 最も多い原因: 制約データ形式不一致
+// 修正箇所: validateConfigurationBit() line 4410
+const expectedCount = constraint.count || constraint.expectedMines || 0;
 ```
 
 #### ❌ **2. 完全探索が終わらない**
