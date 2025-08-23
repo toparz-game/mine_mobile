@@ -114,6 +114,24 @@
                     results.push("✅ Test 2b: 変換後制約内容完全一致");
                 } else {
                     results.push("❌ Test 2b: 変換後制約内容不一致");
+                    console.log('Converted constraints:', convertedSorted.slice(0, 3));
+                    console.log('Traditional constraints:', traditionalSorted.slice(0, 3));
+                    
+                    // 詳細な差分を確認
+                    for (let i = 0; i < Math.min(3, convertedSorted.length, traditionalSorted.length); i++) {
+                        const c = convertedSorted[i];
+                        const t = traditionalSorted[i];
+                        console.log(`Constraint ${i}:`);
+                        console.log(`  Converted: source(${c.sourceCell.row},${c.sourceCell.col}) mines:${c.expectedMines} cells:${c.cells.length}`);
+                        console.log(`  Traditional: source(${t.sourceCell.row},${t.sourceCell.col}) mines:${t.expectedMines} cells:${t.cells.length}`);
+                        if (c.cells.length === t.cells.length) {
+                            const sortCells = (cells) => cells.sort((a, b) => a.row === b.row ? a.col - b.col : a.row - b.row);
+                            const cCells = sortCells([...c.cells]);
+                            const tCells = sortCells([...t.cells]);
+                            console.log(`  Converted cells:`, cCells);
+                            console.log(`  Traditional cells:`, tCells);
+                        }
+                    }
                 }
                 
                 // Test 3: 従来制約からビット制約への変換テスト

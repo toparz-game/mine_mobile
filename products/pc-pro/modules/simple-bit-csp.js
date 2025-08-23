@@ -457,11 +457,18 @@ class SimpleBitCSP {
                     const neighborCells = this.bitsToCoords(neighborBits);
                     
                     if (neighborCells.length > 0) {
-                        // 既に旗が立っている隣接セル数を計算
+                        // 既に旗が立っている隣接セル数を計算（全隣接セルから）
                         let flaggedNeighbors = 0;
-                        for (const neighbor of neighborCells) {
-                            if (this.game.flagged[neighbor.row][neighbor.col]) {
-                                flaggedNeighbors++;
+                        for (let dr = -1; dr <= 1; dr++) {
+                            for (let dc = -1; dc <= 1; dc++) {
+                                if (dr === 0 && dc === 0) continue;
+                                const newRow = row + dr;
+                                const newCol = col + dc;
+                                if (newRow >= 0 && newRow < this.rows && 
+                                    newCol >= 0 && newCol < this.cols &&
+                                    this.game.flagged[newRow][newCol]) {
+                                    flaggedNeighbors++;
+                                }
                             }
                         }
                         
@@ -470,10 +477,11 @@ class SimpleBitCSP {
                             !this.game.flagged[cell.row][cell.col]
                         );
                         
-                        if (constraintCells.length > 0) {
+                        const expectedMines = this.game.board[row][col] - flaggedNeighbors;
+                        if (constraintCells.length > 0 && expectedMines >= 0) {
                             constraints.push({
                                 cells: constraintCells,
-                                expectedMines: this.game.board[row][col] - flaggedNeighbors,
+                                expectedMines: expectedMines,
                                 sourceCell: { row, col }
                             });
                         }
@@ -549,10 +557,20 @@ class SimpleBitCSP {
                     
                     // 隣接セルが存在する場合のみ処理
                     if (!this.isEmptyBits(neighborBits)) {
-                        // 隣接する旗セルの数をカウント
-                        const flaggedNeighborBits = new Uint32Array(this.intsNeeded);
-                        this.getNeighborCellsBit(row, col, flaggedBits, flaggedNeighborBits);
-                        const flaggedNeighbors = this.popCountBits(flaggedNeighborBits);
+                        // 隣接する旗セルの数をカウント（この数字セルの全隣接セルから）
+                        let flaggedNeighbors = 0;
+                        for (let dr = -1; dr <= 1; dr++) {
+                            for (let dc = -1; dc <= 1; dc++) {
+                                if (dr === 0 && dc === 0) continue;
+                                const newRow = row + dr;
+                                const newCol = col + dc;
+                                if (newRow >= 0 && newRow < this.rows && 
+                                    newCol >= 0 && newCol < this.cols &&
+                                    this.getBit(flaggedBits, newRow, newCol)) {
+                                    flaggedNeighbors++;
+                                }
+                            }
+                        }
                         
                         // 制約対象セル（隣接セルから旗セルを除く）
                         const constraintCellsBits = new Uint32Array(this.intsNeeded);
@@ -560,11 +578,12 @@ class SimpleBitCSP {
                         this.notBits(flaggedBits, notFlaggedBits);
                         this.andBits(neighborBits, notFlaggedBits, constraintCellsBits);
                         
-                        // 制約対象セルが存在する場合のみ制約を追加
-                        if (!this.isEmptyBits(constraintCellsBits)) {
+                        // 制約対象セルが存在し、期待地雷数が有効な場合のみ制約を追加
+                        const expectedMines = this.game.board[row][col] - flaggedNeighbors;
+                        if (!this.isEmptyBits(constraintCellsBits) && expectedMines >= 0) {
                             constraints.push({
                                 cellsBits: new Uint32Array(constraintCellsBits), // コピーを作成
-                                expectedMines: this.game.board[row][col] - flaggedNeighbors,
+                                expectedMines: expectedMines,
                                 sourceRow: row,
                                 sourceCol: col
                             });
@@ -695,6 +714,7 @@ class SimpleBitCSP {
                             if (newRow >= 0 && newRow < this.rows && 
                                 newCol >= 0 && newCol < this.cols &&
                                 !this.game.revealed[newRow][newCol] &&
+                                !this.game.flagged[newRow][newCol] &&
                                 !visited.has(key)) {
                                 
                                 borderCells.push({ row: newRow, col: newCol });
@@ -712,6 +732,11 @@ class SimpleBitCSP {
     // 制約生成（シンプル版）
     generateConstraints(cells) {
         const constraints = [];
+        
+        // cellsがnullまたは未定義の場合は境界セルを取得
+        if (!cells) {
+            cells = this.getBorderCells();
+        }
         
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
@@ -734,11 +759,18 @@ class SimpleBitCSP {
                     }
                     
                     if (neighborCells.length > 0) {
-                        // 既に旗が立っている隣接セル数を計算
+                        // 既に旗が立っている隣接セル数を計算（全隣接セルから）
                         let flaggedNeighbors = 0;
-                        for (const neighbor of neighborCells) {
-                            if (this.game.flagged[neighbor.row][neighbor.col]) {
-                                flaggedNeighbors++;
+                        for (let dr = -1; dr <= 1; dr++) {
+                            for (let dc = -1; dc <= 1; dc++) {
+                                if (dr === 0 && dc === 0) continue;
+                                const newRow = row + dr;
+                                const newCol = col + dc;
+                                if (newRow >= 0 && newRow < this.rows && 
+                                    newCol >= 0 && newCol < this.cols &&
+                                    this.game.flagged[newRow][newCol]) {
+                                    flaggedNeighbors++;
+                                }
                             }
                         }
                         
@@ -747,10 +779,11 @@ class SimpleBitCSP {
                             !this.game.flagged[cell.row][cell.col]
                         );
                         
-                        if (constraintCells.length > 0) {
+                        const expectedMines = this.game.board[row][col] - flaggedNeighbors;
+                        if (constraintCells.length > 0 && expectedMines >= 0) {
                             constraints.push({
                                 cells: constraintCells,
-                                expectedMines: this.game.board[row][col] - flaggedNeighbors,
+                                expectedMines: expectedMines,
                                 sourceCell: { row, col }
                             });
                         }
