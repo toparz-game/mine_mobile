@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase3-1: 小規模完全探索のビット化基盤テスト</title>
+    <style>
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .test-section {
+            background-color: #2d2d2d;
+            border: 1px solid #555;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        .info { color: #2196F3; }
+        .test-button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s;
+        }
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+        .test-results {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .performance-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .metric-card {
+            background-color: #333;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #bbb;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Phase3-1: 小規模完全探索のビット化基盤</h1>
+            <p>目標: ≤29セルの制約セットに対する超高速完全探索システム (64x64盤面対応)</p>
+            <p>パフォーマンス目標: &lt;1ms/セット</p>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Phase3-1 機能テスト</h2>
+            <button class="test-button" onclick="testGenerateConfigurations()">1. generateConfigurationsBit() テスト</button>
+            <button class="test-button" onclick="testValidateConfiguration()">2. validateConfigurationBit() テスト</button>
+            <button class="test-button" onclick="testEnumerateValidConfigs()">3. enumerateValidConfigsBit() テスト</button>
+            <button class="test-button" onclick="testOptimizeSmallSetSolving()">4. optimizeSmallSetSolvingBit() テスト</button>
+            <button class="test-button" onclick="runAllTests()">🎯 全テスト実行</button>
+            <button class="test-button" onclick="clearResults()" style="background: linear-gradient(45deg, #f44336, #d32f2f);">🧹 結果クリア</button>
+            <div id="testResults" class="test-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>⚡ パフォーマンス測定</h2>
+            <button class="test-button" onclick="benchmarkSmallSets()">小規模セットベンチマーク (2-18セル)</button>
+            <button class="test-button" onclick="benchmarkMediumSets()">中規模セットベンチマーク (20-25セル)</button>
+            <button class="test-button" onclick="benchmarkLargeSets()">大規模セットベンチマーク (26-29セル)</button>
+            <button class="test-button" onclick="benchmarkExtremeTest()">✨ 極限テスト (29セル5億パターン)</button>
+            <button class="test-button" onclick="benchmarkComparisonTest()">Phase2比較ベンチマーク</button>
+            <div id="performanceResults" class="test-results"></div>
+            <div id="performanceMetrics" class="performance-metrics"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔍 詳細動作テスト</h2>
+            <button class="test-button" onclick="testComplexConstraints()">複雑制約パターンテスト</button>
+            <button class="test-button" onclick="testEdgeCases()">エッジケーステスト</button>
+            <button class="test-button" onclick="testMemoryEfficiency()">メモリ効率テスト</button>
+            <div id="detailedResults" class="test-results"></div>
+        </div>
+    </div>
+
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+    <script>
+        let testResults = document.getElementById('testResults');
+        let performanceResults = document.getElementById('performanceResults');
+        let detailedResults = document.getElementById('detailedResults');
+        let performanceMetrics = document.getElementById('performanceMetrics');
+
+        // テスト用のモックゲーム環境
+        const mockGame = {
+            rows: 16,
+            cols: 16,
+            mines: 40,
+            board: Array(16).fill().map(() => Array(16).fill(0)),
+            isValidCoord: (row, col) => row >= 0 && row < 16 && col >= 0 && col < 16
+        };
+
+        // BitMinesweeperSystemとSimpleBitCSPを初期化
+        const bitSystem = new BitMinesweeperSystem(mockGame);
+        const bitCSP = new SimpleBitCSP(mockGame, bitSystem);
+
+        function log(message, element = testResults, className = '') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            element.textContent += logMessage;
+            if (className) {
+                element.className += ` ${className}`;
+            }
+            element.scrollTop = element.scrollHeight;
+        }
+
+        function clearResults() {
+            testResults.textContent = '';
+            performanceResults.textContent = '';
+            detailedResults.textContent = '';
+            performanceMetrics.innerHTML = '';
+        }
+
+        // 1. generateConfigurationsBit() テスト
+        function testGenerateConfigurations() {
+            log("=== generateConfigurationsBit() テスト開始 ===", testResults, 'info');
+            
+            try {
+                // テスト1: 3セルの制約グループ
+                const testGroup1 = {
+                    cells: [
+                        {row: 1, col: 1},
+                        {row: 1, col: 2},
+                        {row: 2, col: 1}
+                    ]
+                };
+
+                const configs1 = bitCSP.generateConfigurationsBit(testGroup1);
+                log(`✅ 3セル制約グループ: ${configs1.length}設定パターン生成（期待値: 8）`, testResults, 'success');
+                
+                if (configs1.length !== 8) {
+                    log(`❌ エラー: 期待値8に対して${configs1.length}`, testResults, 'error');
+                    return false;
+                }
+
+                // テスト2: 5セルの制約グループ
+                const testGroup2 = {
+                    cells: [
+                        {row: 0, col: 0}, {row: 0, col: 1},
+                        {row: 1, col: 0}, {row: 1, col: 1}, {row: 1, col: 2}
+                    ]
+                };
+
+                const configs2 = bitCSP.generateConfigurationsBit(testGroup2);
+                log(`✅ 5セル制約グループ: ${configs2.length}設定パターン生成（期待値: 32）`, testResults, 'success');
+                
+                if (configs2.length !== 32) {
+                    log(`❌ エラー: 期待値32に対して${configs2.length}`, testResults, 'error');
+                    return false;
+                }
+
+                // テスト3: 16セルテスト (新制限内)
+                const testGroup3 = {
+                    cells: Array(16).fill().map((_, i) => ({row: 0, col: i}))
+                };
+
+                const configs3 = bitCSP.generateConfigurationsBit(testGroup3);
+                log(`✅ 16セルテスト: ${configs3.length}設定パターン生成（期待値: 65536）`, testResults, 'success');
+                
+                if (configs3.length !== 65536) {
+                    log(`❌ エラー: 期待値 65536 に対して${configs3.length}`, testResults, 'error');
+                    return false;
+                }
+
+                // テスト4: 17セルテスト (新制限内)
+                const testGroup4 = {
+                    cells: Array(17).fill().map((_, i) => ({row: i < 16 ? 0 : 1, col: i % 16}))
+                };
+
+                const configs4 = bitCSP.generateConfigurationsBit(testGroup4);
+                log(`✅ 17セルテスト: ${configs4.length}設定パターン生成（期待値: 131072）`, testResults, 'success');
+                
+                if (configs4.length !== 131072) {
+                    log(`❌ エラー: 期待値 131072 に対して${configs4.length}`, testResults, 'error');
+                    return false;
+                }
+
+                // テスト5: 20セルテスト (新上限)
+                const testGroup5 = {
+                    cells: Array(20).fill().map((_, i) => ({row: Math.floor(i / 4), col: i % 4}))
+                };
+
+                const configs5 = bitCSP.generateConfigurationsBit(testGroup5);
+                log(`✅ 20セル上限テスト: ${configs5.length}設定パターン生成（期待値: 1048576）`, testResults, 'success');
+                
+                if (configs5.length !== 1048576) {
+                    log(`❌ エラー: 期待値 1048576 に対して${configs5.length}`, testResults, 'error');
+                    return false;
+                }
+
+                // テスト6: 25セル大規模テスト (64x64対応)
+                const testGroup6 = {
+                    cells: Array(25).fill().map((_, i) => ({row: Math.floor(i / 5), col: i % 5}))
+                };
+
+                const configs6 = bitCSP.generateConfigurationsBit(testGroup6);
+                log(`✅ 25セル大規模テスト: ${configs6.length}設定パターン生成（期待値: 33554432）`, testResults, 'info');
+                
+                if (configs6.length !== 33554432) {
+                    log(`❌ エラー: 期待値 33554432 に対して${configs6.length}`, testResults, 'error');
+                    return false;
+                }
+
+                // テスト7: 29セル最大テスト (最高上限)
+                const testGroup7 = {
+                    cells: Array(29).fill().map((_, i) => ({row: Math.floor(i / 6), col: i % 6}))
+                };
+
+                const configs7 = bitCSP.generateConfigurationsBit(testGroup7);
+                log(`✅ 29セル最大テスト: ${configs7.length}設定パターン生成（期待値: 536870912）`, testResults, 'info');
+                
+                if (configs7.length !== 536870912) {
+                    log(`❌ エラー: 期待値 536870912 に対して${configs7.length}`, testResults, 'error');
+                    return false;
+                }
+
+                // テスト8: 制限超過テスト (30セル)
+                const testGroup8 = {
+                    cells: Array(30).fill().map((_, i) => ({row: Math.floor(i / 6), col: i % 6}))
+                };
+
+                const configs8 = bitCSP.generateConfigurationsBit(testGroup8);
+                log(`✅ 30セル制限超過テスト: ${configs8.length}設定パターン（期待値: 0）`, testResults, 'warning');
+                
+                if (configs8.length !== 0) {
+                    log(`❌ エラー: 制限超過時は0を返すべき`, testResults, 'error');
+                    return false;
+                }
+
+                log("✅ generateConfigurationsBit() 全テスト成功", testResults, 'success');
+                return true;
+
+            } catch (error) {
+                log(`❌ generateConfigurationsBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 2. validateConfigurationBit() テスト
+        function testValidateConfiguration() {
+            log("=== validateConfigurationBit() テスト開始 ===", testResults, 'info');
+            
+            try {
+                // テスト制約: 3セルで地雷数2個
+                const constraint = {
+                    cells: [{row: 0, col: 0}, {row: 0, col: 1}, {row: 1, col: 0}],
+                    count: 2
+                };
+
+                // 制約のビットマップを生成
+                const constraintCellsBits = new Uint32Array(bitCSP.intsNeeded);
+                bitCSP.bitSystem.coordsToBits(constraint.cells, constraintCellsBits);
+                constraint.cellsBits = constraintCellsBits;
+
+                // テスト設定1: 地雷2個（妥当）
+                const validConfig = {
+                    cellsBits: new Uint32Array(bitCSP.intsNeeded),
+                    cells: constraint.cells,
+                    mineCount: 2
+                };
+                
+                // (0,0)と(0,1)に地雷を配置
+                const bit1 = bitCSP.bitSystem.coordToBit(0, 0);
+                const bit2 = bitCSP.bitSystem.coordToBit(0, 1);
+                validConfig.cellsBits[Math.floor(bit1/32)] |= (1 << (bit1%32));
+                validConfig.cellsBits[Math.floor(bit2/32)] |= (1 << (bit2%32));
+
+                const isValid1 = bitCSP.validateConfigurationBit(validConfig, [constraint]);
+                log(`✅ 妥当な設定テスト: ${isValid1 ? '妥当' : '無効'}（期待値: 妥当）`, testResults, 'success');
+
+                // テスト設定2: 地雷3個（無効）
+                const invalidConfig = {
+                    cellsBits: new Uint32Array(bitCSP.intsNeeded),
+                    cells: constraint.cells,
+                    mineCount: 3
+                };
+                
+                // 全セルに地雷を配置
+                for (const cell of constraint.cells) {
+                    const bit = bitCSP.bitSystem.coordToBit(cell.row, cell.col);
+                    invalidConfig.cellsBits[Math.floor(bit/32)] |= (1 << (bit%32));
+                }
+
+                const isValid2 = bitCSP.validateConfigurationBit(invalidConfig, [constraint]);
+                log(`✅ 無効な設定テスト: ${isValid2 ? '妥当' : '無効'}（期待値: 無効）`, testResults, 'success');
+
+                if (isValid1 && !isValid2) {
+                    log("✅ validateConfigurationBit() 全テスト成功", testResults, 'success');
+                    return true;
+                } else {
+                    log("❌ validateConfigurationBit() テスト失敗", testResults, 'error');
+                    return false;
+                }
+
+            } catch (error) {
+                log(`❌ validateConfigurationBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 3. enumerateValidConfigsBit() テスト
+        function testEnumerateValidConfigs() {
+            log("=== enumerateValidConfigsBit() テスト開始 ===", testResults, 'info');
+            
+            try {
+                // 2セル、地雷1個の制約グループ
+                const constraintGroup = {
+                    cells: [{row: 0, col: 0}, {row: 0, col: 1}],
+                    constraints: [
+                        {
+                            cells: [{row: 0, col: 0}, {row: 0, col: 1}],
+                            count: 1
+                        }
+                    ]
+                };
+
+                // 制約のビットマップを生成
+                const constraintCellsBits = new Uint32Array(bitCSP.intsNeeded);
+                bitCSP.bitSystem.coordsToBits(constraintGroup.constraints[0].cells, constraintCellsBits);
+                constraintGroup.constraints[0].cellsBits = constraintCellsBits;
+
+                const validConfigs = bitCSP.enumerateValidConfigsBit(constraintGroup);
+                log(`✅ 2セル1地雷制約: ${validConfigs.length}個の有効設定（期待値: 2）`, testResults, 'success');
+                
+                if (validConfigs.length !== 2) {
+                    log(`❌ エラー: 期待値2に対して${validConfigs.length}`, testResults, 'error');
+                    return false;
+                }
+
+                // より複雑なケース: 3セル2地雷制約
+                const complexGroup = {
+                    cells: [{row: 1, col: 1}, {row: 1, col: 2}, {row: 2, col: 1}],
+                    constraints: [
+                        {
+                            cells: [{row: 1, col: 1}, {row: 1, col: 2}, {row: 2, col: 1}],
+                            count: 2
+                        }
+                    ]
+                };
+
+                // 制約のビットマップを生成
+                const complexConstraintCellsBits = new Uint32Array(bitCSP.intsNeeded);
+                bitCSP.bitSystem.coordsToBits(complexGroup.constraints[0].cells, complexConstraintCellsBits);
+                complexGroup.constraints[0].cellsBits = complexConstraintCellsBits;
+
+                const complexValidConfigs = bitCSP.enumerateValidConfigsBit(complexGroup);
+                log(`✅ 3セル2地雷制約: ${complexValidConfigs.length}個の有効設定（期待値: 3）`, testResults, 'success');
+
+                if (complexValidConfigs.length !== 3) {
+                    log(`❌ エラー: 期待値3に対して${complexValidConfigs.length}`, testResults, 'error');
+                    return false;
+                }
+
+                log("✅ enumerateValidConfigsBit() 全テスト成功", testResults, 'success');
+                return true;
+
+            } catch (error) {
+                log(`❌ enumerateValidConfigsBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 4. optimizeSmallSetSolvingBit() テスト
+        function testOptimizeSmallSetSolving() {
+            log("=== optimizeSmallSetSolvingBit() テスト開始 ===", testResults, 'info');
+            
+            try {
+                // 小規模制約グループ（5セル、2地雷）
+                const constraintGroup = {
+                    cells: [
+                        {row: 2, col: 2}, {row: 2, col: 3},
+                        {row: 3, col: 2}, {row: 3, col: 3}, {row: 3, col: 4}
+                    ],
+                    constraints: [
+                        {
+                            cells: [{row: 2, col: 2}, {row: 2, col: 3}, {row: 3, col: 2}],
+                            count: 1
+                        },
+                        {
+                            cells: [{row: 3, col: 2}, {row: 3, col: 3}, {row: 3, col: 4}],
+                            count: 1
+                        }
+                    ]
+                };
+
+                // 制約のビットマップを生成
+                for (const constraint of constraintGroup.constraints) {
+                    const constraintCellsBits = new Uint32Array(bitCSP.intsNeeded);
+                    bitCSP.bitSystem.coordsToBits(constraint.cells, constraintCellsBits);
+                    constraint.cellsBits = constraintCellsBits;
+                }
+
+                const startTime = performance.now();
+                const result = bitCSP.optimizeSmallSetSolvingBit(constraintGroup);
+                const endTime = performance.now();
+
+                log(`✅ 解決結果: ${result.success ? '成功' : '失敗'}`, testResults, result.success ? 'success' : 'error');
+                if (result.success) {
+                    log(`   - 解決パターン数: ${result.solutionCount}`, testResults);
+                    log(`   - セル数: ${result.cellCount}`, testResults);
+                    log(`   - 実行時間: ${result.executionTime.toFixed(4)}ms`, testResults);
+                    log(`   - 平均時間/解: ${result.averageTimePerSolution.toFixed(4)}ms`, testResults);
+                    
+                    // パフォーマンス目標チェック
+                    if (result.executionTime < 1.0) {
+                        log(`🎯 パフォーマンス目標達成！ (${result.executionTime.toFixed(4)}ms < 1ms)`, testResults, 'success');
+                    } else {
+                        log(`⚠️ パフォーマンス目標未達成 (${result.executionTime.toFixed(4)}ms ≥ 1ms)`, testResults, 'warning');
+                    }
+
+                    // セル確率の確認
+                    log(`   - セル確率:`, testResults);
+                    for (const [cellKey, probability] of Object.entries(result.cellProbabilities)) {
+                        log(`     ${cellKey}: ${(probability * 100).toFixed(1)}%`, testResults);
+                    }
+                } else {
+                    log(`   - 失敗理由: ${result.reason}`, testResults, 'error');
+                }
+
+                // 制限超過テスト (30セルで29セル制限を超過)
+                const largeGroup = {
+                    cells: Array(30).fill().map((_, i) => ({row: Math.floor(i / 6), col: i % 6})),
+                    constraints: []
+                };
+
+                const largeResult = bitCSP.optimizeSmallSetSolvingBit(largeGroup);
+                log(`✅ 制限超過テスト: ${largeResult.success ? '成功（エラー）' : '正常拒否'}`, testResults, 
+                    largeResult.success ? 'error' : 'success');
+
+                if (!largeResult.success && largeResult.reason === 'set_too_large') {
+                    log("✅ optimizeSmallSetSolvingBit() 全テスト成功", testResults, 'success');
+                    return true;
+                } else {
+                    log("❌ optimizeSmallSetSolvingBit() テスト失敗", testResults, 'error');
+                    return false;
+                }
+
+            } catch (error) {
+                log(`❌ optimizeSmallSetSolvingBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 全テスト実行
+        function runAllTests() {
+            log("🚀 Phase3-1 全機能テスト開始", testResults, 'info');
+            log("=" * 60, testResults);
+            
+            let allPassed = true;
+            const tests = [
+                { name: "generateConfigurationsBit()", func: testGenerateConfigurations },
+                { name: "validateConfigurationBit()", func: testValidateConfiguration },
+                { name: "enumerateValidConfigsBit()", func: testEnumerateValidConfigs },
+                { name: "optimizeSmallSetSolvingBit()", func: testOptimizeSmallSetSolving }
+            ];
+
+            for (const test of tests) {
+                log(`\n--- ${test.name} テスト ---`, testResults, 'info');
+                const passed = test.func();
+                allPassed = allPassed && passed;
+                log(`${test.name}: ${passed ? '✅ 成功' : '❌ 失敗'}`, testResults, passed ? 'success' : 'error');
+            }
+
+            log("\n" + "=" * 60, testResults);
+            log(`🎯 Phase3-1 全テスト結果: ${allPassed ? '✅ 全て成功' : '❌ 一部失敗'}`, testResults, 
+                allPassed ? 'success' : 'error');
+        }
+
+        // パフォーマンステスト: 小規模セット
+        function benchmarkSmallSets() {
+            log("⚡ 小規模セット（2-18セル）ベンチマーク開始", performanceResults, 'info');
+            
+            const results = [];
+            for (let cellCount = 2; cellCount <= 18; cellCount++) {
+                const cells = Array(cellCount).fill().map((_, i) => ({
+                    row: Math.floor(i / 4),
+                    col: i % 4
+                }));
+
+                const constraintGroup = {
+                    cells: cells,
+                    constraints: [
+                        {
+                            cells: cells.slice(0, Math.min(3, cellCount)),
+                            count: 1
+                        }
+                    ]
+                };
+
+                // 制約のビットマップを生成
+                const constraintCellsBits = new Uint32Array(bitCSP.intsNeeded);
+                bitCSP.bitSystem.coordsToBits(constraintGroup.constraints[0].cells, constraintCellsBits);
+                constraintGroup.constraints[0].cellsBits = constraintCellsBits;
+
+                const startTime = performance.now();
+                const result = bitCSP.optimizeSmallSetSolvingBit(constraintGroup);
+                const endTime = performance.now();
+
+                results.push({
+                    cellCount: cellCount,
+                    executionTime: result.executionTime,
+                    solutionCount: result.success ? result.solutionCount : 0,
+                    success: result.success
+                });
+
+                log(`${cellCount}セル: ${result.executionTime.toFixed(4)}ms (${result.success ? result.solutionCount + '解' : '失敗'})`, 
+                    performanceResults, result.success ? 'success' : 'error');
+            }
+
+            // パフォーマンスメトリクス表示
+            const avgTime = results.filter(r => r.success).reduce((sum, r) => sum + r.executionTime, 0) / 
+                           results.filter(r => r.success).length;
+            const maxTime = Math.max(...results.filter(r => r.success).map(r => r.executionTime));
+            const targetAchieved = results.filter(r => r.success && r.executionTime < 1.0).length;
+
+            updatePerformanceMetrics({
+                'avg_time': { value: avgTime.toFixed(4) + 'ms', label: '平均実行時間' },
+                'max_time': { value: maxTime.toFixed(4) + 'ms', label: '最大実行時間' },
+                'target_achieved': { value: targetAchieved + '/' + results.length, label: '目標達成数' },
+                'success_rate': { value: (results.filter(r => r.success).length / results.length * 100).toFixed(1) + '%', label: '成功率' }
+            });
+        }
+
+        // パフォーマンステスト: 中規模セット
+        function benchmarkMediumSets() {
+            log("⚡ 中規模セット（20-25セル）ベンチマーク開始", performanceResults, 'info');
+            
+            const results = [];
+            for (let cellCount = 20; cellCount <= 25; cellCount++) {
+                const cells = Array(cellCount).fill().map((_, i) => ({
+                    row: Math.floor(i / 4),
+                    col: i % 4
+                }));
+
+                const constraintGroup = {
+                    cells: cells,
+                    constraints: [
+                        {
+                            cells: cells.slice(0, 4),
+                            count: 1
+                        },
+                        {
+                            cells: cells.slice(2, 6),
+                            count: 1
+                        }
+                    ]
+                };
+
+                // 制約のビットマップを生成
+                for (const constraint of constraintGroup.constraints) {
+                    const constraintCellsBits = new Uint32Array(bitCSP.intsNeeded);
+                    bitCSP.bitSystem.coordsToBits(constraint.cells, constraintCellsBits);
+                    constraint.cellsBits = constraintCellsBits;
+                }
+
+                const startTime = performance.now();
+                const result = bitCSP.optimizeSmallSetSolvingBit(constraintGroup);
+                const endTime = performance.now();
+
+                results.push({
+                    cellCount: cellCount,
+                    executionTime: result.executionTime,
+                    solutionCount: result.success ? result.solutionCount : 0,
+                    success: result.success
+                });
+
+                log(`${cellCount}セル: ${result.executionTime.toFixed(4)}ms (${result.success ? result.solutionCount + '解' : '失敗'})`, 
+                    performanceResults, result.success ? 'success' : 'warning');
+            }
+
+            // 中規模セットの統計
+            const avgTime = results.filter(r => r.success).reduce((sum, r) => sum + r.executionTime, 0) / 
+                           results.filter(r => r.success).length;
+            
+            log(`\n📊 中規模セット統計:`, performanceResults, 'info');
+            log(`平均実行時間: ${avgTime.toFixed(4)}ms`, performanceResults);
+            log(`成功率: ${results.filter(r => r.success).length}/${results.length} (${(results.filter(r => r.success).length/results.length*100).toFixed(1)}%)`, performanceResults);
+        }
+
+        // パフォーマンステスト: 大規模セット (18-20セル)
+        function benchmarkLargeSets() {
+            log("⚡ 大規模セット（26-29セル）ベンチマーク開始", performanceResults, 'info');
+            
+            const results = [];
+            for (let cellCount = 26; cellCount <= 29; cellCount++) {
+                const cells = Array(cellCount).fill().map((_, i) => ({
+                    row: Math.floor(i / 5),
+                    col: i % 5
+                }));
+
+                const constraintGroup = {
+                    cells: cells,
+                    constraints: [
+                        {
+                            cells: cells.slice(0, 4),
+                            count: 2
+                        },
+                        {
+                            cells: cells.slice(3, 7),
+                            count: 1
+                        }
+                    ]
+                };
+
+                // 制約のビットマップを生成
+                for (const constraint of constraintGroup.constraints) {
+                    const constraintCellsBits = new Uint32Array(bitCSP.intsNeeded);
+                    bitCSP.bitSystem.coordsToBits(constraint.cells, constraintCellsBits);
+                    constraint.cellsBits = constraintCellsBits;
+                }
+
+                const startTime = performance.now();
+                const result = bitCSP.optimizeSmallSetSolvingBit(constraintGroup);
+                const endTime = performance.now();
+
+                results.push({
+                    cellCount: cellCount,
+                    executionTime: result.executionTime,
+                    solutionCount: result.success ? result.solutionCount : 0,
+                    success: result.success
+                });
+
+                log(`${cellCount}セル: ${result.executionTime.toFixed(4)}ms (${result.success ? result.solutionCount + '解' : '失敗'})`, 
+                    performanceResults, result.success ? 'success' : 'warning');
+            }
+
+            // 大規模セットの統計
+            const avgTime = results.filter(r => r.success).reduce((sum, r) => sum + r.executionTime, 0) / 
+                           results.filter(r => r.success).length;
+            
+            log(`\n📊 大規模セット統計:`, performanceResults, 'info');
+            log(`平均実行時間: ${avgTime ? avgTime.toFixed(4) : 'N/A'}ms`, performanceResults);
+            log(`成功率: ${results.filter(r => r.success).length}/${results.length} (${(results.filter(r => r.success).length/results.length*100).toFixed(1)}%)`, performanceResults);
+            
+            // パフォーマンス警告
+            if (avgTime && avgTime > 100) {
+                log(`⚠️ 大規模セットでは100ms以上の処理時間が発生しています`, performanceResults, 'warning');
+            }
+        }
+
+        // 極限テスト: 29セル5億パターン (64x64盤面の限界性能確認)
+        function benchmarkExtremeTest() {
+            log("🔥 極限テスト: 29セル 5億パターン処理開始", performanceResults, 'info');
+            log("⚠️ 注意: この処理には数秒〜数十秒かかる可能性があります", performanceResults, 'warning');
+            
+            const cells29 = Array(29).fill().map((_, i) => ({
+                row: Math.floor(i / 6),
+                col: i % 6
+            }));
+
+            const constraintGroup = {
+                cells: cells29,
+                constraints: [
+                    {
+                        cells: cells29.slice(0, 6),
+                        count: 3
+                    },
+                    {
+                        cells: cells29.slice(5, 11),
+                        count: 2
+                    },
+                    {
+                        cells: cells29.slice(10, 16),
+                        count: 2
+                    }
+                ]
+            };
+
+            // 制約のビットマップを生成
+            for (const constraint of constraintGroup.constraints) {
+                const constraintCellsBits = new Uint32Array(bitCSP.intsNeeded);
+                bitCSP.bitSystem.coordsToBits(constraint.cells, constraintCellsBits);
+                constraint.cellsBits = constraintCellsBits;
+            }
+
+            log("🚀 29セル処理開始...", performanceResults, 'info');
+            const extremeStartTime = performance.now();
+            const result = bitCSP.optimizeSmallSetSolvingBit(constraintGroup);
+            const extremeEndTime = performance.now();
+
+            const totalTime = extremeEndTime - extremeStartTime;
+            
+            if (result.success) {
+                log(`✅ 29セル極限テスト成功！`, performanceResults, 'success');
+                log(`   - 総実行時間: ${totalTime.toFixed(2)}ms`, performanceResults, 'success');
+                log(`   - 解決パターン数: ${result.solutionCount.toLocaleString()}`, performanceResults);
+                log(`   - セル確率計算完了: ${Object.keys(result.cellProbabilities).length}セル`, performanceResults);
+                log(`   - 平均処理時間/解: ${result.averageTimePerSolution.toFixed(6)}ms`, performanceResults);
+                
+                // パフォーマンス評価
+                if (totalTime < 1000) {
+                    log(`🏆 優秀: 1秒以内での29セル処理達成！`, performanceResults, 'success');
+                } else if (totalTime < 5000) {
+                    log(`🎯 良好: 5秒以内での29セル処理達成`, performanceResults, 'success');
+                } else if (totalTime < 30000) {
+                    log(`⚠️ 実用範囲: 30秒以内での処理完了`, performanceResults, 'warning');
+                } else {
+                    log(`🚨 重い処理: 30秒超の処理時間`, performanceResults, 'warning');
+                }
+
+                // 64x64盤面での実用性評価
+                log(`\n📊 64x64盤面実用性評価:`, performanceResults, 'info');
+                if (totalTime < 100) {
+                    log(`  🎯 リアルタイム処理可能 (<100ms)`, performanceResults, 'success');
+                } else if (totalTime < 1000) {
+                    log(`  ✅ 快適な処理速度 (<1秒)`, performanceResults, 'success');
+                } else {
+                    log(`  ⚠️ 重い処理 - Phase3-4の大規模最適化が必要`, performanceResults, 'warning');
+                }
+                
+            } else {
+                log(`❌ 29セル極限テスト失敗: ${result.reason}`, performanceResults, 'error');
+            }
+
+            updatePerformanceMetrics({
+                'extreme_time': { value: totalTime.toFixed(2) + 'ms', label: '29セル処理時間' },
+                'extreme_solutions': { value: result.success ? result.solutionCount.toLocaleString() : '0', label: '解決パターン数' },
+                'cells_processed': { value: '29', label: '処理セル数' },
+                'patterns_processed': { value: '536,870,912', label: '全パターン数' }
+            });
+        }
+
+        // Phase2比較ベンチマーク
+        function benchmarkComparisonTest() {
+            log("📊 Phase2比較ベンチマーク開始", performanceResults, 'info');
+            
+            // 同一条件でのテスト（5セル、2制約）
+            const testGroup = {
+                cells: [
+                    {row: 1, col: 1}, {row: 1, col: 2}, {row: 1, col: 3},
+                    {row: 2, col: 1}, {row: 2, col: 2}
+                ],
+                constraints: [
+                    {
+                        cells: [{row: 1, col: 1}, {row: 1, col: 2}, {row: 2, col: 1}],
+                        count: 1
+                    },
+                    {
+                        cells: [{row: 1, col: 2}, {row: 1, col: 3}, {row: 2, col: 2}],
+                        count: 1
+                    }
+                ]
+            };
+
+            // 制約のビットマップを生成
+            for (const constraint of testGroup.constraints) {
+                const constraintCellsBits = new Uint32Array(bitCSP.intsNeeded);
+                bitCSP.bitSystem.coordsToBits(constraint.cells, constraintCellsBits);
+                constraint.cellsBits = constraintCellsBits;
+            }
+
+            // 100回実行してパフォーマンスを測定
+            const iterations = 100;
+            let totalTime = 0;
+            let successCount = 0;
+
+            for (let i = 0; i < iterations; i++) {
+                const result = bitCSP.optimizeSmallSetSolvingBit(testGroup);
+                if (result.success) {
+                    totalTime += result.executionTime;
+                    successCount++;
+                }
+            }
+
+            const avgTime = totalTime / successCount;
+            log(`100回実行平均時間: ${avgTime.toFixed(4)}ms`, performanceResults, 'success');
+            log(`成功率: ${successCount}/${iterations} (${(successCount/iterations*100).toFixed(1)}%)`, performanceResults, 'success');
+            
+            // Phase2の1.70ms/3グループと比較
+            const phase2Reference = 1.70 / 3; // 約0.567ms per group
+            const improvement = ((phase2Reference - avgTime) / phase2Reference * 100);
+            
+            if (avgTime < phase2Reference) {
+                log(`🚀 Phase2比: ${improvement.toFixed(1)}% 高速化達成！`, performanceResults, 'success');
+            } else {
+                log(`⚠️ Phase2比: ${(-improvement).toFixed(1)}% 低下`, performanceResults, 'warning');
+            }
+        }
+
+        // パフォーマンスメトリクス表示
+        function updatePerformanceMetrics(metrics) {
+            performanceMetrics.innerHTML = '';
+            for (const [key, data] of Object.entries(metrics)) {
+                const card = document.createElement('div');
+                card.className = 'metric-card';
+                card.innerHTML = `
+                    <div class="metric-value">${data.value}</div>
+                    <div class="metric-label">${data.label}</div>
+                `;
+                performanceMetrics.appendChild(card);
+            }
+        }
+
+        // 詳細テスト関数群
+        function testComplexConstraints() {
+            log("🔍 複雑制約パターンテスト開始", detailedResults, 'info');
+            // 実装予定: 複数制約の相互作用テスト
+            log("実装予定: 複数制約の相互作用パターンテスト", detailedResults, 'warning');
+        }
+
+        function testEdgeCases() {
+            log("🔍 エッジケーステスト開始", detailedResults, 'info');
+            // 実装予定: 境界条件、異常系のテスト
+            log("実装予定: 境界条件・異常系のテスト", detailedResults, 'warning');
+        }
+
+        function testMemoryEfficiency() {
+            log("🔍 メモリ効率テスト開始", detailedResults, 'info');
+            // 実装予定: メモリ使用量の測定と分析
+            log("実装予定: メモリ使用量の測定と分析", detailedResults, 'warning');
+        }
+
+        // 初期化
+        log("🚀 Phase3-1テストシステム初期化完了", testResults, 'success');
+        log("Phase2の1.70ms/3グループ実績を上回る超高速化を目指します！", testResults, 'info');
+    </script>
+</body>
+</html>

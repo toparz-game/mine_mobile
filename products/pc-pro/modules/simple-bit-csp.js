@@ -4296,6 +4296,883 @@ class SimpleBitCSP {
             };
         }
     }
+
+    // ===== PHASE3-1: 小規模完全探索のビット化基盤 =====
+
+    // 制約グループの全設定パターンをビット化で生成
+    generateConfigurationsBit(constraintGroup) {
+        if (!constraintGroup || !constraintGroup.cells || constraintGroup.cells.length === 0) {
+            return [];
+        }
+
+        const cells = constraintGroup.cells;
+        const cellCount = cells.length;
+        
+        // 29セル以下の小規模セットに制限 (64x64盤面対応)
+        if (cellCount > 29) {
+            console.warn(`generateConfigurationsBit: セル数${cellCount}は制限を超えています（最大29）`);
+            return [];
+        }
+        
+        // 25セル以上では大規模処理警告
+        if (cellCount >= 25) {
+            console.info(`generateConfigurationsBit: ${cellCount}セルの大規模処理 (2^${cellCount} = ${(1 << cellCount).toLocaleString()}パターン)`);
+        }
+
+        // 全設定パターン数: 2^cellCount
+        const totalConfigs = 1 << cellCount;
+        const configurations = [];
+
+        for (let config = 0; config < totalConfigs; config++) {
+            const configBits = new Uint32Array(this.intsNeeded);
+            
+            // 各セルについて、configのビットが1なら地雷として設定
+            for (let i = 0; i < cellCount; i++) {
+                if (config & (1 << i)) {
+                    const cell = cells[i];
+                    const bitIndex = this.bitSystem.coordToBit(cell.row, cell.col);
+                    const arrayIndex = Math.floor(bitIndex / 32);
+                    const bitPos = bitIndex % 32;
+                    configBits[arrayIndex] |= (1 << bitPos);
+                }
+            }
+
+            configurations.push({
+                configId: config,
+                cellsBits: configBits,
+                cells: cells,
+                mineCount: this.bitSystem.popCountBits(configBits)
+            });
+        }
+
+        return configurations;
+    }
+
+    // 設定の妥当性をビット演算で判定
+    validateConfigurationBit(configuration, constraints) {
+        if (!configuration || !constraints || constraints.length === 0) {
+            return true;
+        }
+
+        const configBits = configuration.cellsBits;
+
+        // 各制約に対して妥当性をチェック
+        for (const constraint of constraints) {
+            // 制約のセルビットマップを取得または生成
+            const constraintCellsBits = constraint.cellsBits || (() => {
+                const bits = new Uint32Array(this.intsNeeded);
+                this.bitSystem.coordsToBits(constraint.cells, bits);
+                return bits;
+            })();
+
+            // 設定と制約の重複部分を計算
+            const overlapBits = new Uint32Array(this.intsNeeded);
+            this.bitSystem.andBits(configBits, constraintCellsBits, overlapBits);
+            const actualMines = this.bitSystem.popCountBits(overlapBits);
+
+            // 制約の要求地雷数と一致するかチェック
+            if (actualMines !== constraint.count) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // 有効な設定パターンの列挙
+    enumerateValidConfigsBit(constraintGroup) {
+        if (!constraintGroup || !constraintGroup.constraints) {
+            return [];
+        }
+
+        // 全設定パターンを生成
+        const allConfigurations = this.generateConfigurationsBit(constraintGroup);
+        const validConfigurations = [];
+
+        // 各設定パターンの妥当性をチェック
+        for (const config of allConfigurations) {
+            if (this.validateConfigurationBit(config, constraintGroup.constraints)) {
+                validConfigurations.push(config);
+            }
+        }
+
+        return validConfigurations;
+    }
+
+    // 小規模セット解決の最適化
+    optimizeSmallSetSolvingBit(constraintGroup) {
+        const startTime = performance.now();
+        
+        if (!constraintGroup || !constraintGroup.cells) {
+            return {
+                success: false,
+                reason: 'invalid_constraint_group',
+                executionTime: performance.now() - startTime
+            };
+        }
+
+        const cellCount = constraintGroup.cells.length;
+        
+        // 小規模セット（29セル以下）に限定 (64x64盤面対応)
+        if (cellCount > 29) {
+            return {
+                success: false,
+                reason: 'set_too_large',
+                cellCount: cellCount,
+                maxCellCount: 29,
+                executionTime: performance.now() - startTime
+            };
+        }
+        
+        // 25セル以上では大規模処理警告
+        if (cellCount >= 25) {
+            console.info(`optimizeSmallSetSolvingBit: ${cellCount}セルの大規模処理 (2^${cellCount} = ${(1 << cellCount).toLocaleString()}パターン)`);
+        }
+
+        // 有効な設定パターンを列挙
+        const validConfigurations = this.enumerateValidConfigsBit(constraintGroup);
+        
+        if (validConfigurations.length === 0) {
+            return {
+                success: false,
+                reason: 'no_valid_configurations',
+                executionTime: performance.now() - startTime
+            };
+        }
+
+        // セル別の確率を計算
+        const cellProbabilities = {};
+        const cells = constraintGroup.cells;
+        
+        for (const cell of cells) {
+            let mineCount = 0;
+            const cellBit = this.bitSystem.coordToBit(cell.row, cell.col);
+            const arrayIndex = Math.floor(cellBit / 32);
+            const bitPos = cellBit % 32;
+            
+            for (const config of validConfigurations) {
+                if (config.cellsBits[arrayIndex] & (1 << bitPos)) {
+                    mineCount++;
+                }
+            }
+            
+            cellProbabilities[`${cell.row},${cell.col}`] = mineCount / validConfigurations.length;
+        }
+
+        const executionTime = performance.now() - startTime;
+
+        return {
+            success: true,
+            solutions: validConfigurations,
+            cellProbabilities: cellProbabilities,
+            solutionCount: validConfigurations.length,
+            cellCount: cellCount,
+            executionTime: executionTime,
+            averageTimePerSolution: executionTime / validConfigurations.length
+        };
+    }
+
+    // ===== PHASE3-2: 確率計算システムのビット化 =====
+
+    // セル確率計算のビット化 (従来版より高速化)
+    calculateCellProbabilitiesBit(solutions) {
+        if (!solutions || solutions.length === 0) {
+            return {};
+        }
+
+        const startTime = performance.now();
+        const cellProbabilities = {};
+        const totalSolutions = solutions.length;
+
+        // 全解決パターンから各セルの地雷確率を計算
+        const cellMineCount = new Map();
+        
+        for (const solution of solutions) {
+            if (!solution.cellsBits || !solution.cells) continue;
+
+            // 各セルについてビット演算で地雷の有無をチェック
+            for (const cell of solution.cells) {
+                const cellKey = `${cell.row},${cell.col}`;
+                const cellBit = this.bitSystem.coordToBit(cell.row, cell.col);
+                const arrayIndex = Math.floor(cellBit / 32);
+                const bitPos = cellBit % 32;
+                
+                const hasMine = (solution.cellsBits[arrayIndex] & (1 << bitPos)) !== 0;
+                
+                if (!cellMineCount.has(cellKey)) {
+                    cellMineCount.set(cellKey, 0);
+                }
+                if (hasMine) {
+                    cellMineCount.set(cellKey, cellMineCount.get(cellKey) + 1);
+                }
+            }
+        }
+
+        // 確率を計算（地雷があるパターン数 / 全パターン数）
+        for (const [cellKey, mineCount] of cellMineCount.entries()) {
+            cellProbabilities[cellKey] = mineCount / totalSolutions;
+        }
+
+        const executionTime = performance.now() - startTime;
+
+        return {
+            probabilities: cellProbabilities,
+            totalSolutions: totalSolutions,
+            cellsAnalyzed: cellMineCount.size,
+            executionTime: executionTime
+        };
+    }
+
+    // 解決統計のビット集計 (複数グループの統計を高速集計)
+    aggregateSolutionStatsBit(solutionGroups) {
+        if (!solutionGroups || solutionGroups.length === 0) {
+            return {
+                success: false,
+                reason: 'no_solution_groups'
+            };
+        }
+
+        const startTime = performance.now();
+        const aggregatedStats = {
+            totalGroups: solutionGroups.length,
+            totalSolutions: 0,
+            totalCells: 0,
+            totalExecutionTime: 0,
+            groupStats: [],
+            overallProbabilities: {},
+            performanceMetrics: {}
+        };
+
+        let allCellProbabilities = new Map();
+
+        // 各グループの統計を集計
+        for (let i = 0; i < solutionGroups.length; i++) {
+            const group = solutionGroups[i];
+            
+            if (!group.solutions || !Array.isArray(group.solutions)) {
+                continue;
+            }
+
+            const groupStat = {
+                groupIndex: i,
+                solutionCount: group.solutions.length,
+                cellCount: group.cells ? group.cells.length : 0,
+                executionTime: group.executionTime || 0
+            };
+
+            // グループの確率計算
+            const probResult = this.calculateCellProbabilitiesBit(group.solutions);
+            groupStat.cellProbabilities = probResult.probabilities;
+
+            // 全体統計に加算
+            aggregatedStats.totalSolutions += groupStat.solutionCount;
+            aggregatedStats.totalCells += groupStat.cellCount;
+            aggregatedStats.totalExecutionTime += groupStat.executionTime;
+
+            // セル確率を全体に統合（重複チェック）
+            for (const [cellKey, probability] of Object.entries(probResult.probabilities)) {
+                if (allCellProbabilities.has(cellKey)) {
+                    // 重複セルの場合は平均を取る
+                    const existingProb = allCellProbabilities.get(cellKey);
+                    allCellProbabilities.set(cellKey, (existingProb + probability) / 2);
+                } else {
+                    allCellProbabilities.set(cellKey, probability);
+                }
+            }
+
+            aggregatedStats.groupStats.push(groupStat);
+        }
+
+        // 全体確率を設定
+        aggregatedStats.overallProbabilities = Object.fromEntries(allCellProbabilities);
+
+        // パフォーマンスメトリクス計算
+        const executionTime = performance.now() - startTime;
+        aggregatedStats.performanceMetrics = {
+            aggregationTime: executionTime,
+            averageGroupTime: aggregatedStats.totalExecutionTime / aggregatedStats.totalGroups,
+            averageSolutionsPerGroup: aggregatedStats.totalSolutions / aggregatedStats.totalGroups,
+            totalProcessingTime: aggregatedStats.totalExecutionTime + executionTime
+        };
+
+        return {
+            success: true,
+            stats: aggregatedStats,
+            executionTime: executionTime
+        };
+    }
+
+    // 大規模確率計算最適化 (メモリ効率とキャッシュを活用)
+    optimizeProbabilityCalculationBit(largeSet) {
+        const startTime = performance.now();
+        
+        if (!largeSet || !largeSet.cells) {
+            return {
+                success: false,
+                reason: 'invalid_large_set',
+                executionTime: performance.now() - startTime
+            };
+        }
+
+        const cellCount = largeSet.cells.length;
+        
+        // 大規模セット判定（20セル以上）
+        if (cellCount < 20) {
+            return {
+                success: false,
+                reason: 'set_not_large_enough',
+                minCellCount: 20,
+                actualCellCount: cellCount,
+                executionTime: performance.now() - startTime
+            };
+        }
+
+        // メモリ効率化のための分割処理
+        const chunkSize = Math.min(25, Math.ceil(cellCount / 4)); // 最大25セルずつ処理
+        const chunks = [];
+        
+        for (let i = 0; i < largeSet.cells.length; i += chunkSize) {
+            chunks.push({
+                cells: largeSet.cells.slice(i, i + chunkSize),
+                constraints: largeSet.constraints ? 
+                    largeSet.constraints.filter(c => 
+                        c.cells.some(cell => 
+                            largeSet.cells.slice(i, i + chunkSize).some(chunkCell => 
+                                chunkCell.row === cell.row && chunkCell.col === cell.col
+                            )
+                        )
+                    ) : []
+            });
+        }
+
+        // 各チャンクを並列処理風に高速処理
+        const chunkResults = [];
+        let totalProcessingTime = 0;
+
+        for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+            const chunk = chunks[chunkIndex];
+            const chunkStartTime = performance.now();
+
+            // 小規模最適化メソッドを活用
+            const chunkResult = this.optimizeSmallSetSolvingBit(chunk);
+            
+            const chunkEndTime = performance.now();
+            const chunkTime = chunkEndTime - chunkStartTime;
+            totalProcessingTime += chunkTime;
+
+            chunkResults.push({
+                chunkIndex: chunkIndex,
+                chunkSize: chunk.cells.length,
+                result: chunkResult,
+                processingTime: chunkTime
+            });
+        }
+
+        // 結果の統合
+        const combinedProbabilities = {};
+        let totalValidSolutions = 0;
+
+        for (const chunkResult of chunkResults) {
+            if (chunkResult.result.success) {
+                totalValidSolutions += chunkResult.result.solutionCount;
+                Object.assign(combinedProbabilities, chunkResult.result.cellProbabilities);
+            }
+        }
+
+        const executionTime = performance.now() - startTime;
+
+        return {
+            success: true,
+            originalCellCount: cellCount,
+            chunksProcessed: chunks.length,
+            chunkResults: chunkResults,
+            combinedProbabilities: combinedProbabilities,
+            totalValidSolutions: totalValidSolutions,
+            executionTime: executionTime,
+            totalProcessingTime: totalProcessingTime,
+            optimizationRatio: totalProcessingTime / executionTime,
+            memoryEfficiency: `${chunks.length} chunks (max ${chunkSize} cells/chunk)`
+        };
+    }
+
+    // 確率結果キャッシュシステム (LRU cache with bit-based keys)
+    cacheProbabilityResultsBit(cacheKey, results) {
+        // キャッシュシステムの初期化（初回のみ）
+        if (!this.probabilityCache) {
+            this.probabilityCache = {
+                cache: new Map(),
+                accessOrder: new Map(), // LRU tracking
+                maxSize: 100, // 最大100エントリ
+                hitCount: 0,
+                missCount: 0,
+                totalRequests: 0
+            };
+        }
+
+        const cache = this.probabilityCache;
+        const now = performance.now();
+
+        // 結果を設定する場合
+        if (results !== undefined) {
+            // LRU: 容量超過時は最も古いエントリを削除
+            if (cache.cache.size >= cache.maxSize) {
+                // 最も古いアクセスのキーを特定
+                let oldestKey = null;
+                let oldestTime = Infinity;
+                
+                for (const [key, accessTime] of cache.accessOrder.entries()) {
+                    if (accessTime < oldestTime) {
+                        oldestTime = accessTime;
+                        oldestKey = key;
+                    }
+                }
+                
+                if (oldestKey) {
+                    cache.cache.delete(oldestKey);
+                    cache.accessOrder.delete(oldestKey);
+                }
+            }
+
+            // 新しい結果をキャッシュに保存
+            cache.cache.set(cacheKey, {
+                results: results,
+                timestamp: now,
+                accessCount: 1
+            });
+            cache.accessOrder.set(cacheKey, now);
+
+            return {
+                success: true,
+                action: 'stored',
+                cacheKey: cacheKey,
+                cacheSize: cache.cache.size,
+                timestamp: now
+            };
+        }
+        
+        // 結果を取得する場合
+        cache.totalRequests++;
+        
+        if (cache.cache.has(cacheKey)) {
+            cache.hitCount++;
+            const entry = cache.cache.get(cacheKey);
+            entry.accessCount++;
+            cache.accessOrder.set(cacheKey, now); // LRU更新
+
+            return {
+                success: true,
+                action: 'retrieved',
+                results: entry.results,
+                cacheHit: true,
+                accessCount: entry.accessCount,
+                age: now - entry.timestamp,
+                cacheStats: {
+                    hitRate: (cache.hitCount / cache.totalRequests * 100).toFixed(1) + '%',
+                    cacheSize: cache.cache.size,
+                    maxSize: cache.maxSize
+                }
+            };
+        } else {
+            cache.missCount++;
+            return {
+                success: false,
+                action: 'miss',
+                cacheHit: false,
+                cacheStats: {
+                    hitRate: (cache.hitCount / cache.totalRequests * 100).toFixed(1) + '%',
+                    cacheSize: cache.cache.size,
+                    maxSize: cache.maxSize
+                }
+            };
+        }
+    }
+    
+    // ========================================================================================
+    // Phase3-3: 結果統合処理のビット化 - 複数グループの解決結果統合をビット化
+    // ========================================================================================
+    
+    // 複数グループ解決結果統合のビット化版
+    integrateMultiGroupSolutionsBit(groupSolutions) {
+        this.debugLog(`Starting multi-group solutions integration for ${groupSolutions.length} groups`, 'PHASE3-3');
+        const startTime = performance.now();
+        
+        if (!groupSolutions || groupSolutions.length === 0) {
+            return {
+                success: false,
+                reason: 'empty_group_solutions',
+                executionTime: 0
+            };
+        }
+        
+        try {
+            // 統合メタデータの初期化
+            const integrationData = {
+                totalGroups: groupSolutions.length,
+                totalSolutions: 0,
+                totalCells: 0,
+                combinedProbabilities: {},
+                executionTime: 0,
+                groupMetrics: [],
+                conflicts: []
+            };
+            
+            // 全体のセル範囲を計算
+            const allCellsBits = new Uint32Array(this.intsNeeded);
+            const cellsToGroups = new Map(); // セル → 所属グループのマッピング
+            
+            // Phase1: グループ間の重複とコンフリクトを検出
+            for (let i = 0; i < groupSolutions.length; i++) {
+                const groupSol = groupSolutions[i];
+                if (!groupSol.success || !groupSol.cellProbabilities) continue;
+                
+                const groupCellsBits = new Uint32Array(this.intsNeeded);
+                this.bitSystem.coordsToBits(groupSol.cells || [], groupCellsBits);
+                
+                // セル重複チェック
+                const overlapBits = new Uint32Array(this.intsNeeded);
+                this.bitSystem.andBits(allCellsBits, groupCellsBits, overlapBits);
+                const overlapCount = this.bitSystem.popCountBits(overlapBits);
+                
+                if (overlapCount > 0) {
+                    // 重複セルのコンフリクト記録
+                    const overlapCells = this.bitsToCoords(overlapBits);
+                    for (const cell of overlapCells) {
+                        const cellKey = `${cell.row},${cell.col}`;
+                        if (cellsToGroups.has(cellKey)) {
+                            integrationData.conflicts.push({
+                                cell: cellKey,
+                                groups: [cellsToGroups.get(cellKey), i],
+                                type: 'overlap'
+                            });
+                        }
+                        cellsToGroups.set(cellKey, i);
+                    }
+                }
+                
+                // 全体セル範囲に追加
+                this.bitSystem.orBits(allCellsBits, groupCellsBits, allCellsBits);
+                
+                // グループメトリクス収集
+                integrationData.totalSolutions += groupSol.solutionCount || 0;
+                integrationData.totalCells += groupSol.cells ? groupSol.cells.length : 0;
+                integrationData.groupMetrics.push({
+                    groupId: i,
+                    cellCount: groupSol.cells ? groupSol.cells.length : 0,
+                    solutionCount: groupSol.solutionCount || 0,
+                    executionTime: groupSol.executionTime || 0,
+                    hasOverlap: overlapCount > 0
+                });
+            }
+            
+            // Phase2: 確率統合処理
+            for (const groupSol of groupSolutions) {
+                if (!groupSol.success || !groupSol.cellProbabilities) continue;
+                
+                for (const [cellKey, probability] of Object.entries(groupSol.cellProbabilities)) {
+                    if (integrationData.combinedProbabilities[cellKey]) {
+                        // 重複セルの確率統合（平均値）
+                        const existing = integrationData.combinedProbabilities[cellKey];
+                        integrationData.combinedProbabilities[cellKey] = {
+                            probability: (existing.probability + probability) / 2,
+                            confidence: Math.min(existing.confidence || 1.0, 0.8),
+                            sources: (existing.sources || 1) + 1,
+                            integrated: true
+                        };
+                    } else {
+                        // 新規セルの確率設定
+                        integrationData.combinedProbabilities[cellKey] = {
+                            probability: probability,
+                            confidence: 1.0,
+                            sources: 1,
+                            integrated: false
+                        };
+                    }
+                }
+            }
+            
+            const endTime = performance.now();
+            integrationData.executionTime = endTime - startTime;
+            
+            this.debugLog(`Multi-group integration completed: ${integrationData.totalGroups} groups, ${integrationData.conflicts.length} conflicts`, 'PHASE3-3');
+            
+            return {
+                success: true,
+                integration: integrationData,
+                executionTime: integrationData.executionTime,
+                totalCells: this.bitSystem.popCountBits(allCellsBits),
+                conflictCount: integrationData.conflicts.length,
+                hasConflicts: integrationData.conflicts.length > 0
+            };
+            
+        } catch (error) {
+            const endTime = performance.now();
+            this.debugLog(`Multi-group integration error: ${error.message}`, 'PHASE3-3');
+            return {
+                success: false,
+                reason: 'integration_error',
+                error: error.message,
+                executionTime: endTime - startTime
+            };
+        }
+    }
+    
+    // 制約解決結果マージのビット化版
+    mergeConstraintSolutionsBit(solutions) {
+        this.debugLog(`Starting constraint solutions merge for ${solutions.length} solution sets`, 'PHASE3-3');
+        const startTime = performance.now();
+        
+        if (!solutions || solutions.length === 0) {
+            return {
+                success: false,
+                reason: 'empty_solutions',
+                executionTime: 0
+            };
+        }
+        
+        try {
+            const mergeData = {
+                totalSolutionSets: solutions.length,
+                mergedCount: 0,
+                conflictingSets: 0,
+                validCombinations: [],
+                mergedCellProbabilities: {},
+                consistency: true
+            };
+            
+            // 共通セル範囲の計算
+            let commonCellsBits = null;
+            const allCellsBits = new Uint32Array(this.intsNeeded);
+            
+            // Phase1: 解決セット間の整合性チェック
+            for (let i = 0; i < solutions.length; i++) {
+                const solution = solutions[i];
+                if (!solution.success || !solution.cellProbabilities) continue;
+                
+                const solutionCells = Object.keys(solution.cellProbabilities).map(cellKey => {
+                    const [row, col] = cellKey.split(',').map(Number);
+                    return { row, col };
+                });
+                
+                const solutionCellsBits = new Uint32Array(this.intsNeeded);
+                this.bitSystem.coordsToBits(solutionCells, solutionCellsBits);
+                
+                // 共通セル計算
+                if (commonCellsBits === null) {
+                    commonCellsBits = new Uint32Array(solutionCellsBits);
+                } else {
+                    this.bitSystem.andBits(commonCellsBits, solutionCellsBits, commonCellsBits);
+                }
+                
+                // 全体セル範囲に追加
+                this.bitSystem.orBits(allCellsBits, solutionCellsBits, allCellsBits);
+            }
+            
+            // Phase2: 解決セットのマージ処理
+            let combinationCount = 0;
+            const maxCombinations = Math.min(solutions.length, 1000); // 組み合わせ爆発防止
+            
+            for (let i = 0; i < Math.min(solutions.length, maxCombinations); i++) {
+                const solution = solutions[i];
+                if (!solution.success || !solution.cellProbabilities) {
+                    mergeData.conflictingSets++;
+                    continue;
+                }
+                
+                // 各解決セットの確率を統合
+                for (const [cellKey, probability] of Object.entries(solution.cellProbabilities)) {
+                    if (mergeData.mergedCellProbabilities[cellKey]) {
+                        const existing = mergeData.mergedCellProbabilities[cellKey];
+                        
+                        // 確率の整合性チェック（10%以内の差を許容）
+                        const diff = Math.abs(existing.probability - probability);
+                        if (diff > 0.1) {
+                            mergeData.consistency = false;
+                        }
+                        
+                        // 重み付き平均で統合
+                        const weight1 = existing.weight || 1;
+                        const weight2 = 1;
+                        const totalWeight = weight1 + weight2;
+                        
+                        mergeData.mergedCellProbabilities[cellKey] = {
+                            probability: (existing.probability * weight1 + probability * weight2) / totalWeight,
+                            weight: totalWeight,
+                            sources: (existing.sources || 1) + 1,
+                            variance: Math.max(existing.variance || 0, diff)
+                        };
+                    } else {
+                        mergeData.mergedCellProbabilities[cellKey] = {
+                            probability: probability,
+                            weight: 1,
+                            sources: 1,
+                            variance: 0
+                        };
+                    }
+                }
+                
+                mergeData.mergedCount++;
+                combinationCount++;
+            }
+            
+            const endTime = performance.now();
+            const executionTime = endTime - startTime;
+            
+            this.debugLog(`Constraint solutions merge completed: ${mergeData.mergedCount}/${mergeData.totalSolutionSets} merged`, 'PHASE3-3');
+            
+            return {
+                success: true,
+                merge: mergeData,
+                executionTime: executionTime,
+                totalCells: this.bitSystem.popCountBits(allCellsBits),
+                commonCells: commonCellsBits ? this.bitSystem.popCountBits(commonCellsBits) : 0,
+                consistency: mergeData.consistency,
+                mergeRatio: mergeData.mergedCount / mergeData.totalSolutionSets
+            };
+            
+        } catch (error) {
+            const endTime = performance.now();
+            this.debugLog(`Constraint solutions merge error: ${error.message}`, 'PHASE3-3');
+            return {
+                success: false,
+                reason: 'merge_error',
+                error: error.message,
+                executionTime: endTime - startTime
+            };
+        }
+    }
+    
+    // 統合解決の妥当性検証のビット化版
+    validateIntegratedSolutionBit(integratedSolution) {
+        this.debugLog('Starting integrated solution validation', 'PHASE3-3');
+        const startTime = performance.now();
+        
+        if (!integratedSolution) {
+            return {
+                success: false,
+                reason: 'null_solution',
+                executionTime: 0
+            };
+        }
+        
+        try {
+            const validation = {
+                structuralValid: true,
+                probabilityValid: true,
+                consistencyValid: true,
+                completenessValid: true,
+                errors: [],
+                warnings: [],
+                metrics: {
+                    totalCells: 0,
+                    probabilityRange: { min: 1.0, max: 0.0 },
+                    averageProbability: 0,
+                    conflictCells: 0
+                }
+            };
+            
+            // Phase1: 構造的妥当性チェック
+            if (!integratedSolution.integration && !integratedSolution.merge) {
+                validation.structuralValid = false;
+                validation.errors.push('Missing integration or merge data');
+            }
+            
+            const probabilities = integratedSolution.integration?.combinedProbabilities || 
+                                integratedSolution.merge?.mergedCellProbabilities || {};
+            
+            if (Object.keys(probabilities).length === 0) {
+                validation.structuralValid = false;
+                validation.errors.push('No cell probabilities found');
+            }
+            
+            // Phase2: 確率妥当性チェック
+            let totalProbability = 0;
+            let validProbabilityCount = 0;
+            
+            for (const [cellKey, probData] of Object.entries(probabilities)) {
+                const probability = typeof probData === 'number' ? probData : probData.probability;
+                
+                // 確率範囲チェック (0-1)
+                if (probability < 0 || probability > 1) {
+                    validation.probabilityValid = false;
+                    validation.errors.push(`Invalid probability for cell ${cellKey}: ${probability}`);
+                } else {
+                    totalProbability += probability;
+                    validProbabilityCount++;
+                    
+                    // 統計更新
+                    validation.metrics.probabilityRange.min = Math.min(validation.metrics.probabilityRange.min, probability);
+                    validation.metrics.probabilityRange.max = Math.max(validation.metrics.probabilityRange.max, probability);
+                }
+                
+                // セル座標の妥当性チェック
+                const [row, col] = cellKey.split(',').map(Number);
+                if (isNaN(row) || isNaN(col) || !this.isValidCoord(row, col)) {
+                    validation.structuralValid = false;
+                    validation.errors.push(`Invalid cell coordinate: ${cellKey}`);
+                }
+                
+                // コンフリクトチェック
+                if (typeof probData === 'object' && probData.sources > 1 && probData.variance > 0.2) {
+                    validation.metrics.conflictCells++;
+                    validation.warnings.push(`High variance conflict in cell ${cellKey}: ${probData.variance.toFixed(3)}`);
+                }
+            }
+            
+            validation.metrics.totalCells = validProbabilityCount;
+            validation.metrics.averageProbability = validProbabilityCount > 0 ? 
+                totalProbability / validProbabilityCount : 0;
+            
+            // Phase3: 一貫性チェック
+            if (integratedSolution.hasConflicts || integratedSolution.conflictCount > 0) {
+                validation.consistencyValid = false;
+                validation.warnings.push(`${integratedSolution.conflictCount || 'Unknown'} conflicts detected`);
+            }
+            
+            if (integratedSolution.consistency === false) {
+                validation.consistencyValid = false;
+                validation.warnings.push('Solution merge consistency failed');
+            }
+            
+            // Phase4: 完全性チェック
+            if (validation.metrics.totalCells === 0) {
+                validation.completenessValid = false;
+                validation.errors.push('No valid cells in integrated solution');
+            }
+            
+            // 全体評価
+            const isValid = validation.structuralValid && validation.probabilityValid && 
+                           validation.consistencyValid && validation.completenessValid;
+            
+            const endTime = performance.now();
+            const executionTime = endTime - startTime;
+            
+            this.debugLog(`Integrated solution validation completed: ${isValid ? 'VALID' : 'INVALID'} (${validation.errors.length} errors, ${validation.warnings.length} warnings)`, 'PHASE3-3');
+            
+            return {
+                success: true,
+                valid: isValid,
+                validation: validation,
+                executionTime: executionTime,
+                summary: {
+                    totalErrors: validation.errors.length,
+                    totalWarnings: validation.warnings.length,
+                    totalCells: validation.metrics.totalCells,
+                    averageProbability: validation.metrics.averageProbability.toFixed(3),
+                    conflictCells: validation.metrics.conflictCells
+                }
+            };
+            
+        } catch (error) {
+            const endTime = performance.now();
+            this.debugLog(`Integrated solution validation error: ${error.message}`, 'PHASE3-3');
+            return {
+                success: false,
+                reason: 'validation_error',
+                error: error.message,
+                executionTime: endTime - startTime
+            };
+        }
+    }
 }
 
 // SubsetManagerBitクラス（独立したユーティリティクラス）

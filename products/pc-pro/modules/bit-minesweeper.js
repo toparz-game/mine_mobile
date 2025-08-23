@@ -2,10 +2,16 @@
 // 既存のAPIを完全に保持しながら、内部でビット演算を使用
 
 class BitMinesweeperSystem {
-    constructor(rows, cols) {
-        this.rows = rows;
-        this.cols = cols;
-        this.totalCells = rows * cols;
+    constructor(gameOrRows, cols) {
+        // gameオブジェクトまたは行数を受け取る
+        if (typeof gameOrRows === 'object' && gameOrRows.rows !== undefined) {
+            this.rows = gameOrRows.rows;
+            this.cols = gameOrRows.cols;
+        } else {
+            this.rows = gameOrRows;
+            this.cols = cols;
+        }
+        this.totalCells = this.rows * this.cols;
         this.bitsPerInt = 32;
         this.intsNeeded = Math.ceil(this.totalCells / this.bitsPerInt);
         
@@ -170,5 +176,97 @@ class BitMinesweeperSystem {
     debugState() {
         console.log(`Memory usage: ${this.getMemoryUsage().reduction}% reduction`);
         console.log(`Total cells: ${this.totalCells}, Ints needed: ${this.intsNeeded}`);
+    }
+
+    // ===== Phase3用ビット操作メソッド =====
+
+    // 座標をビットインデックスに変換（SimpleBitCSP互換）
+    coordToBit(row, col) {
+        return row * this.cols + col;
+    }
+
+    // 複数の座標をビット配列に設定
+    coordsToBits(coords, targetBits) {
+        targetBits.fill(0);
+        for (const coord of coords) {
+            const bitIndex = this.coordToBit(coord.row, coord.col);
+            const arrayIndex = Math.floor(bitIndex / 32);
+            const bitPos = bitIndex % 32;
+            targetBits[arrayIndex] |= (1 << bitPos);
+        }
+    }
+
+    // ビット配列のAND演算
+    andBits(bits1, bits2, resultBits) {
+        for (let i = 0; i < this.intsNeeded; i++) {
+            resultBits[i] = bits1[i] & bits2[i];
+        }
+    }
+
+    // ビット配列のOR演算
+    orBits(bits1, bits2, resultBits) {
+        for (let i = 0; i < this.intsNeeded; i++) {
+            resultBits[i] = bits1[i] | bits2[i];
+        }
+    }
+
+    // ビット配列のXOR演算
+    xorBits(bits1, bits2, resultBits) {
+        for (let i = 0; i < this.intsNeeded; i++) {
+            resultBits[i] = bits1[i] ^ bits2[i];
+        }
+    }
+
+    // ビット配列のNOT演算
+    notBits(sourceBits, resultBits) {
+        for (let i = 0; i < this.intsNeeded; i++) {
+            resultBits[i] = ~sourceBits[i];
+        }
+    }
+
+    // ビット配列の1の数をカウント（popcount）
+    popCountBits(bits) {
+        let count = 0;
+        for (let i = 0; i < this.intsNeeded; i++) {
+            let n = bits[i];
+            // Brian Kernighanのアルゴリズム
+            while (n) {
+                count++;
+                n &= n - 1;
+            }
+        }
+        return count;
+    }
+
+    // ビット配列のコピー
+    copyBits(sourceBits, targetBits) {
+        for (let i = 0; i < this.intsNeeded; i++) {
+            targetBits[i] = sourceBits[i];
+        }
+    }
+
+    // ビット配列のクリア
+    clearBits(bits) {
+        bits.fill(0);
+    }
+
+    // ビット配列の比較（等価判定）
+    equalBits(bits1, bits2) {
+        for (let i = 0; i < this.intsNeeded; i++) {
+            if (bits1[i] !== bits2[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // ビット配列が空かチェック
+    isEmptyBits(bits) {
+        for (let i = 0; i < this.intsNeeded; i++) {
+            if (bits[i] !== 0) {
+                return false;
+            }
+        }
+        return true;
     }
 }

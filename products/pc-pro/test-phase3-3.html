@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase3-3: 結果統合処理のビット化テスト</title>
+    <style>
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .test-section {
+            background-color: #2d2d2d;
+            border: 1px solid #555;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        .info { color: #2196F3; }
+        .test-button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s;
+        }
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+        .test-results {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .performance-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .metric-card {
+            background-color: #333;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #bbb;
+            margin-top: 5px;
+        }
+        .integration-demo {
+            background-color: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔗 Phase3-3: 結果統合処理のビット化</h1>
+            <p>目標: 複数グループの解決結果統合をビット化による高速処理</p>
+            <p>統合メソッド: integrateMultiGroupSolutionsBit, mergeConstraintSolutionsBit, validateIntegratedSolutionBit</p>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Phase3-3 機能テスト</h2>
+            <button class="test-button" onclick="testIntegrateMultiGroupSolutions()">1. integrateMultiGroupSolutionsBit() テスト</button>
+            <button class="test-button" onclick="testMergeConstraintSolutions()">2. mergeConstraintSolutionsBit() テスト</button>
+            <button class="test-button" onclick="testValidateIntegratedSolution()">3. validateIntegratedSolutionBit() テスト</button>
+            <button class="test-button" onclick="runAllTests()">🎯 全テスト実行</button>
+            <button class="test-button" onclick="clearResults()" style="background: linear-gradient(45deg, #f44336, #d32f2f);">🧹 結果クリア</button>
+            <div id="testResults" class="test-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>⚡ パフォーマンス測定</h2>
+            <button class="test-button" onclick="benchmarkIntegrationPerformance()">統合処理性能ベンチマーク</button>
+            <button class="test-button" onclick="benchmarkLargeGroupIntegration()">大規模グループ統合ベンチマーク</button>
+            <button class="test-button" onclick="benchmarkConflictResolution()">コンフリクト解決ベンチマーク</button>
+            <button class="test-button" onclick="benchmarkValidationPerformance()">検証処理性能ベンチマーク</button>
+            <div id="performanceResults" class="test-results"></div>
+            <div id="performanceMetrics" class="performance-metrics"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔍 詳細動作テスト</h2>
+            <button class="test-button" onclick="testComplexIntegrationScenarios()">複雑統合シナリオテスト</button>
+            <button class="test-button" onclick="testConflictDetection()">コンフリクト検出精度テスト</button>
+            <button class="test-button" onclick="testEdgeCases()">エッジケーステスト</button>
+            <button class="test-button" onclick="testIntegrationDemo()">🎪 統合処理デモ</button>
+            <div id="detailedResults" class="test-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 統合結果表示</h2>
+            <div id="integrationDemo" class="integration-demo"></div>
+        </div>
+    </div>
+
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+    <script>
+        let testResults, performanceResults, detailedResults, performanceMetrics, integrationDemo;
+        let mockGame, bitSystem, bitCSP;
+
+        // DOMが読み込まれてから初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            testResults = document.getElementById('testResults');
+            performanceResults = document.getElementById('performanceResults');
+            detailedResults = document.getElementById('detailedResults');
+            performanceMetrics = document.getElementById('performanceMetrics');
+            integrationDemo = document.getElementById('integrationDemo');
+
+            // テスト用のモックゲーム環境
+            mockGame = {
+                rows: 16,
+                cols: 16,
+                mines: 40,
+                board: Array(16).fill().map(() => Array(16).fill(0)),
+                isValidCoord: (row, col) => row >= 0 && row < 16 && col >= 0 && col < 16
+            };
+
+            // BitMinesweeperSystemとSimpleBitCSPを初期化
+            try {
+                bitSystem = new BitMinesweeperSystem(mockGame);
+                bitCSP = new SimpleBitCSP(mockGame, bitSystem);
+                log("🚀 Phase3-3テストシステム初期化完了", testResults, 'success');
+                log("結果統合処理のビット化機能をテストします", testResults, 'info');
+            } catch (error) {
+                console.error('初期化エラー:', error);
+                if (testResults) {
+                    log(`❌ 初期化エラー: ${error.message}`, testResults, 'error');
+                }
+            }
+        });
+
+        function log(message, element = testResults, className = '') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            element.textContent += logMessage;
+            if (className) {
+                element.className += ` ${className}`;
+            }
+            element.scrollTop = element.scrollHeight;
+        }
+
+        function clearResults() {
+            testResults.textContent = '';
+            performanceResults.textContent = '';
+            detailedResults.textContent = '';
+            performanceMetrics.innerHTML = '';
+            integrationDemo.innerHTML = '';
+        }
+
+        // テスト用のモックグループ解決結果を生成
+        function createMockGroupSolutions(count = 3, conflictEnabled = true) {
+            const groupSolutions = [];
+            
+            for (let i = 0; i < count; i++) {
+                const cellCount = 4 + i;
+                const cells = Array(cellCount).fill().map((_, j) => ({
+                    row: Math.floor((i * 2 + j) / 4),
+                    col: (i * 2 + j) % 4
+                }));
+                
+                // 意図的に重複セルを作成（コンフリクトテスト用）
+                if (conflictEnabled && i > 0) {
+                    cells[0] = { row: 0, col: i - 1 }; // 前のグループと重複
+                }
+                
+                const cellProbabilities = {};
+                for (const cell of cells) {
+                    const cellKey = `${cell.row},${cell.col}`;
+                    cellProbabilities[cellKey] = Math.random() * 0.6 + 0.2; // 0.2-0.8の範囲
+                }
+                
+                groupSolutions.push({
+                    success: true,
+                    groupId: i,
+                    cells: cells,
+                    solutionCount: Math.floor(Math.random() * 20) + 5,
+                    executionTime: Math.random() * 2 + 0.5,
+                    cellProbabilities: cellProbabilities
+                });
+            }
+            
+            return groupSolutions;
+        }
+
+        // 1. integrateMultiGroupSolutionsBit() テスト
+        function testIntegrateMultiGroupSolutions() {
+            log("=== integrateMultiGroupSolutionsBit() テスト開始 ===", testResults, 'info');
+            
+            // bitCSPが初期化されているかチェック
+            if (!bitCSP) {
+                log("❌ bitCSP が初期化されていません。ページをリロードしてください。", testResults, 'error');
+                return false;
+            }
+            
+            try {
+                // テスト1: 基本的な統合処理
+                const mockGroups = createMockGroupSolutions(3, false);
+                const result1 = bitCSP.integrateMultiGroupSolutionsBit(mockGroups);
+                
+                log(`${result1.success ? '✅' : '❌'} 基本統合テスト: ${result1.success ? '成功' : '失敗'}`, testResults, 
+                    result1.success ? 'success' : 'error');
+                
+                if (result1.success) {
+                    log(`   - 統合グループ数: ${result1.integration.totalGroups}`, testResults);
+                    log(`   - 総セル数: ${result1.totalCells}`, testResults);
+                    log(`   - コンフリクト数: ${result1.conflictCount}`, testResults);
+                    log(`   - 実行時間: ${result1.executionTime.toFixed(4)}ms`, testResults);
+                    log(`   - 統合確率エントリ数: ${Object.keys(result1.integration.combinedProbabilities).length}`, testResults);
+                } else {
+                    log(`   - 失敗理由: ${result1.reason}`, testResults, 'error');
+                    log(`   - エラー: ${result1.error || 'N/A'}`, testResults, 'error');
+                }
+                
+                if (!result1.success) {
+                    log("❌ integrateMultiGroupSolutionsBit() テスト失敗", testResults, 'error');
+                    return false;
+                }
+
+                // テスト2: コンフリクト付き統合
+                const conflictGroups = createMockGroupSolutions(4, true);
+                const result2 = bitCSP.integrateMultiGroupSolutionsBit(conflictGroups);
+                
+                log(`${result2.success ? '✅' : '❌'} コンフリクト統合テスト: ${result2.success ? '成功' : '失敗'}`, testResults, 
+                    result2.success ? 'success' : 'error');
+                
+                if (result2.success) {
+                    log(`   - コンフリクト検出: ${result2.hasConflicts ? 'あり' : 'なし'} (${result2.conflictCount}個)`, testResults);
+                    log(`   - 統合されたセル数: ${result2.totalCells}`, testResults);
+                    
+                    // コンフリクトの詳細表示
+                    if (result2.integration.conflicts.length > 0) {
+                        log(`   - コンフリクト詳細:`, testResults, 'warning');
+                        for (const conflict of result2.integration.conflicts.slice(0, 3)) {
+                            log(`     ${conflict.cell}: グループ${conflict.groups[0]} vs グループ${conflict.groups[1]}`, testResults);
+                        }
+                    }
+                } else {
+                    log(`   - 失敗理由: ${result2.reason}`, testResults, 'error');
+                }
+                
+                if (!result2.success) {
+                    log("❌ integrateMultiGroupSolutionsBit() テスト失敗", testResults, 'error');
+                    return false;
+                }
+
+                // テスト3: 空グループの処理
+                const emptyResult = bitCSP.integrateMultiGroupSolutionsBit([]);
+                log(`✅ 空グループテスト: ${!emptyResult.success ? '正常拒否' : 'エラー'}`, testResults,
+                    !emptyResult.success ? 'success' : 'error');
+
+                // テスト4: 大規模グループ統合
+                const largeGroups = createMockGroupSolutions(10, false);
+                const largeResult = bitCSP.integrateMultiGroupSolutionsBit(largeGroups);
+                
+                log(`${largeResult.success ? '✅' : '❌'} 大規模統合テスト: ${largeResult.success ? '成功' : '失敗'} (10グループ)`, testResults,
+                    largeResult.success ? 'success' : 'error');
+                
+                if (largeResult.success) {
+                    log(`   - 処理時間: ${largeResult.executionTime.toFixed(4)}ms`, testResults);
+                    log(`   - 統合効率: ${(largeResult.totalCells / largeResult.integration.totalGroups).toFixed(1)}セル/グループ`, testResults);
+                } else {
+                    log(`   - 失敗理由: ${largeResult.reason}`, testResults, 'error');
+                }
+                
+                if (!largeResult.success) {
+                    log("❌ integrateMultiGroupSolutionsBit() テスト失敗", testResults, 'error');
+                    return false;
+                }
+
+                log("✅ integrateMultiGroupSolutionsBit() 全テスト成功", testResults, 'success');
+                return true;
+
+            } catch (error) {
+                log(`❌ integrateMultiGroupSolutionsBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 2. mergeConstraintSolutionsBit() テスト
+        function testMergeConstraintSolutions() {
+            log("=== mergeConstraintSolutionsBit() テスト開始 ===", testResults, 'info');
+            
+            // bitCSPが初期化されているかチェック
+            if (!bitCSP) {
+                log("❌ bitCSP が初期化されていません。ページをリロードしてください。", testResults, 'error');
+                return false;
+            }
+            
+            try {
+                // テスト用の制約解決結果を生成
+                const createMockSolutions = (count) => {
+                    const solutions = [];
+                    for (let i = 0; i < count; i++) {
+                        const cellProbabilities = {};
+                        for (let j = 0; j < 3; j++) {
+                            cellProbabilities[`${i},${j}`] = Math.random() * 0.4 + 0.3; // 0.3-0.7の範囲
+                        }
+                        
+                        solutions.push({
+                            success: true,
+                            solutionId: i,
+                            cellProbabilities: cellProbabilities,
+                            solutionCount: Math.floor(Math.random() * 15) + 5
+                        });
+                    }
+                    return solutions;
+                };
+
+                // テスト1: 基本的なマージ処理
+                const mockSolutions = createMockSolutions(5);
+                const result1 = bitCSP.mergeConstraintSolutionsBit(mockSolutions);
+                
+                log(`✅ 基本マージテスト: ${result1.success ? '成功' : '失敗'}`, testResults,
+                    result1.success ? 'success' : 'error');
+                
+                if (result1.success) {
+                    log(`   - マージ解決数: ${result1.merge.mergedCount}/${result1.merge.totalSolutionSets}`, testResults);
+                    log(`   - 総セル数: ${result1.totalCells}`, testResults);
+                    log(`   - 共通セル数: ${result1.commonCells}`, testResults);
+                    log(`   - 一貫性: ${result1.consistency ? 'あり' : 'なし'}`, testResults);
+                    log(`   - マージ比率: ${(result1.mergeRatio * 100).toFixed(1)}%`, testResults);
+                    log(`   - 実行時間: ${result1.executionTime.toFixed(4)}ms`, testResults);
+                }
+
+                // テスト2: 一貫性の無い解決セットのマージ
+                const inconsistentSolutions = createMockSolutions(3);
+                // 意図的に大きく異なる確率を設定
+                inconsistentSolutions[1].cellProbabilities["0,0"] = 0.9; // 他は0.3-0.7範囲
+                
+                const result2 = bitCSP.mergeConstraintSolutionsBit(inconsistentSolutions);
+                log(`✅ 一貫性チェックテスト: 一貫性${result2.consistency ? 'あり' : 'なし'}`, testResults,
+                    result2.consistency ? 'warning' : 'success');
+
+                // テスト3: 大規模マージ処理
+                const largeSolutions = createMockSolutions(50);
+                const largeResult = bitCSP.mergeConstraintSolutionsBit(largeSolutions);
+                
+                log(`✅ 大規模マージテスト: ${largeResult.success ? '成功' : '失敗'} (50セット)`, testResults,
+                    largeResult.success ? 'success' : 'error');
+                
+                if (largeResult.success) {
+                    log(`   - 処理時間: ${largeResult.executionTime.toFixed(4)}ms`, testResults);
+                    log(`   - マージされたセット数: ${largeResult.merge.mergedCount}`, testResults);
+                }
+
+                // テスト4: 空解決セットの処理
+                const emptyResult = bitCSP.mergeConstraintSolutionsBit([]);
+                log(`✅ 空セットテスト: ${!emptyResult.success ? '正常拒否' : 'エラー'}`, testResults,
+                    !emptyResult.success ? 'success' : 'error');
+
+                log("✅ mergeConstraintSolutionsBit() 全テスト成功", testResults, 'success');
+                return true;
+
+            } catch (error) {
+                log(`❌ mergeConstraintSolutionsBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 3. validateIntegratedSolutionBit() テスト
+        function testValidateIntegratedSolution() {
+            log("=== validateIntegratedSolutionBit() テスト開始 ===", testResults, 'info');
+            
+            // bitCSPが初期化されているかチェック
+            if (!bitCSP) {
+                log("❌ bitCSP が初期化されていません。ページをリロードしてください。", testResults, 'error');
+                return false;
+            }
+            
+            try {
+                // テスト1: 正常な統合解決の検証
+                const validIntegratedSolution = {
+                    success: true,
+                    integration: {
+                        totalGroups: 3,
+                        combinedProbabilities: {
+                            "0,0": { probability: 0.5, confidence: 1.0, sources: 1 },
+                            "0,1": { probability: 0.7, confidence: 0.9, sources: 2 },
+                            "1,0": { probability: 0.3, confidence: 1.0, sources: 1 }
+                        },
+                        conflicts: []
+                    },
+                    hasConflicts: false,
+                    conflictCount: 0
+                };
+                
+                const result1 = bitCSP.validateIntegratedSolutionBit(validIntegratedSolution);
+                
+                log(`✅ 正常解決検証テスト: ${result1.success ? '成功' : '失敗'}`, testResults,
+                    result1.success ? 'success' : 'error');
+                
+                if (result1.success) {
+                    log(`   - 妥当性: ${result1.valid ? '妥当' : '無効'}`, testResults, result1.valid ? 'success' : 'error');
+                    log(`   - エラー数: ${result1.summary.totalErrors}`, testResults);
+                    log(`   - 警告数: ${result1.summary.totalWarnings}`, testResults);
+                    log(`   - 検証セル数: ${result1.summary.totalCells}`, testResults);
+                    log(`   - 平均確率: ${result1.summary.averageProbability}`, testResults);
+                    log(`   - 実行時間: ${result1.executionTime.toFixed(4)}ms`, testResults);
+                }
+
+                // テスト2: 無効な確率を含む解決の検証
+                const invalidProbabilitySolution = {
+                    integration: {
+                        combinedProbabilities: {
+                            "0,0": { probability: 1.5, confidence: 1.0 }, // 無効な確率
+                            "0,1": { probability: -0.2, confidence: 1.0 }, // 無効な確率
+                            "invalid_coord": { probability: 0.5, confidence: 1.0 } // 無効な座標
+                        }
+                    }
+                };
+                
+                const result2 = bitCSP.validateIntegratedSolutionBit(invalidProbabilitySolution);
+                log(`✅ 無効確率検証テスト: 妥当性${result2.valid ? 'あり（エラー）' : 'なし'}`, testResults,
+                    result2.valid ? 'error' : 'success');
+                
+                if (result2.success) {
+                    log(`   - 検出エラー数: ${result2.summary.totalErrors}`, testResults);
+                    log(`   - 主要エラー例: ${result2.validation.errors[0]}`, testResults, 'warning');
+                }
+
+                // テスト3: コンフリクト付き解決の検証
+                const conflictSolution = {
+                    integration: {
+                        combinedProbabilities: {
+                            "0,0": { probability: 0.6, confidence: 0.7, sources: 3, variance: 0.3 }
+                        },
+                        conflicts: [{ cell: "0,0", groups: [0, 1], type: "overlap" }]
+                    },
+                    hasConflicts: true,
+                    conflictCount: 1
+                };
+                
+                const result3 = bitCSP.validateIntegratedSolutionBit(conflictSolution);
+                log(`✅ コンフリクト検証テスト: 警告数${result3.success ? result3.summary.totalWarnings : 0}個`, testResults,
+                    result3.success && result3.summary.totalWarnings > 0 ? 'success' : 'error');
+
+                // テスト4: 空解決の検証
+                const emptyResult = bitCSP.validateIntegratedSolutionBit(null);
+                log(`✅ null解決検証テスト: ${!emptyResult.success ? '正常拒否' : 'エラー'}`, testResults,
+                    !emptyResult.success ? 'success' : 'error');
+
+                // テスト5: マージ解決の検証
+                const mergeResult = bitCSP.mergeConstraintSolutionsBit([
+                    { success: true, cellProbabilities: { "0,0": 0.4, "0,1": 0.6 } },
+                    { success: true, cellProbabilities: { "0,0": 0.5, "0,1": 0.7 } }
+                ]);
+                
+                if (mergeResult.success) {
+                    const mergeValidation = bitCSP.validateIntegratedSolutionBit(mergeResult);
+                    log(`✅ マージ解決検証テスト: ${mergeValidation.valid ? '妥当' : '無効'}`, testResults,
+                        mergeValidation.valid ? 'success' : 'warning');
+                }
+
+                log("✅ validateIntegratedSolutionBit() 全テスト成功", testResults, 'success');
+                return true;
+
+            } catch (error) {
+                log(`❌ validateIntegratedSolutionBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 全テスト実行
+        function runAllTests() {
+            log("🚀 Phase3-3 全機能テスト開始", testResults, 'info');
+            log("=" * 60, testResults);
+            
+            let allPassed = true;
+            const tests = [
+                { name: "integrateMultiGroupSolutionsBit()", func: testIntegrateMultiGroupSolutions },
+                { name: "mergeConstraintSolutionsBit()", func: testMergeConstraintSolutions },
+                { name: "validateIntegratedSolutionBit()", func: testValidateIntegratedSolution }
+            ];
+
+            for (const test of tests) {
+                log(`\n--- ${test.name} テスト ---`, testResults, 'info');
+                const passed = test.func();
+                allPassed = allPassed && passed;
+                log(`${test.name}: ${passed ? '✅ 成功' : '❌ 失敗'}`, testResults, passed ? 'success' : 'error');
+            }
+
+            log("\n" + "=" * 60, testResults);
+            log(`🎯 Phase3-3 全テスト結果: ${allPassed ? '✅ 全て成功' : '❌ 一部失敗'}`, testResults, 
+                allPassed ? 'success' : 'error');
+        }
+
+        // パフォーマンステスト関数群
+        function benchmarkIntegrationPerformance() {
+            log("⚡ 統合処理性能ベンチマーク開始", performanceResults, 'info');
+            
+            const results = [];
+            for (let groupCount = 2; groupCount <= 20; groupCount += 2) {
+                const mockGroups = createMockGroupSolutions(groupCount, false);
+                
+                const startTime = performance.now();
+                const result = bitCSP.integrateMultiGroupSolutionsBit(mockGroups);
+                const endTime = performance.now();
+                
+                const executionTime = endTime - startTime;
+                results.push({
+                    groupCount: groupCount,
+                    executionTime: executionTime,
+                    totalCells: result.success ? result.totalCells : 0,
+                    success: result.success
+                });
+                
+                log(`${groupCount}グループ: ${executionTime.toFixed(4)}ms (${result.success ? result.totalCells + 'セル' : '失敗'})`,
+                    performanceResults, result.success ? 'success' : 'error');
+            }
+            
+            // パフォーマンス統計
+            const avgTime = results.filter(r => r.success).reduce((sum, r) => sum + r.executionTime, 0) / 
+                           results.filter(r => r.success).length;
+            const maxTime = Math.max(...results.filter(r => r.success).map(r => r.executionTime));
+            
+            updatePerformanceMetrics({
+                'avg_integration_time': { value: avgTime.toFixed(4) + 'ms', label: '平均統合時間' },
+                'max_integration_time': { value: maxTime.toFixed(4) + 'ms', label: '最大統合時間' },
+                'success_rate': { value: (results.filter(r => r.success).length / results.length * 100).toFixed(1) + '%', label: '成功率' },
+                'max_groups_tested': { value: results.length.toString(), label: '最大テストグループ数' }
+            });
+        }
+
+        function benchmarkLargeGroupIntegration() {
+            log("⚡ 大規模グループ統合ベンチマーク開始", performanceResults, 'info');
+            log("実装予定: 50-100グループ規模での統合性能測定", performanceResults, 'warning');
+        }
+
+        function benchmarkConflictResolution() {
+            log("⚡ コンフリクト解決ベンチマーク開始", performanceResults, 'info');
+            log("実装予定: 様々なコンフリクトパターンでの解決性能測定", performanceResults, 'warning');
+        }
+
+        function benchmarkValidationPerformance() {
+            log("⚡ 検証処理性能ベンチマーク開始", performanceResults, 'info');
+            log("実装予定: 大規模統合解決の検証処理性能測定", performanceResults, 'warning');
+        }
+
+        // 詳細テスト関数群
+        function testComplexIntegrationScenarios() {
+            log("🔍 複雑統合シナリオテスト開始", detailedResults, 'info');
+            log("実装予定: 複雑な重複パターンとコンフリクト解決シナリオ", detailedResults, 'warning');
+        }
+
+        function testConflictDetection() {
+            log("🔍 コンフリクト検出精度テスト開始", detailedResults, 'info');
+            log("実装予定: 微細なコンフリクトパターンの検出精度テスト", detailedResults, 'warning');
+        }
+
+        function testEdgeCases() {
+            log("🔍 エッジケーステスト開始", detailedResults, 'info');
+            log("実装予定: 極端な条件での統合処理テスト", detailedResults, 'warning');
+        }
+
+        // 統合処理デモ
+        function testIntegrationDemo() {
+            log("🎪 統合処理デモ開始", detailedResults, 'info');
+            
+            // デモ用のグループ解決結果を作成
+            const demoGroups = [
+                {
+                    success: true,
+                    groupId: "A",
+                    cells: [{row: 0, col: 0}, {row: 0, col: 1}],
+                    cellProbabilities: {"0,0": 0.3, "0,1": 0.7},
+                    solutionCount: 8
+                },
+                {
+                    success: true,
+                    groupId: "B", 
+                    cells: [{row: 0, col: 1}, {row: 1, col: 1}],
+                    cellProbabilities: {"0,1": 0.6, "1,1": 0.4},
+                    solutionCount: 12
+                },
+                {
+                    success: true,
+                    groupId: "C",
+                    cells: [{row: 1, col: 0}, {row: 1, col: 1}],
+                    cellProbabilities: {"1,0": 0.8, "1,1": 0.5},
+                    solutionCount: 6
+                }
+            ];
+            
+            // 統合処理実行
+            const integrationResult = bitCSP.integrateMultiGroupSolutionsBit(demoGroups);
+            
+            if (integrationResult.success) {
+                // デモ結果の可視化
+                let demoHTML = '<h3>📊 統合処理デモ結果</h3>';
+                demoHTML += `<p><strong>統合グループ数:</strong> ${integrationResult.integration.totalGroups}</p>`;
+                demoHTML += `<p><strong>コンフリクト数:</strong> ${integrationResult.conflictCount}</p>`;
+                demoHTML += `<p><strong>統合後セル確率:</strong></p>`;
+                demoHTML += '<ul>';
+                
+                for (const [cellKey, probData] of Object.entries(integrationResult.integration.combinedProbabilities)) {
+                    const prob = typeof probData === 'object' ? probData.probability : probData;
+                    const sources = typeof probData === 'object' ? probData.sources : 1;
+                    const integrated = typeof probData === 'object' ? probData.integrated : false;
+                    
+                    demoHTML += `<li>セル(${cellKey}): ${(prob * 100).toFixed(1)}% 
+                                ${integrated ? `[統合: ${sources}ソース]` : '[単独]'}</li>`;
+                }
+                
+                demoHTML += '</ul>';
+                
+                if (integrationResult.integration.conflicts.length > 0) {
+                    demoHTML += '<p><strong>🚨 検出されたコンフリクト:</strong></p><ul>';
+                    for (const conflict of integrationResult.integration.conflicts) {
+                        demoHTML += `<li>セル(${conflict.cell}): グループ${conflict.groups.join(' vs ')}</li>`;
+                    }
+                    demoHTML += '</ul>';
+                }
+                
+                integrationDemo.innerHTML = demoHTML;
+                
+                log("✅ 統合処理デモ完了 - 結果は下の統合結果表示セクションを確認してください", detailedResults, 'success');
+            } else {
+                log(`❌ 統合処理デモ失敗: ${integrationResult.reason}`, detailedResults, 'error');
+            }
+        }
+
+        // パフォーマンスメトリクス表示
+        function updatePerformanceMetrics(metrics) {
+            performanceMetrics.innerHTML = '';
+            for (const [key, data] of Object.entries(metrics)) {
+                const card = document.createElement('div');
+                card.className = 'metric-card';
+                card.innerHTML = `
+                    <div class="metric-value">${data.value}</div>
+                    <div class="metric-label">${data.label}</div>
+                `;
+                performanceMetrics.appendChild(card);
+            }
+        }
+    </script>
+</body>
+</html>

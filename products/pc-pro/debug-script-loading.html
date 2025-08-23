@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Script Loading Debug</title>
+</head>
+<body>
+    <div id="debug"></div>
+    
+    <script>
+        function log(message) {
+            const debugDiv = document.getElementById('debug');
+            debugDiv.innerHTML += `<p>${new Date().toLocaleTimeString()}: ${message}</p>`;
+            console.log(message);
+        }
+        
+        log("1. HTML読み込み完了");
+    </script>
+    
+    <script src="modules/bit-minesweeper.js"></script>
+    <script>
+        log("2. bit-minesweeper.js読み込み後");
+        log(`   - BitMinesweeperSystem定義: ${typeof BitMinesweeperSystem !== 'undefined'}`);
+        log(`   - window.BitMinesweeperSystem: ${typeof window.BitMinesweeperSystem !== 'undefined'}`);
+    </script>
+    
+    <script src="modules/simple-bit-csp.js"></script>
+    <script>
+        log("3. simple-bit-csp.js読み込み後");
+        log(`   - SimpleBitCSP定義: ${typeof SimpleBitCSP !== 'undefined'}`);
+        log(`   - window.SimpleBitCSP: ${typeof window.SimpleBitCSP !== 'undefined'}`);
+        
+        if (typeof SimpleBitCSP !== 'undefined') {
+            try {
+                // テスト初期化
+                const mockGame = {
+                    rows: 16,
+                    cols: 16,
+                    mines: 40,
+                    board: Array(16).fill().map(() => Array(16).fill(0)),
+                    isValidCoord: (row, col) => row >= 0 && row < 16 && col >= 0 && col < 16
+                };
+                
+                const bitSystem = new BitMinesweeperSystem(mockGame);
+                const bitCSP = new SimpleBitCSP(mockGame, bitSystem);
+                log("✅ SimpleBitCSP初期化成功");
+                log(`   - integrateMultiGroupSolutionsBit: ${typeof bitCSP.integrateMultiGroupSolutionsBit}`);
+                
+            } catch (error) {
+                log(`❌ SimpleBitCSP初期化失敗: ${error.message}`);
+            }
+        } else {
+            log("❌ SimpleBitCSP未定義");
+        }
+    </script>
+</body>
+</html>

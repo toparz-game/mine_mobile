@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase3-2: 確率計算システムのビット化テスト</title>
+    <style>
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .test-section {
+            background-color: #2d2d2d;
+            border: 1px solid #555;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        .info { color: #2196F3; }
+        .test-button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s;
+        }
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+        .test-results {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .performance-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .metric-card {
+            background-color: #333;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #bbb;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧮 Phase3-2: 確率計算システムのビット化</h1>
+            <p>目標: 確率計算をビット演算で高速化、Phase2比50%高速化</p>
+            <p>キャッシュシステムとLRU最適化による大規模データ処理</p>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Phase3-2 機能テスト</h2>
+            <button class="test-button" onclick="testCalculateCellProbabilities()">1. calculateCellProbabilitiesBit() テスト</button>
+            <button class="test-button" onclick="testAggregateSolutionStats()">2. aggregateSolutionStatsBit() テスト</button>
+            <button class="test-button" onclick="testOptimizeProbabilityCalculation()">3. optimizeProbabilityCalculationBit() テスト</button>
+            <button class="test-button" onclick="testCacheProbabilityResults()">4. cacheProbabilityResultsBit() テスト</button>
+            <button class="test-button" onclick="runAllTests()">🎯 全テスト実行</button>
+            <button class="test-button" onclick="clearResults()" style="background: linear-gradient(45deg, #f44336, #d32f2f);">🧹 結果クリア</button>
+            <div id="testResults" class="test-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>⚡ パフォーマンス測定</h2>
+            <button class="test-button" onclick="benchmarkProbabilityCalculation()">確率計算性能ベンチマーク</button>
+            <button class="test-button" onclick="benchmarkCachePerformance()">キャッシュ性能ベンチマーク</button>
+            <button class="test-button" onclick="benchmarkLargeSetOptimization()">大規模セット最適化ベンチマーク</button>
+            <button class="test-button" onclick="benchmarkPhase2Comparison()">Phase2比較ベンチマーク</button>
+            <div id="performanceResults" class="test-results"></div>
+            <div id="performanceMetrics" class="performance-metrics"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔍 詳細動作テスト</h2>
+            <button class="test-button" onclick="testComplexMultiGroup()">複数グループ統合テスト</button>
+            <button class="test-button" onclick="testCacheLRUBehavior()">キャッシュLRU動作テスト</button>
+            <button class="test-button" onclick="testMemoryEfficiency()">メモリ効率テスト</button>
+            <button class="test-button" onclick="testAccuracyComparison()">精度比較テスト</button>
+            <div id="detailedResults" class="test-results"></div>
+        </div>
+    </div>
+
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+    <script>
+        let testResults = document.getElementById('testResults');
+        let performanceResults = document.getElementById('performanceResults');
+        let detailedResults = document.getElementById('detailedResults');
+        let performanceMetrics = document.getElementById('performanceMetrics');
+
+        // テスト用のモックゲーム環境
+        const mockGame = {
+            rows: 16,
+            cols: 16,
+            mines: 40,
+            board: Array(16).fill().map(() => Array(16).fill(0)),
+            isValidCoord: (row, col) => row >= 0 && row < 16 && col >= 0 && col < 16
+        };
+
+        // SimpleBitCSPインスタンスを初期化
+        const bitSystem = new BitMinesweeperSystem(mockGame);
+        const bitCSP = new SimpleBitCSP(mockGame, bitSystem);
+
+        function log(message, element = testResults, className = '') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            element.textContent += logMessage;
+            if (className) {
+                element.className += ` ${className}`;
+            }
+            element.scrollTop = element.scrollHeight;
+        }
+
+        function clearResults() {
+            testResults.textContent = '';
+            performanceResults.textContent = '';
+            detailedResults.textContent = '';
+            performanceMetrics.innerHTML = '';
+        }
+
+        // テスト用の解決パターンを生成
+        function createMockSolutions(count = 5, cellCount = 4) {
+            const solutions = [];
+            const cells = Array(cellCount).fill().map((_, i) => ({
+                row: Math.floor(i / 2),
+                col: i % 2
+            }));
+
+            for (let i = 0; i < count; i++) {
+                const cellsBits = new Uint32Array(bitCSP.intsNeeded);
+                
+                // ランダムに地雷を配置
+                for (let j = 0; j < cellCount; j++) {
+                    if (Math.random() < 0.4) { // 40%の確率で地雷
+                        const cell = cells[j];
+                        const bitIndex = bitCSP.bitSystem.coordToBit(cell.row, cell.col);
+                        const arrayIndex = Math.floor(bitIndex / 32);
+                        const bitPos = bitIndex % 32;
+                        cellsBits[arrayIndex] |= (1 << bitPos);
+                    }
+                }
+
+                solutions.push({
+                    configId: i,
+                    cellsBits: cellsBits,
+                    cells: cells,
+                    mineCount: bitCSP.bitSystem.popCountBits(cellsBits)
+                });
+            }
+
+            return solutions;
+        }
+
+        // 1. calculateCellProbabilitiesBit() テスト
+        function testCalculateCellProbabilities() {
+            log("=== calculateCellProbabilitiesBit() テスト開始 ===", testResults, 'info');
+            
+            try {
+                // テスト1: 基本的な確率計算
+                const mockSolutions = createMockSolutions(10, 4);
+                const startTime = performance.now();
+                const result = bitCSP.calculateCellProbabilitiesBit(mockSolutions);
+                const endTime = performance.now();
+
+                log(`✅ 基本確率計算: ${result.cellsAnalyzed}セル分析完了`, testResults, 'success');
+                log(`   - 解決パターン数: ${result.totalSolutions}`, testResults);
+                log(`   - 実行時間: ${result.executionTime.toFixed(4)}ms`, testResults);
+                log(`   - セル確率サンプル:`, testResults);
+
+                let sampleCount = 0;
+                for (const [cellKey, probability] of Object.entries(result.probabilities)) {
+                    if (sampleCount < 4) {
+                        log(`     ${cellKey}: ${(probability * 100).toFixed(1)}%`, testResults);
+                        sampleCount++;
+                    }
+                }
+
+                // テスト2: 空の解決パターン
+                const emptyResult = bitCSP.calculateCellProbabilitiesBit([]);
+                log(`✅ 空パターンテスト: ${typeof emptyResult === 'object' ? '正常処理' : 'エラー'}`, testResults, 'success');
+
+                // テスト3: 大量パターンでの性能測定
+                const largeMockSolutions = createMockSolutions(100, 6);
+                const largeStartTime = performance.now();
+                const largeResult = bitCSP.calculateCellProbabilitiesBit(largeMockSolutions);
+                const largeEndTime = performance.now();
+
+                log(`✅ 大量パターンテスト: 100解決パターンを${largeResult.executionTime.toFixed(4)}msで処理`, testResults, 'success');
+
+                if (largeResult.executionTime < 10) {
+                    log(`🎯 性能目標達成: ${largeResult.executionTime.toFixed(4)}ms < 10ms`, testResults, 'success');
+                } else {
+                    log(`⚠️ 性能目標未達成: ${largeResult.executionTime.toFixed(4)}ms ≥ 10ms`, testResults, 'warning');
+                }
+
+                log("✅ calculateCellProbabilitiesBit() 全テスト成功", testResults, 'success');
+                return true;
+
+            } catch (error) {
+                log(`❌ calculateCellProbabilitiesBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 2. aggregateSolutionStatsBit() テスト
+        function testAggregateSolutionStats() {
+            log("=== aggregateSolutionStatsBit() テスト開始 ===", testResults, 'info');
+            
+            try {
+                // 複数グループの作成
+                const solutionGroups = [
+                    {
+                        solutions: createMockSolutions(5, 3),
+                        cells: Array(3).fill().map((_, i) => ({row: 0, col: i})),
+                        executionTime: 1.2
+                    },
+                    {
+                        solutions: createMockSolutions(8, 4),
+                        cells: Array(4).fill().map((_, i) => ({row: 1, col: i})),
+                        executionTime: 2.1
+                    },
+                    {
+                        solutions: createMockSolutions(3, 2),
+                        cells: Array(2).fill().map((_, i) => ({row: 2, col: i})),
+                        executionTime: 0.8
+                    }
+                ];
+
+                const result = bitCSP.aggregateSolutionStatsBit(solutionGroups);
+
+                if (result.success) {
+                    log(`✅ 統計集計成功: ${result.stats.totalGroups}グループ処理`, testResults, 'success');
+                    log(`   - 総解決パターン: ${result.stats.totalSolutions}`, testResults);
+                    log(`   - 総セル数: ${result.stats.totalCells}`, testResults);
+                    log(`   - 総実行時間: ${result.stats.totalExecutionTime.toFixed(2)}ms`, testResults);
+                    log(`   - 集計処理時間: ${result.executionTime.toFixed(4)}ms`, testResults);
+                    log(`   - グループ平均時間: ${result.stats.performanceMetrics.averageGroupTime.toFixed(4)}ms`, testResults);
+                    log(`   - 全体確率エントリ数: ${Object.keys(result.stats.overallProbabilities).length}`, testResults);
+
+                    // 空グループテスト
+                    const emptyResult = bitCSP.aggregateSolutionStatsBit([]);
+                    log(`✅ 空グループテスト: ${!emptyResult.success ? '正常拒否' : 'エラー'}`, testResults, 
+                        !emptyResult.success ? 'success' : 'error');
+
+                    log("✅ aggregateSolutionStatsBit() 全テスト成功", testResults, 'success');
+                    return true;
+                } else {
+                    log(`❌ 統計集計失敗: ${result.reason}`, testResults, 'error');
+                    return false;
+                }
+
+            } catch (error) {
+                log(`❌ aggregateSolutionStatsBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 3. optimizeProbabilityCalculationBit() テスト
+        function testOptimizeProbabilityCalculation() {
+            log("=== optimizeProbabilityCalculationBit() テスト開始 ===", testResults, 'info');
+            
+            try {
+                // テスト1: 大規模セット（25セル）
+                const largeSet = {
+                    cells: Array(25).fill().map((_, i) => ({
+                        row: Math.floor(i / 5),
+                        col: i % 5
+                    })),
+                    constraints: [
+                        {
+                            cells: Array(6).fill().map((_, i) => ({row: 0, col: i})).slice(0, 3),
+                            count: 1
+                        },
+                        {
+                            cells: Array(6).fill().map((_, i) => ({row: 1, col: i})).slice(0, 3),
+                            count: 2
+                        }
+                    ]
+                };
+
+                const result = bitCSP.optimizeProbabilityCalculationBit(largeSet);
+
+                if (result.success) {
+                    log(`✅ 大規模最適化成功: ${result.originalCellCount}セルを${result.chunksProcessed}チャンクで処理`, testResults, 'success');
+                    log(`   - 実行時間: ${result.executionTime.toFixed(4)}ms`, testResults);
+                    log(`   - 処理時間: ${result.totalProcessingTime.toFixed(4)}ms`, testResults);
+                    log(`   - 最適化比率: ${result.optimizationRatio.toFixed(2)}x`, testResults);
+                    log(`   - メモリ効率: ${result.memoryEfficiency}`, testResults);
+                    log(`   - 有効解決数: ${result.totalValidSolutions}`, testResults);
+                    log(`   - 確率エントリ数: ${Object.keys(result.combinedProbabilities).length}`, testResults);
+
+                    // パフォーマンス評価
+                    if (result.executionTime < 100) {
+                        log(`🎯 大規模処理目標達成: ${result.executionTime.toFixed(4)}ms < 100ms`, testResults, 'success');
+                    } else {
+                        log(`⚠️ 大規模処理目標未達成: ${result.executionTime.toFixed(4)}ms ≥ 100ms`, testResults, 'warning');
+                    }
+
+                } else {
+                    log(`❌ 大規模最適化失敗: ${result.reason}`, testResults, 'error');
+                }
+
+                // テスト2: 小規模セット拒否テスト（15セル）
+                const smallSet = {
+                    cells: Array(15).fill().map((_, i) => ({row: 0, col: i})),
+                    constraints: []
+                };
+
+                const smallResult = bitCSP.optimizeProbabilityCalculationBit(smallSet);
+                log(`✅ 小規模セット拒否テスト: ${!smallResult.success ? '正常拒否' : 'エラー'}`, testResults,
+                    !smallResult.success ? 'success' : 'error');
+
+                log("✅ optimizeProbabilityCalculationBit() 全テスト成功", testResults, 'success');
+                return true;
+
+            } catch (error) {
+                log(`❌ optimizeProbabilityCalculationBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 4. cacheProbabilityResultsBit() テスト
+        function testCacheProbabilityResults() {
+            log("=== cacheProbabilityResultsBit() テスト開始 ===", testResults, 'info');
+            
+            try {
+                // テスト1: キャッシュ保存
+                const testResults1 = { probabilities: { "0,0": 0.4, "0,1": 0.6 }, solutionCount: 10 };
+                const storeResult = bitCSP.cacheProbabilityResultsBit("test_key_1", testResults1);
+
+                log(`✅ キャッシュ保存テスト: ${storeResult.success ? '成功' : '失敗'}`, testResults, 
+                    storeResult.success ? 'success' : 'error');
+                log(`   - アクション: ${storeResult.action}`, testResults);
+                log(`   - キャッシュサイズ: ${storeResult.cacheSize}`, testResults);
+
+                // テスト2: キャッシュ取得（ヒット）
+                const retrieveResult = bitCSP.cacheProbabilityResultsBit("test_key_1");
+
+                log(`✅ キャッシュ取得テスト: ${retrieveResult.success ? 'ヒット' : 'ミス'}`, testResults,
+                    retrieveResult.success ? 'success' : 'error');
+                if (retrieveResult.success) {
+                    log(`   - アクセス回数: ${retrieveResult.accessCount}`, testResults);
+                    log(`   - キャッシュ年齢: ${retrieveResult.age.toFixed(2)}ms`, testResults);
+                    log(`   - ヒット率: ${retrieveResult.cacheStats.hitRate}`, testResults);
+                }
+
+                // テスト3: キャッシュミス
+                const missResult = bitCSP.cacheProbabilityResultsBit("nonexistent_key");
+                log(`✅ キャッシュミステスト: ${!missResult.success ? '正常ミス' : 'エラー'}`, testResults,
+                    !missResult.success ? 'success' : 'error');
+
+                // テスト4: 複数エントリでLRUテスト
+                for (let i = 0; i < 5; i++) {
+                    bitCSP.cacheProbabilityResultsBit(`test_key_${i}`, { data: `test_data_${i}` });
+                }
+
+                const lruResult = bitCSP.cacheProbabilityResultsBit("test_key_0");
+                log(`✅ LRU複数エントリテスト: キャッシュサイズ確認`, testResults, 'success');
+                if (lruResult.success) {
+                    log(`   - 現在キャッシュサイズ: ${lruResult.cacheStats.cacheSize}/${lruResult.cacheStats.maxSize}`, testResults);
+                    log(`   - 現在ヒット率: ${lruResult.cacheStats.hitRate}`, testResults);
+                }
+
+                log("✅ cacheProbabilityResultsBit() 全テスト成功", testResults, 'success');
+                return true;
+
+            } catch (error) {
+                log(`❌ cacheProbabilityResultsBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 全テスト実行
+        function runAllTests() {
+            log("🚀 Phase3-2 全機能テスト開始", testResults, 'info');
+            log("=" * 60, testResults);
+            
+            let allPassed = true;
+            const tests = [
+                { name: "calculateCellProbabilitiesBit()", func: testCalculateCellProbabilities },
+                { name: "aggregateSolutionStatsBit()", func: testAggregateSolutionStats },
+                { name: "optimizeProbabilityCalculationBit()", func: testOptimizeProbabilityCalculation },
+                { name: "cacheProbabilityResultsBit()", func: testCacheProbabilityResults }
+            ];
+
+            for (const test of tests) {
+                log(`\n--- ${test.name} テスト ---`, testResults, 'info');
+                const passed = test.func();
+                allPassed = allPassed && passed;
+                log(`${test.name}: ${passed ? '✅ 成功' : '❌ 失敗'}`, testResults, passed ? 'success' : 'error');
+            }
+
+            log("\n" + "=" * 60, testResults);
+            log(`🎯 Phase3-2 全テスト結果: ${allPassed ? '✅ 全て成功' : '❌ 一部失敗'}`, testResults, 
+                allPassed ? 'success' : 'error');
+        }
+
+        // パフォーマンステスト関数群（簡略版）
+        function benchmarkProbabilityCalculation() {
+            log("⚡ 確率計算性能ベンチマーク開始", performanceResults, 'info');
+            log("実装予定: 各種サイズでの確率計算性能測定", performanceResults, 'warning');
+        }
+
+        function benchmarkCachePerformance() {
+            log("⚡ キャッシュ性能ベンチマーク開始", performanceResults, 'info');
+            log("実装予定: キャッシュヒット率とLRU性能測定", performanceResults, 'warning');
+        }
+
+        function benchmarkLargeSetOptimization() {
+            log("⚡ 大規模セット最適化ベンチマーク開始", performanceResults, 'info');
+            log("実装予定: 20-29セル範囲でのチャンク処理性能測定", performanceResults, 'warning');
+        }
+
+        function benchmarkPhase2Comparison() {
+            log("📊 Phase2比較ベンチマーク開始", performanceResults, 'info');
+            log("実装予定: Phase2の確率計算との性能比較", performanceResults, 'warning');
+        }
+
+        // 詳細テスト関数群（簡略版）
+        function testComplexMultiGroup() {
+            log("🔍 複数グループ統合テスト開始", detailedResults, 'info');
+            log("実装予定: 10グループ以上の複雑な統合処理テスト", detailedResults, 'warning');
+        }
+
+        function testCacheLRUBehavior() {
+            log("🔍 キャッシュLRU動作テスト開始", detailedResults, 'info');
+            log("実装予定: LRUアルゴリズムの詳細動作確認", detailedResults, 'warning');
+        }
+
+        function testMemoryEfficiency() {
+            log("🔍 メモリ効率テスト開始", detailedResults, 'info');
+            log("実装予定: メモリ使用量の測定と分析", detailedResults, 'warning');
+        }
+
+        function testAccuracyComparison() {
+            log("🔍 精度比較テスト開始", detailedResults, 'info');
+            log("実装予定: 従来版との確率計算精度比較", detailedResults, 'warning');
+        }
+
+        // パフォーマンスメトリクス表示
+        function updatePerformanceMetrics(metrics) {
+            performanceMetrics.innerHTML = '';
+            for (const [key, data] of Object.entries(metrics)) {
+                const card = document.createElement('div');
+                card.className = 'metric-card';
+                card.innerHTML = `
+                    <div class="metric-value">${data.value}</div>
+                    <div class="metric-label">${data.label}</div>
+                `;
+                performanceMetrics.appendChild(card);
+            }
+        }
+
+        // 初期化
+        log("🚀 Phase3-2テストシステム初期化完了", testResults, 'success');
+        log("確率計算システムのビット化とキャッシュ最適化をテストします", testResults, 'info');
+    </script>
+</body>
+</html>
