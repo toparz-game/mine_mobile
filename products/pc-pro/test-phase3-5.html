@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase3-5: Phase3統合・全体最適化テスト</title>
+    <style>
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(135deg, #9C27B0 0%, #673AB7 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .test-section {
+            background-color: #2d2d2d;
+            border: 1px solid #555;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        .info { color: #2196F3; }
+        .excellent { color: #00E676; }
+        .good { color: #66BB6A; }
+        .acceptable { color: #FFA726; }
+        .needs_improvement { color: #FF7043; }
+        .test-button {
+            background: linear-gradient(45deg, #9C27B0, #673AB7);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s;
+        }
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(156, 39, 176, 0.4);
+        }
+        .integration-button {
+            background: linear-gradient(45deg, #FF5722, #E64A19);
+            font-weight: bold;
+            font-size: 18px;
+            padding: 15px 30px;
+        }
+        .test-results {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .performance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .metric-card {
+            background-color: #333;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #9C27B0;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #bbb;
+            margin-top: 5px;
+        }
+        .benchmark-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .benchmark-table th, .benchmark-table td {
+            border: 1px solid #555;
+            padding: 8px;
+            text-align: left;
+        }
+        .benchmark-table th {
+            background-color: #444;
+            color: #9C27B0;
+        }
+        .integration-status {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        .status-item {
+            background-color: #2a2a2a;
+            border: 1px solid #555;
+            border-radius: 6px;
+            padding: 10px;
+            margin: 5px;
+            min-width: 120px;
+            text-align: center;
+        }
+        .status-indicator {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .optimization-summary {
+            background: linear-gradient(135deg, #263238 0%, #37474F 100%);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Phase3-5: Phase3統合・全体最適化</h1>
+            <p>目標: Phase3全機能の統合とPhase1-2-3完全連携</p>
+            <p>機能: パフォーマンス最適化・機能ベンチマーク・エンドツーエンド統合</p>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Phase3-5 核心機能テスト</h2>
+            <button class="test-button" onclick="testOptimizePhase3Performance()">1. optimizePhase3PerformanceBit() テスト</button>
+            <button class="test-button" onclick="testBenchmarkPhase3Functions()">2. benchmarkPhase3FunctionsBit() テスト</button>
+            <button class="test-button integration-button" onclick="testIntegratePhase123()">🎯 3. integratePhase123Bit() 統合テスト</button>
+            <button class="test-button" onclick="runAllPhase35Tests()">🚀 全Phase3-5テスト実行</button>
+            <button class="test-button" onclick="clearResults()" style="background: linear-gradient(45deg, #f44336, #d32f2f);">🧹 結果クリア</button>
+            <div id="testResults" class="test-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>⚡ パフォーマンス最適化結果</h2>
+            <div id="optimizationSummary" class="optimization-summary">
+                <p>最適化テスト実行後、ここに結果が表示されます</p>
+            </div>
+            <div id="performanceMetrics" class="performance-grid"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Phase3機能ベンチマーク</h2>
+            <button class="test-button" onclick="showDetailedBenchmark()">詳細ベンチマーク表示</button>
+            <div id="benchmarkResults" class="test-results"></div>
+            <table id="benchmarkTable" class="benchmark-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>機能名</th>
+                        <th>平均実行時間</th>
+                        <th>成功率</th>
+                        <th>Phase2比較</th>
+                        <th>評価</th>
+                    </tr>
+                </thead>
+                <tbody id="benchmarkTableBody"></tbody>
+            </table>
+        </div>
+
+        <div class="test-section">
+            <h2>🔗 Phase1-2-3統合ステータス</h2>
+            <div id="integrationStatus" class="integration-status">
+                <div class="status-item">
+                    <div class="status-indicator" id="phase1Status">⏳</div>
+                    <div>Phase1統合</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-indicator" id="phase2Status">⏳</div>
+                    <div>Phase2統合</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-indicator" id="phase3Status">⏳</div>
+                    <div>Phase3統合</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-indicator" id="endToEndStatus">⏳</div>
+                    <div>End-to-End</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-indicator" id="performanceStatus">⏳</div>
+                    <div>パフォーマンス</div>
+                </div>
+            </div>
+            <div id="integrationDetails" class="test-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 Phase3完成度評価</h2>
+            <div id="completionAssessment" class="test-results">
+                統合テスト実行後、Phase3の完成度評価が表示されます
+            </div>
+        </div>
+    </div>
+
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+    <script>
+        let testResults, benchmarkResults, integrationDetails, completionAssessment;
+        let optimizationSummary, performanceMetrics, benchmarkTable, benchmarkTableBody;
+        let mockGame, bitSystem, bitCSP;
+
+        // DOMが読み込まれてから初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            testResults = document.getElementById('testResults');
+            benchmarkResults = document.getElementById('benchmarkResults');
+            integrationDetails = document.getElementById('integrationDetails');
+            completionAssessment = document.getElementById('completionAssessment');
+            optimizationSummary = document.getElementById('optimizationSummary');
+            performanceMetrics = document.getElementById('performanceMetrics');
+            benchmarkTable = document.getElementById('benchmarkTable');
+            benchmarkTableBody = document.getElementById('benchmarkTableBody');
+
+            // テスト用のモックゲーム環境
+            mockGame = {
+                rows: 16,
+                cols: 16,
+                mines: 40,
+                board: Array(16).fill().map(() => Array(16).fill(0)),
+                isValidCoord: (row, col) => row >= 0 && row < 16 && col >= 0 && col < 16
+            };
+
+            // BitMinesweeperSystemとSimpleBitCSPを初期化
+            try {
+                bitSystem = new BitMinesweeperSystem(mockGame);
+                bitCSP = new SimpleBitCSP(mockGame, bitSystem);
+                log("🚀 Phase3-5テストシステム初期化完了", testResults, 'success');
+                log("Phase3統合・全体最適化をテストします", testResults, 'info');
+            } catch (error) {
+                console.error('初期化エラー:', error);
+                if (testResults) {
+                    log(`❌ 初期化エラー: ${error.message}`, testResults, 'error');
+                }
+            }
+        });
+
+        function log(message, element = testResults, className = '') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            element.textContent += logMessage;
+            if (className) {
+                element.className += ` ${className}`;
+            }
+            element.scrollTop = element.scrollHeight;
+        }
+
+        function clearResults() {
+            testResults.textContent = '';
+            benchmarkResults.textContent = '';
+            integrationDetails.textContent = '';
+            completionAssessment.textContent = '';
+            performanceMetrics.innerHTML = '';
+            benchmarkTableBody.innerHTML = '';
+            benchmarkTable.style.display = 'none';
+            optimizationSummary.innerHTML = '<p>最適化テスト実行後、ここに結果が表示されます</p>';
+            
+            // ステータス表示をリセット
+            ['phase1Status', 'phase2Status', 'phase3Status', 'endToEndStatus', 'performanceStatus'].forEach(id => {
+                document.getElementById(id).textContent = '⏳';
+            });
+        }
+
+        // 1. optimizePhase3PerformanceBit() テスト
+        function testOptimizePhase3Performance() {
+            log("=== optimizePhase3PerformanceBit() テスト開始 ===", testResults, 'info');
+            
+            if (!bitCSP) {
+                log("❌ bitCSP が初期化されていません。ページをリロードしてください。", testResults, 'error');
+                return false;
+            }
+            
+            try {
+                const result = bitCSP.optimizePhase3PerformanceBit();
+                
+                log(`${result.success ? '✅' : '❌'} Phase3パフォーマンス最適化: ${result.success ? '成功' : '失敗'}`, testResults, 
+                    result.success ? 'success' : 'error');
+                
+                if (result.success) {
+                    log(`   - 実行時間: ${result.executionTime.toFixed(4)}ms`, testResults);
+                    log(`   - メモリ削減: ${result.improvementSummary.memoryReduction}`, testResults);
+                    log(`   - 速度改善: ${result.improvementSummary.speedImprovement}`, testResults);
+                    log(`   - キャッシュヒット率: ${result.improvementSummary.cacheHitRate}`, testResults);
+                    
+                    // 最適化結果の詳細表示
+                    displayOptimizationSummary(result);
+                    
+                    // パフォーマンスメトリクス表示
+                    updatePerformanceMetrics({
+                        'memory_reduction': {
+                            value: result.improvementSummary.memoryReduction,
+                            label: 'メモリ削減'
+                        },
+                        'speed_improvement': {
+                            value: result.improvementSummary.speedImprovement,
+                            label: '速度改善'
+                        },
+                        'cache_hit_rate': {
+                            value: result.improvementSummary.cacheHitRate,
+                            label: 'キャッシュヒット率'
+                        },
+                        'execution_time': {
+                            value: `${result.executionTime.toFixed(4)}ms`,
+                            label: '実行時間'
+                        }
+                    });
+                } else {
+                    log(`   - 失敗理由: ${result.reason}`, testResults, 'error');
+                    if (result.error) log(`   - エラー: ${result.error}`, testResults, 'error');
+                }
+                
+                return result.success;
+
+            } catch (error) {
+                log(`❌ optimizePhase3PerformanceBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 2. benchmarkPhase3FunctionsBit() テスト
+        function testBenchmarkPhase3Functions() {
+            log("=== benchmarkPhase3FunctionsBit() テスト開始 ===", testResults, 'info');
+            
+            if (!bitCSP) {
+                log("❌ bitCSP が初期化されていません。", testResults, 'error');
+                return false;
+            }
+            
+            try {
+                const result = bitCSP.benchmarkPhase3FunctionsBit();
+                
+                log(`${result.success ? '✅' : '❌'} Phase3機能ベンチマーク: ${result.success ? '成功' : '失敗'}`, testResults,
+                    result.success ? 'success' : 'error');
+                
+                if (result.success) {
+                    log(`   - 実行時間: ${result.executionTime.toFixed(4)}ms`, testResults);
+                    log(`   - 平均実行時間: ${result.summary.averageExecutionTime.toFixed(4)}ms`, testResults);
+                    log(`   - 最高速機能: ${result.summary.fastestFunction}`, testResults);
+                    log(`   - 最低速機能: ${result.summary.slowestFunction}`, testResults);
+                    log(`   - 総合評価: ${result.summary.overallRating}点`, testResults);
+                    
+                    // ベンチマーク結果詳細
+                    log("\n--- ベンチマーク詳細結果 ---", benchmarkResults, 'info');
+                    for (const [funcName, metrics] of Object.entries(result.benchmark.functions)) {
+                        log(`${funcName}:`, benchmarkResults);
+                        log(`  平均: ${metrics.averageTime.toFixed(4)}ms`, benchmarkResults);
+                        log(`  成功率: ${metrics.successRate.toFixed(1)}%`, benchmarkResults);
+                        log(`  範囲: ${metrics.minTime.toFixed(4)}ms - ${metrics.maxTime.toFixed(4)}ms`, benchmarkResults);
+                    }
+                    
+                    // テーブル形式でも表示
+                    displayBenchmarkTable(result.benchmark);
+                } else {
+                    log(`   - 失敗理由: ${result.reason}`, testResults, 'error');
+                    if (result.error) log(`   - エラー: ${result.error}`, testResults, 'error');
+                }
+                
+                return result.success;
+
+            } catch (error) {
+                log(`❌ benchmarkPhase3FunctionsBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 3. integratePhase123Bit() テスト
+        function testIntegratePhase123() {
+            log("=== integratePhase123Bit() 統合テスト開始 ===", testResults, 'info');
+            
+            if (!bitCSP) {
+                log("❌ bitCSP が初期化されていません。", testResults, 'error');
+                return false;
+            }
+            
+            try {
+                const result = bitCSP.integratePhase123Bit();
+                
+                log(`${result.success ? '✅' : '❌'} Phase1-2-3完全統合: ${result.success ? '成功' : '失敗'}`, testResults,
+                    result.success ? 'success' : 'error');
+                
+                if (result.success) {
+                    log(`   - 実行時間: ${result.executionTime.toFixed(4)}ms`, testResults);
+                    log(`   - 全Phase統合: ${result.summary.allPhasesIntegrated ? 'はい' : 'いいえ'}`, testResults);
+                    log(`   - End-to-End動作: ${result.summary.endToEndWorking ? 'OK' : 'NG'}`, testResults);
+                    log(`   - パフォーマンス目標: ${result.summary.performanceTargetMet ? '達成' : '未達成'}`, testResults);
+                    log(`   - 統合評価: ${result.summary.overallRating}`, testResults, getRatingClass(result.summary.overallRating));
+                    
+                    // 統合ステータス更新
+                    updateIntegrationStatus(result.integration);
+                    
+                    // 統合詳細表示
+                    displayIntegrationDetails(result.integration);
+                    
+                    // 完成度評価表示
+                    displayCompletionAssessment(result);
+                } else {
+                    log(`   - 失敗理由: ${result.reason}`, testResults, 'error');
+                    if (result.details) {
+                        log(`   - 詳細: ${JSON.stringify(result.details, null, 2)}`, testResults, 'error');
+                    }
+                }
+                
+                return result.success;
+
+            } catch (error) {
+                log(`❌ integratePhase123Bit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 全Phase3-5テスト実行
+        function runAllPhase35Tests() {
+            log("🚀 Phase3-5 全機能テスト開始", testResults, 'info');
+            log("=" * 60, testResults);
+            
+            let allPassed = true;
+            const tests = [
+                { name: "optimizePhase3PerformanceBit()", func: testOptimizePhase3Performance },
+                { name: "benchmarkPhase3FunctionsBit()", func: testBenchmarkPhase3Functions },
+                { name: "integratePhase123Bit()", func: testIntegratePhase123 }
+            ];
+
+            for (const test of tests) {
+                log(`\n--- ${test.name} テスト ---`, testResults, 'info');
+                const passed = test.func();
+                allPassed = allPassed && passed;
+                log(`${test.name}: ${passed ? '✅ 成功' : '❌ 失敗'}`, testResults, passed ? 'success' : 'error');
+            }
+
+            log("\n" + "=" * 60, testResults);
+            log(`🎯 Phase3-5 全テスト結果: ${allPassed ? '✅ 全て成功' : '❌ 一部失敗'}`, testResults, 
+                allPassed ? 'success' : 'error');
+            
+            if (allPassed) {
+                log("🎉 Phase3-5 完了！Phase3統合・全体最適化が完成しました！", testResults, 'success');
+                log("👉 次は Phase3-6: Phase3完成・Phase4準備 の実装に進んでください", testResults, 'info');
+            }
+            
+            return allPassed;
+        }
+
+        // 最適化サマリー表示
+        function displayOptimizationSummary(result) {
+            const optimization = result.optimization;
+            let summaryHTML = '<h3>🔧 最適化実行結果</h3>';
+            
+            summaryHTML += `<p><strong>メモリ最適化:</strong></p>`;
+            summaryHTML += `<p>  • 削減前: ${optimization.memoryOptimization.beforeMB.toFixed(2)}MB</p>`;
+            summaryHTML += `<p>  • 削減後: ${optimization.memoryOptimization.afterMB.toFixed(2)}MB</p>`;
+            summaryHTML += `<p>  • 削減量: ${optimization.memoryOptimization.savedMB.toFixed(2)}MB</p>`;
+            
+            summaryHTML += `<p><strong>アルゴリズム最適化:</strong></p>`;
+            summaryHTML += `<p>  • キャッシュ最適化: ${optimization.algorithmOptimization.cacheOptimization ? '有効' : '無効'}</p>`;
+            summaryHTML += `<p>  • ビット演算最適化: ${optimization.algorithmOptimization.bitOperationOptimization ? '有効' : '無効'}</p>`;
+            summaryHTML += `<p>  • 改善推定: ${optimization.algorithmOptimization.improvementEstimate}</p>`;
+            
+            summaryHTML += `<p><strong>全体改善:</strong></p>`;
+            summaryHTML += `<p>  • 総合スコア: ${optimization.overallImprovement.overallScore.toFixed(1)}点</p>`;
+            
+            optimizationSummary.innerHTML = summaryHTML;
+        }
+
+        // ベンチマークテーブル表示
+        function displayBenchmarkTable(benchmark) {
+            benchmarkTableBody.innerHTML = '';
+            
+            for (const [funcName, metrics] of Object.entries(benchmark.functions)) {
+                const row = benchmarkTableBody.insertRow();
+                row.insertCell(0).textContent = funcName;
+                row.insertCell(1).textContent = `${metrics.averageTime.toFixed(4)}ms`;
+                row.insertCell(2).textContent = `${metrics.successRate.toFixed(1)}%`;
+                
+                // Phase2比較
+                const comparison = benchmark.comparisons[funcName];
+                const comparisonCell = row.insertCell(3);
+                if (comparison) {
+                    comparisonCell.textContent = `${comparison.improvementPercent.toFixed(1)}%`;
+                    comparisonCell.className = comparison.verdict === 'improved' ? 'success' : 'warning';
+                } else {
+                    comparisonCell.textContent = 'N/A';
+                }
+                
+                // 評価
+                const ratingCell = row.insertCell(4);
+                const rating = metrics.successRate >= 90 && metrics.averageTime < 5 ? 'excellent' :
+                              metrics.successRate >= 80 && metrics.averageTime < 10 ? 'good' : 'needs_improvement';
+                ratingCell.textContent = rating;
+                ratingCell.className = rating;
+            }
+            
+            benchmarkTable.style.display = 'table';
+        }
+
+        // 統合ステータス更新
+        function updateIntegrationStatus(integration) {
+            document.getElementById('phase1Status').textContent = 
+                integration.phase1Integration.success ? '✅' : '❌';
+            document.getElementById('phase2Status').textContent = 
+                integration.phase2Integration.success ? '✅' : '❌';
+            document.getElementById('phase3Status').textContent = 
+                integration.phase3Integration.success ? '✅' : '❌';
+            document.getElementById('endToEndStatus').textContent = 
+                integration.endToEndTest.success ? '✅' : '❌';
+            document.getElementById('performanceStatus').textContent = 
+                integration.performanceTest.targetMet ? '✅' : '⚠️';
+        }
+
+        // 統合詳細表示
+        function displayIntegrationDetails(integration) {
+            let details = "=== 統合テスト詳細結果 ===\n";
+            
+            details += `Phase1統合テスト: ${integration.phase1Integration.success ? '成功' : '失敗'}\n`;
+            if (integration.phase1Integration.success) {
+                details += `  - 境界セル検出: ${integration.phase1Integration.boundaryTest ? 'OK' : 'NG'}\n`;
+                details += `  - 制約生成: ${integration.phase1Integration.constraintTest ? 'OK' : 'NG'}\n`;
+            }
+            
+            details += `\nPhase2統合テスト: ${integration.phase2Integration.success ? '成功' : '失敗'}\n`;
+            if (integration.phase2Integration.success) {
+                details += `  - 部分集合検出: ${integration.phase2Integration.subsetTest ? 'OK' : 'NG'}\n`;
+            }
+            
+            details += `\nPhase3統合テスト: ${integration.phase3Integration.success ? '成功' : '失敗'}\n`;
+            if (integration.phase3Integration.success) {
+                details += `  - 統合機能: ${integration.phase3Integration.integrationTest ? 'OK' : 'NG'}\n`;
+                details += `  - 最適化機能: ${integration.phase3Integration.optimizationTest ? 'OK' : 'NG'}\n`;
+            }
+            
+            details += `\nEnd-to-End テスト: ${integration.endToEndTest.success ? '成功' : '失敗'}\n`;
+            if (integration.endToEndTest.success) {
+                details += `  - Phase1実行時間: ${integration.endToEndTest.phase1Duration.toFixed(4)}ms\n`;
+                details += `  - Phase2実行時間: ${integration.endToEndTest.phase2Duration.toFixed(4)}ms\n`;
+                details += `  - Phase3実行時間: ${integration.endToEndTest.phase3Duration.toFixed(4)}ms\n`;
+                details += `  - 総実行時間: ${integration.endToEndTest.totalDuration.toFixed(4)}ms\n`;
+            }
+            
+            details += `\nパフォーマンステスト: ${integration.performanceTest.success ? '成功' : '失敗'}\n`;
+            if (integration.performanceTest.success) {
+                details += `  - 目標時間: ${integration.performanceTest.targetTime}ms\n`;
+                details += `  - 実際時間: ${integration.performanceTest.actualTime.toFixed(4)}ms\n`;
+                details += `  - 目標達成: ${integration.performanceTest.targetMet ? 'はい' : 'いいえ'}\n`;
+                details += `  - 評価: ${integration.performanceTest.rating}\n`;
+            }
+            
+            integrationDetails.textContent = details;
+        }
+
+        // 完成度評価表示
+        function displayCompletionAssessment(result) {
+            let assessment = "=== Phase3完成度評価 ===\n";
+            assessment += `統合評価: ${result.summary.overallRating}\n`;
+            assessment += `実行時間: ${result.executionTime.toFixed(4)}ms\n\n`;
+            
+            assessment += "✅ 達成項目:\n";
+            if (result.summary.allPhasesIntegrated) assessment += "  - 全Phase統合完了\n";
+            if (result.summary.endToEndWorking) assessment += "  - End-to-End動作確認\n";
+            if (result.summary.performanceTargetMet) assessment += "  - パフォーマンス目標達成\n";
+            
+            assessment += "\n🎯 Phase3完成度: ";
+            switch (result.summary.overallRating) {
+                case 'excellent':
+                    assessment += "優秀 - Phase3は完全に完成しています！\n";
+                    assessment += "👉 Phase3-6とPhase4準備に進む準備が整いました。\n";
+                    break;
+                case 'good':
+                    assessment += "良好 - Phase3はほぼ完成しています。\n";
+                    assessment += "⚠️ 軽微な最適化が必要ですが、次段階に進めます。\n";
+                    break;
+                case 'acceptable':
+                    assessment += "許容範囲 - Phase3は機能していますが改善の余地があります。\n";
+                    assessment += "🔧 パフォーマンス調整後に次段階に進むことを推奨します。\n";
+                    break;
+                default:
+                    assessment += "要改善 - Phase3に重要な問題があります。\n";
+                    assessment += "❌ 問題解決後に再テストしてください。\n";
+            }
+            
+            completionAssessment.textContent = assessment;
+            completionAssessment.className = getRatingClass(result.summary.overallRating);
+        }
+
+        // その他のヘルパー関数
+        function getRatingClass(rating) {
+            switch (rating) {
+                case 'excellent': return 'excellent';
+                case 'good': return 'good';
+                case 'acceptable': return 'acceptable';
+                default: return 'needs_improvement';
+            }
+        }
+
+        function updatePerformanceMetrics(metrics) {
+            performanceMetrics.innerHTML = '';
+            for (const [key, data] of Object.entries(metrics)) {
+                const card = document.createElement('div');
+                card.className = 'metric-card';
+                card.innerHTML = `
+                    <div class="metric-value">${data.value}</div>
+                    <div class="metric-label">${data.label}</div>
+                `;
+                performanceMetrics.appendChild(card);
+            }
+        }
+
+        function showDetailedBenchmark() {
+            if (benchmarkTable.style.display === 'none') {
+                benchmarkTable.style.display = 'table';
+            } else {
+                benchmarkTable.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

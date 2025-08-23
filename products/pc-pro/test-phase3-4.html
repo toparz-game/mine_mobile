@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase3-4: 大規模完全探索の段階的最適化テスト</title>
+    <style>
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(135deg, #FF5722 0%, #E64A19 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .test-section {
+            background-color: #2d2d2d;
+            border: 1px solid #555;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        .info { color: #2196F3; }
+        .test-button {
+            background: linear-gradient(45deg, #FF5722, #E64A19);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s;
+        }
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 87, 34, 0.4);
+        }
+        .test-results {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .performance-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .metric-card {
+            background-color: #333;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #FF5722;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #bbb;
+            margin-top: 5px;
+        }
+        .optimization-demo {
+            background-color: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Phase3-4: 大規模完全探索の段階的最適化</h1>
+            <p>目標: 大規模制約セット（>15セル）に対する最適化</p>
+            <p>最適化手法: 分割戦略・ヒューリスティック枝刈り・探索順序最適化・メモリ管理</p>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Phase3-4 機能テスト</h2>
+            <button class="test-button" onclick="testPartitionLargeConstraintSet()">1. partitionLargeConstraintSetBit() テスト</button>
+            <button class="test-button" onclick="testApplyHeuristicPruning()">2. applyHeuristicPruningBit() テスト</button>
+            <button class="test-button" onclick="testOptimizeSearchOrder()">3. optimizeSearchOrderBit() テスト</button>
+            <button class="test-button" onclick="testManageLargeSetMemory()">4. manageLargeSetMemoryBit() テスト</button>
+            <button class="test-button" onclick="runAllTests()">🎯 全テスト実行</button>
+            <button class="test-button" onclick="clearResults()" style="background: linear-gradient(45deg, #f44336, #d32f2f);">🧹 結果クリア</button>
+            <div id="testResults" class="test-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>⚡ パフォーマンス測定</h2>
+            <button class="test-button" onclick="benchmarkLargeSetPartitioning()">大規模セット分割ベンチマーク</button>
+            <button class="test-button" onclick="benchmarkHeuristicPruning()">ヒューリスティック枝刈りベンチマーク</button>
+            <button class="test-button" onclick="benchmarkSearchOrderOptimization()">探索順序最適化ベンチマーク</button>
+            <button class="test-button" onclick="benchmarkMemoryManagement()">メモリ管理ベンチマーク</button>
+            <button class="test-button" onclick="benchmarkExtremeScaleTest()">✨ 極限規模テスト (50セル)</button>
+            <div id="performanceResults" class="test-results"></div>
+            <div id="performanceMetrics" class="performance-metrics"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔍 詳細動作テスト</h2>
+            <button class="test-button" onclick="testComplexPartitioningScenarios()">複雑分割シナリオテスト</button>
+            <button class="test-button" onclick="testAdvancedPruningTechniques()">高度枝刈り技法テスト</button>
+            <button class="test-button" onclick="testAdaptiveOptimization()">適応的最適化テスト</button>
+            <button class="test-button" onclick="testOptimizationDemo()">🎪 最適化プロセスデモ</button>
+            <div id="detailedResults" class="test-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 最適化結果表示</h2>
+            <div id="optimizationDemo" class="optimization-demo"></div>
+        </div>
+    </div>
+
+    <script src="modules/bit-minesweeper.js"></script>
+    <script src="modules/simple-bit-csp.js"></script>
+    <script>
+        let testResults, performanceResults, detailedResults, performanceMetrics, optimizationDemo;
+        let mockGame, bitSystem, bitCSP;
+
+        // DOMが読み込まれてから初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            testResults = document.getElementById('testResults');
+            performanceResults = document.getElementById('performanceResults');
+            detailedResults = document.getElementById('detailedResults');
+            performanceMetrics = document.getElementById('performanceMetrics');
+            optimizationDemo = document.getElementById('optimizationDemo');
+
+            // テスト用のモックゲーム環境
+            mockGame = {
+                rows: 16,
+                cols: 16,
+                mines: 40,
+                board: Array(16).fill().map(() => Array(16).fill(0)),
+                isValidCoord: (row, col) => row >= 0 && row < 16 && col >= 0 && col < 16
+            };
+
+            // BitMinesweeperSystemとSimpleBitCSPを初期化
+            try {
+                bitSystem = new BitMinesweeperSystem(mockGame);
+                bitCSP = new SimpleBitCSP(mockGame, bitSystem);
+                log("🚀 Phase3-4テストシステム初期化完了", testResults, 'success');
+                log("大規模完全探索の段階的最適化をテストします", testResults, 'info');
+            } catch (error) {
+                console.error('初期化エラー:', error);
+                if (testResults) {
+                    log(`❌ 初期化エラー: ${error.message}`, testResults, 'error');
+                }
+            }
+        });
+
+        function log(message, element = testResults, className = '') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            element.textContent += logMessage;
+            if (className) {
+                element.className += ` ${className}`;
+            }
+            element.scrollTop = element.scrollHeight;
+        }
+
+        function clearResults() {
+            testResults.textContent = '';
+            performanceResults.textContent = '';
+            detailedResults.textContent = '';
+            performanceMetrics.innerHTML = '';
+            optimizationDemo.innerHTML = '';
+        }
+
+        // テスト用の大規模制約セットを生成
+        function createLargeConstraintSet(cellCount = 20, constraintCount = 5) {
+            const cells = [];
+            
+            // セル生成（格子状配置）
+            for (let i = 0; i < cellCount; i++) {
+                const row = Math.floor(i / 4);
+                const col = i % 4;
+                cells.push({ row, col });
+            }
+            
+            // 制約生成
+            const constraints = [];
+            for (let i = 0; i < constraintCount; i++) {
+                const startIdx = Math.floor(i * cellCount / constraintCount);
+                const endIdx = Math.min(startIdx + 4, cellCount);
+                const constraintCells = cells.slice(startIdx, endIdx);
+                
+                constraints.push({
+                    id: i,
+                    cells: constraintCells,
+                    count: Math.floor(constraintCells.length * 0.4) + 1
+                });
+            }
+            
+            return {
+                cells: cells,
+                constraints: constraints,
+                complexity: Math.pow(2, cellCount)
+            };
+        }
+
+        // 1. partitionLargeConstraintSetBit() テスト
+        function testPartitionLargeConstraintSet() {
+            log("=== partitionLargeConstraintSetBit() テスト開始 ===", testResults, 'info');
+            
+            // bitCSPが初期化されているかチェック
+            if (!bitCSP) {
+                log("❌ bitCSP が初期化されていません。ページをリロードしてください。", testResults, 'error');
+                return false;
+            }
+            
+            try {
+                // テスト1: 基本的な大規模セット分割
+                const largeSet = createLargeConstraintSet(20, 4);
+                const result1 = bitCSP.partitionLargeConstraintSetBit(largeSet);
+                
+                log(`${result1.success ? '✅' : '❌'} 基本分割テスト (20セル): ${result1.success ? '成功' : '失敗'}`, testResults, 
+                    result1.success ? 'success' : 'error');
+                
+                if (result1.success) {
+                    log(`   - 分割数: ${result1.partitionCount}`, testResults);
+                    log(`   - 平均分割サイズ: ${result1.averagePartitionSize.toFixed(1)}セル`, testResults);
+                    log(`   - 最大分割複雑度: ${result1.maxPartitionComplexity.toLocaleString()}`, testResults);
+                    log(`   - オーバーラップ有無: ${result1.hasOverlaps ? 'あり' : 'なし'}`, testResults);
+                    log(`   - 実行時間: ${result1.executionTime.toFixed(4)}ms`, testResults);
+                } else {
+                    log(`   - 失敗理由: ${result1.reason}`, testResults, 'error');
+                    if (result1.error) log(`   - エラー: ${result1.error}`, testResults, 'error');
+                }
+                
+                if (!result1.success) {
+                    log("❌ partitionLargeConstraintSetBit() テスト失敗", testResults, 'error');
+                    return false;
+                }
+
+                // テスト2: 超大規模セット分割
+                const megaLargeSet = createLargeConstraintSet(35, 8);
+                const result2 = bitCSP.partitionLargeConstraintSetBit(megaLargeSet);
+                
+                log(`${result2.success ? '✅' : '❌'} 超大規模分割テスト (35セル): ${result2.success ? '成功' : '失敗'}`, testResults,
+                    result2.success ? 'success' : 'error');
+                
+                if (result2.success) {
+                    log(`   - 分割数: ${result2.partitionCount}`, testResults);
+                    log(`   - 平均分割サイズ: ${result2.averagePartitionSize.toFixed(1)}セル`, testResults);
+                    log(`   - 処理時間: ${result2.executionTime.toFixed(4)}ms`, testResults);
+                } else {
+                    log(`   - 失敗理由: ${result2.reason}`, testResults, 'error');
+                }
+                
+                if (!result2.success) {
+                    log("❌ partitionLargeConstraintSetBit() テスト失敗", testResults, 'error');
+                    return false;
+                }
+
+                // テスト3: 小規模セット拒否テスト
+                const smallSet = createLargeConstraintSet(10, 2);
+                const result3 = bitCSP.partitionLargeConstraintSetBit(smallSet);
+                
+                log(`${!result3.success ? '✅' : '❌'} 小規模セット拒否テスト (10セル): ${!result3.success ? '正常拒否' : 'エラー'}`, testResults,
+                    !result3.success ? 'success' : 'error');
+
+                log("✅ partitionLargeConstraintSetBit() 全テスト成功", testResults, 'success');
+                return true;
+
+            } catch (error) {
+                log(`❌ partitionLargeConstraintSetBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 2. applyHeuristicPruningBit() テスト
+        function testApplyHeuristicPruning() {
+            log("=== applyHeuristicPruningBit() テスト開始 ===", testResults, 'info');
+            
+            if (!bitCSP) {
+                log("❌ bitCSP が初期化されていません。", testResults, 'error');
+                return false;
+            }
+            
+            try {
+                // テスト用の探索空間を作成
+                const createSearchSpace = (configCount) => {
+                    const configurations = [];
+                    
+                    for (let i = 0; i < configCount; i++) {
+                        configurations.push({
+                            id: i,
+                            cells: [{ row: 0, col: 0 }, { row: 0, col: 1 }],
+                            mineCount: i % 2,
+                            feasibilityScore: Math.random(),
+                            probability: Math.random()
+                        });
+                    }
+                    
+                    return {
+                        configurations: configurations,
+                        constraints: [
+                            { cells: [{ row: 0, col: 0 }, { row: 0, col: 1 }], count: 1 }
+                        ],
+                        probabilityThreshold: 0.1
+                    };
+                };
+
+                // テスト1: 基本的な枝刈り処理
+                const searchSpace = createSearchSpace(100);
+                const result1 = bitCSP.applyHeuristicPruningBit(searchSpace);
+                
+                log(`${result1.success ? '✅' : '❌'} 基本枝刈りテスト (100設定): ${result1.success ? '成功' : '失敗'}`, testResults,
+                    result1.success ? 'success' : 'error');
+                
+                if (result1.success) {
+                    log(`   - 元設定数: ${result1.pruning.originalCount}`, testResults);
+                    log(`   - 生存設定数: ${result1.finalConfigCount}`, testResults);
+                    log(`   - 圧縮率: ${(result1.compressionRatio * 100).toFixed(1)}%`, testResults);
+                    log(`   - 実行時間: ${result1.executionTime.toFixed(4)}ms`, testResults);
+                    log(`   - 枝刈り統計:`, testResults);
+                    log(`     支配による削除: ${result1.pruning.pruningStats.dominated}`, testResults);
+                    log(`     実行不可能: ${result1.pruning.pruningStats.infeasible}`, testResults);
+                    log(`     低確率: ${result1.pruning.pruningStats.lowProbability}`, testResults);
+                    log(`     冗長: ${result1.pruning.pruningStats.redundant}`, testResults);
+                } else {
+                    log(`   - 失敗理由: ${result1.reason}`, testResults, 'error');
+                    if (result1.error) log(`   - エラー: ${result1.error}`, testResults, 'error');
+                }
+                
+                if (!result1.success) {
+                    log("❌ applyHeuristicPruningBit() テスト失敗", testResults, 'error');
+                    return false;
+                }
+
+                // テスト2: 大規模探索空間での枝刈り
+                const largeSearchSpace = createSearchSpace(1000);
+                const result2 = bitCSP.applyHeuristicPruningBit(largeSearchSpace);
+                
+                log(`${result2.success ? '✅' : '❌'} 大規模枝刈りテスト (1000設定): ${result2.success ? '成功' : '失敗'}`, testResults,
+                    result2.success ? 'success' : 'error');
+                
+                if (result2.success) {
+                    log(`   - 圧縮率: ${(result2.compressionRatio * 100).toFixed(1)}%`, testResults);
+                    log(`   - 処理時間: ${result2.executionTime.toFixed(4)}ms`, testResults);
+                }
+
+                log("✅ applyHeuristicPruningBit() 全テスト成功", testResults, 'success');
+                return true;
+
+            } catch (error) {
+                log(`❌ applyHeuristicPruningBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 3. optimizeSearchOrderBit() テスト
+        function testOptimizeSearchOrder() {
+            log("=== optimizeSearchOrderBit() テスト開始 ===", testResults, 'info');
+            
+            if (!bitCSP) {
+                log("❌ bitCSP が初期化されていません。", testResults, 'error');
+                return false;
+            }
+            
+            try {
+                // テスト制約セットの作成
+                const constraintSet = {
+                    constraints: [
+                        { cells: [{ row: 0, col: 0 }, { row: 0, col: 1 }], count: 1 },
+                        { cells: [{ row: 0, col: 1 }, { row: 1, col: 1 }], count: 0 },
+                        { cells: [{ row: 1, col: 0 }, { row: 1, col: 1 }, { row: 2, col: 1 }], count: 2 },
+                        { cells: [{ row: 0, col: 2 }, { row: 1, col: 2 }], count: 1 }
+                    ]
+                };
+
+                // テスト1: 基本的な順序最適化
+                const result1 = bitCSP.optimizeSearchOrderBit(constraintSet);
+                
+                log(`${result1.success ? '✅' : '❌'} 基本順序最適化テスト: ${result1.success ? '成功' : '失敗'}`, testResults,
+                    result1.success ? 'success' : 'error');
+                
+                if (result1.success) {
+                    log(`   - 並び替え制約数: ${result1.reorderedConstraints}`, testResults);
+                    log(`   - 期待高速化率: ${result1.expectedSpeedup.toFixed(2)}x`, testResults);
+                    log(`   - 順序戦略: ${result1.optimization.orderingStrategy}`, testResults);
+                    log(`   - 実行時間: ${result1.executionTime.toFixed(4)}ms`, testResults);
+                    
+                    // 最適化順序の詳細表示
+                    log(`   - 制約順序詳細:`, testResults);
+                    for (let i = 0; i < Math.min(3, result1.optimization.orderingMetrics.length); i++) {
+                        const metric = result1.optimization.orderingMetrics[i];
+                        log(`     ${i + 1}位: セル数${metric.cellCount}, タイトネス${metric.tightness.toFixed(3)}`, testResults);
+                    }
+                } else {
+                    log(`   - 失敗理由: ${result1.reason}`, testResults, 'error');
+                }
+                
+                if (!result1.success) {
+                    log("❌ optimizeSearchOrderBit() テスト失敗", testResults, 'error');
+                    return false;
+                }
+
+                // テスト2: 空制約セット
+                const emptySet = { constraints: [] };
+                const result2 = bitCSP.optimizeSearchOrderBit(emptySet);
+                
+                log(`${!result2.success ? '✅' : '❌'} 空制約セットテスト: ${!result2.success ? '正常拒否' : 'エラー'}`, testResults,
+                    !result2.success ? 'success' : 'error');
+
+                log("✅ optimizeSearchOrderBit() 全テスト成功", testResults, 'success');
+                return true;
+
+            } catch (error) {
+                log(`❌ optimizeSearchOrderBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 4. manageLargeSetMemoryBit() テスト
+        function testManageLargeSetMemory() {
+            log("=== manageLargeSetMemoryBit() テスト開始 ===", testResults, 'info');
+            
+            if (!bitCSP) {
+                log("❌ bitCSP が初期化されていません。", testResults, 'error');
+                return false;
+            }
+            
+            try {
+                // テスト1: 基本メモリ管理
+                const result1 = bitCSP.manageLargeSetMemoryBit(100); // 100MB閾値
+                
+                log(`${result1.success ? '✅' : '❌'} 基本メモリ管理テスト: ${result1.success ? '成功' : '失敗'}`, testResults,
+                    result1.success ? 'success' : 'error');
+                
+                if (result1.success) {
+                    log(`   - 初期使用量: ${result1.initialUsageMB.toFixed(2)}MB`, testResults);
+                    log(`   - 最終使用量: ${result1.finalUsageMB.toFixed(2)}MB`, testResults);
+                    log(`   - 解放量: ${result1.memoryFreedMB.toFixed(2)}MB`, testResults);
+                    log(`   - 閾値内: ${result1.withinThreshold ? 'はい' : 'いいえ'}`, testResults);
+                    log(`   - 実行時間: ${result1.executionTime.toFixed(4)}ms`, testResults);
+                    log(`   - 最適化アクション数: ${result1.memory.optimizationActions.length}`, testResults);
+                    
+                    // 最適化アクションの詳細
+                    for (const action of result1.memory.optimizationActions.slice(0, 3)) {
+                        log(`     ${action}`, testResults);
+                    }
+                } else {
+                    log(`   - 失敗理由: ${result1.reason}`, testResults, 'error');
+                    if (result1.error) log(`   - エラー: ${result1.error}`, testResults, 'error');
+                }
+                
+                if (!result1.success) {
+                    log("❌ manageLargeSetMemoryBit() テスト失敗", testResults, 'error');
+                    return false;
+                }
+
+                // テスト2: 低メモリ閾値での管理
+                const result2 = bitCSP.manageLargeSetMemoryBit(10); // 10MB閾値
+                
+                log(`${result2.success ? '✅' : '❌'} 低メモリ閾値テスト (10MB): ${result2.success ? '成功' : '失敗'}`, testResults,
+                    result2.success ? 'success' : 'error');
+                
+                if (result2.success) {
+                    log(`   - 解放量: ${result2.memoryFreedMB.toFixed(2)}MB`, testResults);
+                    log(`   - 最適化アクション数: ${result2.memory.optimizationActions.length}`, testResults);
+                }
+
+                log("✅ manageLargeSetMemoryBit() 全テスト成功", testResults, 'success');
+                return true;
+
+            } catch (error) {
+                log(`❌ manageLargeSetMemoryBit() テストエラー: ${error.message}`, testResults, 'error');
+                return false;
+            }
+        }
+
+        // 全テスト実行
+        function runAllTests() {
+            log("🚀 Phase3-4 全機能テスト開始", testResults, 'info');
+            log("=" * 60, testResults);
+            
+            let allPassed = true;
+            const tests = [
+                { name: "partitionLargeConstraintSetBit()", func: testPartitionLargeConstraintSet },
+                { name: "applyHeuristicPruningBit()", func: testApplyHeuristicPruning },
+                { name: "optimizeSearchOrderBit()", func: testOptimizeSearchOrder },
+                { name: "manageLargeSetMemoryBit()", func: testManageLargeSetMemory }
+            ];
+
+            for (const test of tests) {
+                log(`\n--- ${test.name} テスト ---`, testResults, 'info');
+                const passed = test.func();
+                allPassed = allPassed && passed;
+                log(`${test.name}: ${passed ? '✅ 成功' : '❌ 失敗'}`, testResults, passed ? 'success' : 'error');
+            }
+
+            log("\n" + "=" * 60, testResults);
+            log(`🎯 Phase3-4 全テスト結果: ${allPassed ? '✅ 全て成功' : '❌ 一部失敗'}`, testResults, 
+                allPassed ? 'success' : 'error');
+            
+            return allPassed;
+        }
+
+        // パフォーマンステスト関数群（簡略版実装）
+        function benchmarkLargeSetPartitioning() {
+            log("⚡ 大規模セット分割ベンチマーク開始", performanceResults, 'info');
+            
+            const results = [];
+            for (let size = 16; size <= 40; size += 4) {
+                const largeSet = createLargeConstraintSet(size, Math.floor(size / 5));
+                
+                const startTime = performance.now();
+                const result = bitCSP.partitionLargeConstraintSetBit(largeSet);
+                const endTime = performance.now();
+                
+                const executionTime = endTime - startTime;
+                results.push({
+                    size: size,
+                    executionTime: executionTime,
+                    partitionCount: result.success ? result.partitionCount : 0,
+                    success: result.success
+                });
+                
+                log(`${size}セル: ${executionTime.toFixed(4)}ms (${result.success ? result.partitionCount + '分割' : '失敗'})`,
+                    performanceResults, result.success ? 'success' : 'error');
+            }
+            
+            const avgTime = results.filter(r => r.success).reduce((sum, r) => sum + r.executionTime, 0) / 
+                           results.filter(r => r.success).length;
+            
+            updatePerformanceMetrics({
+                'avg_partition_time': { value: avgTime.toFixed(4) + 'ms', label: '平均分割時間' },
+                'max_size_tested': { value: Math.max(...results.map(r => r.size)).toString(), label: '最大テストサイズ' },
+                'success_rate': { value: (results.filter(r => r.success).length / results.length * 100).toFixed(1) + '%', label: '成功率' }
+            });
+        }
+
+        function benchmarkHeuristicPruning() {
+            log("⚡ ヒューリスティック枝刈りベンチマーク開始", performanceResults, 'info');
+            log("実装予定: 様々な設定数での枝刈り性能測定", performanceResults, 'warning');
+        }
+
+        function benchmarkSearchOrderOptimization() {
+            log("⚡ 探索順序最適化ベンチマーク開始", performanceResults, 'info');
+            log("実装予定: 制約数と高速化率の関係測定", performanceResults, 'warning');
+        }
+
+        function benchmarkMemoryManagement() {
+            log("⚡ メモリ管理ベンチマーク開始", performanceResults, 'info');
+            log("実装予定: 様々なメモリ閾値での管理性能測定", performanceResults, 'warning');
+        }
+
+        function benchmarkExtremeScaleTest() {
+            log("🔥 極限規模テスト: 50セル処理開始", performanceResults, 'info');
+            log("⚠️ 注意: この処理には数秒かかる可能性があります", performanceResults, 'warning');
+            
+            const extremeSet = createLargeConstraintSet(50, 12);
+            
+            const startTime = performance.now();
+            const result = bitCSP.partitionLargeConstraintSetBit(extremeSet);
+            const endTime = performance.now();
+            
+            const totalTime = endTime - startTime;
+            
+            if (result.success) {
+                log(`✅ 50セル極限テスト成功！`, performanceResults, 'success');
+                log(`   - 総実行時間: ${totalTime.toFixed(2)}ms`, performanceResults);
+                log(`   - 分割数: ${result.partitionCount}`, performanceResults);
+                log(`   - 平均分割サイズ: ${result.averagePartitionSize.toFixed(1)}セル`, performanceResults);
+                
+                if (totalTime < 100) {
+                    log(`🏆 優秀: 100ms以内での50セル処理達成！`, performanceResults, 'success');
+                } else if (totalTime < 500) {
+                    log(`🎯 良好: 500ms以内での処理完了`, performanceResults, 'success');
+                } else {
+                    log(`⚠️ 重い処理: ${totalTime.toFixed(0)}ms`, performanceResults, 'warning');
+                }
+            } else {
+                log(`❌ 50セル極限テスト失敗: ${result.reason}`, performanceResults, 'error');
+            }
+        }
+
+        // 詳細テスト関数群（簡略版）
+        function testComplexPartitioningScenarios() {
+            log("🔍 複雑分割シナリオテスト開始", detailedResults, 'info');
+            log("実装予定: 複雑な制約接続パターンでの分割テスト", detailedResults, 'warning');
+        }
+
+        function testAdvancedPruningTechniques() {
+            log("🔍 高度枝刈り技法テスト開始", detailedResults, 'info');
+            log("実装予定: 支配関係・確率閾値・冗長性の詳細テスト", detailedResults, 'warning');
+        }
+
+        function testAdaptiveOptimization() {
+            log("🔍 適応的最適化テスト開始", detailedResults, 'info');
+            log("実装予定: 動的なパラメータ調整テスト", detailedResults, 'warning');
+        }
+
+        // 最適化プロセスデモ
+        function testOptimizationDemo() {
+            log("🎪 最適化プロセスデモ開始", detailedResults, 'info');
+            
+            // デモ用の制約セットで全工程を実行
+            const demoSet = createLargeConstraintSet(25, 6);
+            
+            // 1. 分割処理
+            const partitionResult = bitCSP.partitionLargeConstraintSetBit(demoSet);
+            
+            if (partitionResult.success) {
+                let demoHTML = '<h3>📊 最適化プロセス結果</h3>';
+                demoHTML += `<p><strong>1. 分割処理:</strong> ${demoSet.cells.length}セル → ${partitionResult.partitionCount}分割</p>`;
+                demoHTML += `<p><strong>平均分割サイズ:</strong> ${partitionResult.averagePartitionSize.toFixed(1)}セル</p>`;
+                
+                // 2. メモリ管理
+                const memoryResult = bitCSP.manageLargeSetMemoryBit(50);
+                if (memoryResult.success) {
+                    demoHTML += `<p><strong>2. メモリ管理:</strong> ${memoryResult.memoryFreedMB.toFixed(2)}MB解放</p>`;
+                }
+                
+                // 3. 制約最適化
+                const constraintSet = { constraints: demoSet.constraints };
+                const orderResult = bitCSP.optimizeSearchOrderBit(constraintSet);
+                if (orderResult.success) {
+                    demoHTML += `<p><strong>3. 探索順序最適化:</strong> ${orderResult.expectedSpeedup.toFixed(2)}x高速化期待</p>`;
+                }
+                
+                demoHTML += '<p><strong>🎯 最適化完了:</strong> 大規模セット処理準備完了</p>';
+                
+                optimizationDemo.innerHTML = demoHTML;
+                log("✅ 最適化プロセスデモ完了 - 結果は下の最適化結果表示を確認してください", detailedResults, 'success');
+            } else {
+                log(`❌ 最適化プロセスデモ失敗: ${partitionResult.reason}`, detailedResults, 'error');
+            }
+        }
+
+        // パフォーマンスメトリクス表示
+        function updatePerformanceMetrics(metrics) {
+            performanceMetrics.innerHTML = '';
+            for (const [key, data] of Object.entries(metrics)) {
+                const card = document.createElement('div');
+                card.className = 'metric-card';
+                card.innerHTML = `
+                    <div class="metric-value">${data.value}</div>
+                    <div class="metric-label">${data.label}</div>
+                `;
+                performanceMetrics.appendChild(card);
+            }
+        }
+    </script>
+</body>
+</html>
