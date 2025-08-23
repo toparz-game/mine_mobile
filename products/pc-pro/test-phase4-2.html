@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase4-2テスト: メモリ・CPU極限最適化</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #00ff00;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1, h2, h3 {
+            color: #ffff00;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            background: #222;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #444;
+        }
+        .success {
+            color: #00ff00;
+            font-weight: bold;
+        }
+        .error {
+            color: #ff4444;
+            font-weight: bold;
+        }
+        .info {
+            color: #00ccff;
+        }
+        .warning {
+            color: #ffaa00;
+        }
+        button {
+            background: #333;
+            color: #00ff00;
+            border: 1px solid #555;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #555;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .metric {
+            background: #333;
+            padding: 10px;
+            border-radius: 3px;
+            text-align: center;
+        }
+        .performance-graph {
+            width: 100%;
+            height: 200px;
+            background: #333;
+            margin: 10px 0;
+            border: 1px solid #555;
+            position: relative;
+        }
+        pre {
+            background: #111;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .test-result {
+            margin: 5px 0;
+            padding: 8px;
+            border-radius: 3px;
+        }
+        .test-pass {
+            background: #0f3f0f;
+            border-left: 4px solid #00ff00;
+        }
+        .test-fail {
+            background: #3f0f0f;
+            border-left: 4px solid #ff4444;
+        }
+        .phase-header {
+            background: linear-gradient(135deg, #004400, #006600);
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="phase-header">
+            <h1>🚀 Phase4-2: メモリ・CPU極限最適化テストスイート</h1>
+            <p class="info">ハードウェアレベル最適化機能の検証・ベンチマーク</p>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 実装機能一覧</h2>
+            <ul>
+                <li><strong>optimizeMemoryLayoutBit()</strong> - メモリレイアウト最適化</li>
+                <li><strong>implementCPUCacheOptimizationBit()</strong> - CPUキャッシュ最適化</li>
+                <li><strong>applyVectorizationTechniquesBit()</strong> - ベクトル化技術適用</li>
+                <li><strong>manageResourcePoolingBit()</strong> - リソースプーリング管理</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>🔧 テスト制御</h2>
+            <button onclick="runMemoryLayoutTest()">メモリレイアウト最適化テスト</button>
+            <button onclick="runCPUCacheTest()">CPUキャッシュ最適化テスト</button>
+            <button onclick="runVectorizationTest()">ベクトル化技術テスト</button>
+            <button onclick="runResourcePoolingTest()">リソースプーリングテスト</button>
+            <button onclick="runAllPhase42Tests()">🎯 Phase4-2統合テスト</button>
+            <button onclick="clearResults()">結果クリア</button>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 パフォーマンス監視</h2>
+            <div class="metrics" id="performanceMetrics">
+                <div class="metric">
+                    <div>メモリ使用量</div>
+                    <div id="memoryUsage" class="success">待機中</div>
+                </div>
+                <div class="metric">
+                    <div>CPU使用率</div>
+                    <div id="cpuUsage" class="success">待機中</div>
+                </div>
+                <div class="metric">
+                    <div>キャッシュ効率</div>
+                    <div id="cacheEfficiency" class="success">待機中</div>
+                </div>
+                <div class="metric">
+                    <div>処理時間</div>
+                    <div id="processingTime" class="success">待機中</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>📈 テスト結果</h2>
+            <div id="testResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔍 詳細ログ</h2>
+            <pre id="detailLog"></pre>
+        </div>
+
+        <div class="test-section">
+            <h2>⚙️ システム情報</h2>
+            <div id="systemInfo"></div>
+        </div>
+    </div>
+
+    <!-- ビット管理システム -->
+    <script src="modules/bit-minesweeper.js"></script>
+    <!-- SimpleBitCSP（Phase4-2機能含む） -->
+    <script src="modules/simple-bit-csp.js"></script>
+
+    <script>
+        let cspSolver = null;
+        let bitSystem = null;
+        let testResults = [];
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSystem();
+            displaySystemInfo();
+        });
+
+        function initializeSystem() {
+            try {
+                // ビットシステム初期化
+                bitSystem = new BitMinesweeperSystem(16, 16, 40);
+                
+                // モックゲームオブジェクト作成
+                const mockGame = {
+                    rows: 16,
+                    cols: 16,
+                    mines: 40,
+                    gameBoard: Array(16).fill().map(() => Array(16).fill(0)),
+                    revealedCells: new Set(),
+                    flaggedCells: new Set(),
+                    isGameOver: false
+                };
+                
+                // CSPソルバー初期化
+                cspSolver = new SimpleBitCSP(mockGame, bitSystem);
+                
+                logDetail("✅ システム初期化完了");
+                updateSystemStatus("初期化完了", "success");
+                
+            } catch (error) {
+                logDetail("❌ システム初期化エラー: " + error.message);
+                updateSystemStatus("初期化失敗", "error");
+            }
+        }
+
+        // メソッド存在確認
+        function checkMethodExistence() {
+            const methods = [
+                'optimizeMemoryLayoutBit',
+                'implementCPUCacheOptimizationBit', 
+                'applyVectorizationTechniquesBit',
+                'manageResourcePoolingBit'
+            ];
+            
+            const existing = methods.filter(method => typeof cspSolver[method] === 'function');
+            const missing = methods.filter(method => typeof cspSolver[method] !== 'function');
+            
+            logDetail(`🔍 Phase4-2メソッド確認: ${existing.length}/${methods.length}存在`);
+            if (missing.length > 0) {
+                logDetail(`❌ 未実装メソッド: ${missing.join(', ')}`);
+                return false;
+            }
+            
+            logDetail(`✅ 全Phase4-2メソッド実装確認完了`);
+            return true;
+        }
+
+        // メモリレイアウト最適化テスト
+        function runMemoryLayoutTest() {
+            logDetail("🧠 メモリレイアウト最適化テスト開始...");
+            updateMetric('memoryUsage', 'テスト中...', 'info');
+            
+            if (!checkMethodExistence()) return;
+            
+            try {
+                const startTime = performance.now();
+                const result = cspSolver.optimizeMemoryLayoutBit();
+                const endTime = performance.now();
+                const processingTime = endTime - startTime;
+                
+                // 結果検証
+                const testPass = validateMemoryLayoutResult(result, processingTime);
+                addTestResult('メモリレイアウト最適化', testPass, {
+                    processingTime: processingTime.toFixed(3) + 'ms',
+                    optimizations: result.appliedOptimizations?.length || 0,
+                    memoryReduction: result.memoryReduction || '未確定',
+                    efficiency: result.layoutEfficiency || '未測定'
+                });
+                
+                updateMetric('memoryUsage', `${result.currentMemoryUsage || 'N/A'}KB`, 'success');
+                updateMetric('processingTime', processingTime.toFixed(3) + 'ms', 'success');
+                
+                logDetail("✅ メモリレイアウト最適化テスト完了");
+                logDetail(`📊 結果: ${JSON.stringify(result, null, 2)}`);
+                
+            } catch (error) {
+                addTestResult('メモリレイアウト最適化', false, { error: error.message });
+                logDetail("❌ メモリレイアウト最適化テストエラー: " + error.message);
+                updateMetric('memoryUsage', 'エラー', 'error');
+            }
+        }
+
+        // CPUキャッシュ最適化テスト
+        function runCPUCacheTest() {
+            logDetail("⚡ CPUキャッシュ最適化テスト開始...");
+            updateMetric('cpuUsage', 'テスト中...', 'info');
+            
+            if (!checkMethodExistence()) return;
+            
+            try {
+                const startTime = performance.now();
+                const result = cspSolver.implementCPUCacheOptimizationBit();
+                const endTime = performance.now();
+                const processingTime = endTime - startTime;
+                
+                // 結果検証
+                const testPass = validateCPUCacheResult(result, processingTime);
+                addTestResult('CPUキャッシュ最適化', testPass, {
+                    processingTime: processingTime.toFixed(3) + 'ms',
+                    optimizations: result.appliedOptimizations?.length || 0,
+                    cacheEfficiency: result.cacheEfficiency || '未測定',
+                    cpuReduction: result.cpuReduction || '未確定'
+                });
+                
+                updateMetric('cpuUsage', `${result.cpuUtilization || 'N/A'}%`, 'success');
+                updateMetric('cacheEfficiency', `${result.cacheEfficiency || 'N/A'}%`, 'success');
+                
+                logDetail("✅ CPUキャッシュ最適化テスト完了");
+                logDetail(`📊 結果: ${JSON.stringify(result, null, 2)}`);
+                
+            } catch (error) {
+                addTestResult('CPUキャッシュ最適化', false, { error: error.message });
+                logDetail("❌ CPUキャッシュ最適化テストエラー: " + error.message);
+                updateMetric('cpuUsage', 'エラー', 'error');
+            }
+        }
+
+        // ベクトル化技術テスト
+        function runVectorizationTest() {
+            logDetail("🔄 ベクトル化技術テスト開始...");
+            
+            if (!checkMethodExistence()) return;
+            
+            try {
+                const startTime = performance.now();
+                const result = cspSolver.applyVectorizationTechniquesBit();
+                const endTime = performance.now();
+                const processingTime = endTime - startTime;
+                
+                // 結果検証
+                const testPass = validateVectorizationResult(result, processingTime);
+                addTestResult('ベクトル化技術', testPass, {
+                    processingTime: processingTime.toFixed(3) + 'ms',
+                    vectorizedOperations: result.vectorizedOperations || 0,
+                    performanceGain: result.performanceGain || '未確定',
+                    simdSupport: result.simdSupport || false
+                });
+                
+                logDetail("✅ ベクトル化技術テスト完了");
+                logDetail(`📊 結果: ${JSON.stringify(result, null, 2)}`);
+                
+            } catch (error) {
+                addTestResult('ベクトル化技術', false, { error: error.message });
+                logDetail("❌ ベクトル化技術テストエラー: " + error.message);
+            }
+        }
+
+        // リソースプーリングテスト
+        function runResourcePoolingTest() {
+            logDetail("🗃️ リソースプーリングテスト開始...");
+            
+            if (!checkMethodExistence()) return;
+            
+            try {
+                const startTime = performance.now();
+                const result = cspSolver.manageResourcePoolingBit();
+                const endTime = performance.now();
+                const processingTime = endTime - startTime;
+                
+                // 結果検証
+                const testPass = validateResourcePoolingResult(result, processingTime);
+                addTestResult('リソースプーリング', testPass, {
+                    processingTime: processingTime.toFixed(3) + 'ms',
+                    poolSize: result.totalPoolSize || 0,
+                    memoryPools: result.memoryPools || 0,
+                    cpuPools: result.cpuPools || 0,
+                    efficiency: result.efficiency || result.poolingEfficiency || '未測定'
+                });
+                
+                logDetail("✅ リソースプーリングテスト完了");
+                logDetail(`📊 結果: ${JSON.stringify(result, null, 2)}`);
+                
+            } catch (error) {
+                addTestResult('リソースプーリング', false, { error: error.message });
+                logDetail("❌ リソースプーリングテストエラー: " + error.message);
+            }
+        }
+
+        // Phase4-2統合テスト
+        function runAllPhase42Tests() {
+            logDetail("🎯 Phase4-2統合テスト開始...");
+            clearResults();
+            
+            // 順次実行
+            setTimeout(() => runMemoryLayoutTest(), 100);
+            setTimeout(() => runCPUCacheTest(), 500);
+            setTimeout(() => runVectorizationTest(), 900);
+            setTimeout(() => runResourcePoolingTest(), 1300);
+            
+            setTimeout(() => {
+                logDetail("🏁 Phase4-2統合テスト完了");
+                generatePhase42Report();
+            }, 2000);
+        }
+
+        // 結果検証関数群
+        function validateMemoryLayoutResult(result, time) {
+            if (!result || typeof result !== 'object') return false;
+            if (time > 5.0) return false; // 5ms以内
+            return true;
+        }
+
+        function validateCPUCacheResult(result, time) {
+            if (!result || typeof result !== 'object') return false;
+            if (time > 5.0) return false; // 5ms以内
+            return true;
+        }
+
+        function validateVectorizationResult(result, time) {
+            if (!result || typeof result !== 'object') return false;
+            if (time > 10.0) return false; // 10ms以内
+            return true;
+        }
+
+        function validateResourcePoolingResult(result, time) {
+            if (!result || typeof result !== 'object') return false;
+            if (time > 8.0) return false; // 8ms以内
+            return true;
+        }
+
+        // Phase4-2統合レポート生成
+        function generatePhase42Report() {
+            const passedTests = testResults.filter(t => t.passed).length;
+            const totalTests = testResults.length;
+            
+            let report = `\n🎯 Phase4-2統合テストレポート\n`;
+            report += `=============================================\n`;
+            report += `テスト結果: ${passedTests}/${totalTests} 合格\n`;
+            report += `成功率: ${((passedTests / totalTests) * 100).toFixed(1)}%\n\n`;
+            
+            report += `メモリ・CPU極限最適化機能評価:\n`;
+            testResults.forEach(test => {
+                report += `${test.passed ? '✅' : '❌'} ${test.name}\n`;
+                if (test.details) {
+                    Object.entries(test.details).forEach(([key, value]) => {
+                        report += `   ${key}: ${value}\n`;
+                    });
+                }
+                report += `\n`;
+            });
+            
+            logDetail(report);
+            
+            // 統合評価
+            if (passedTests === totalTests) {
+                logDetail("🎉 Phase4-2完全成功！次のPhase4-3準備完了");
+            } else {
+                logDetail(`⚠️  ${totalTests - passedTests}個のテストが失敗。修正が必要です。`);
+            }
+        }
+
+        // ユーティリティ関数群
+        function addTestResult(name, passed, details = {}) {
+            testResults.push({ name, passed, details, timestamp: new Date() });
+            
+            const resultsDiv = document.getElementById('testResults');
+            const resultElement = document.createElement('div');
+            resultElement.className = `test-result ${passed ? 'test-pass' : 'test-fail'}`;
+            
+            let detailsHtml = '';
+            Object.entries(details).forEach(([key, value]) => {
+                detailsHtml += `<div><strong>${key}:</strong> ${value}</div>`;
+            });
+            
+            resultElement.innerHTML = `
+                <div class="${passed ? 'success' : 'error'}">
+                    ${passed ? '✅' : '❌'} ${name}: ${passed ? '成功' : '失敗'}
+                </div>
+                ${detailsHtml}
+                <div class="info">実行時刻: ${new Date().toLocaleTimeString()}</div>
+            `;
+            
+            resultsDiv.appendChild(resultElement);
+        }
+
+        function updateMetric(id, value, status) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = value;
+                element.className = status;
+            }
+        }
+
+        function updateSystemStatus(message, type) {
+            logDetail(`[システム] ${message}`);
+        }
+
+        function logDetail(message) {
+            const log = document.getElementById('detailLog');
+            const timestamp = new Date().toLocaleTimeString();
+            log.textContent += `[${timestamp}] ${message}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function clearResults() {
+            testResults = [];
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('detailLog').textContent = '';
+            
+            // メトリクスリセット
+            updateMetric('memoryUsage', '待機中', 'success');
+            updateMetric('cpuUsage', '待機中', 'success');
+            updateMetric('cacheEfficiency', '待機中', 'success');
+            updateMetric('processingTime', '待機中', 'success');
+        }
+
+        function displaySystemInfo() {
+            const systemInfo = document.getElementById('systemInfo');
+            systemInfo.innerHTML = `
+                <div class="info">
+                    <p><strong>Phase4-2テストシステム情報:</strong></p>
+                    <p>• CSPソルバー: ${typeof SimpleBitCSP !== 'undefined' ? 'インストール済み' : '未インストール'}</p>
+                    <p>• ビット管理: ${typeof BitMinesweeperSystem !== 'undefined' ? 'インストール済み' : '未インストール'}</p>
+                    <p>• テスト対象機能数: 4</p>
+                    <p>• 最適化レベル: ハードウェアレベル</p>
+                    <p>• タイムスタンプ: ${new Date().toLocaleString()}</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
