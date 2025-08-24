@@ -980,7 +980,7 @@ class PCProMinesweeper extends PCMinesweeper {
         // 確定マス表示済みの場合はスキップ
         const definitiveStatus = this.hasDefinitiveCellsDisplayed();
         if (definitiveStatus.hasDefinitive) {
-            console.log('確定マスが表示されているためアシスト計算をスキップしました');
+            // アシスト計算スキップログは削除
             this.updateGlobalProbabilityDisplay(0, 0, 0, 0, 'skip');
             return;
         }
@@ -1331,10 +1331,7 @@ class PCProMinesweeper extends PCMinesweeper {
             }
         }
         
-        // デバッグログ追加
-        if (hasDefinitive) {
-            console.log('🔍 確定マス表示を検出:', foundDefinitiveCells);
-        }
+        // 確定マス表示検出ログは削除
         
         return { hasDefinitive, definitiveGlobalProbability };
     }
@@ -1347,7 +1344,7 @@ class PCProMinesweeper extends PCMinesweeper {
         // 🚀 確定マス表示中はスキップ
         const definitiveStatus = this.hasDefinitiveCellsDisplayed();
         if (definitiveStatus.hasDefinitive) {
-            console.log('🎯 確定マス表示中のため制約伝播処理をスキップ');
+            // 確定マス表示中スキップログは削除
             
             // 全体確率表示（スキップ表示）
             this.updateGlobalProbabilityDisplay(0, false, true);

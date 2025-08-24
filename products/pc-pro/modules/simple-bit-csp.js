@@ -950,7 +950,6 @@ class SimpleBitCSP {
     
     // シンプルな制約伝播
     applySimpleConstraintPropagation(constraints) {
-        // this.debugLog(`Applying constraint propagation with ${constraints.length} constraints`);
         const propagationStartTime = performance.now();
         this.debugLog(`⚡ 制約伝播実行: ${constraints.length}個の制約`);
         
@@ -993,7 +992,7 @@ class SimpleBitCSP {
                             changed = true;
                         }
                     }
-                    this.debugLog(`Found ${undeterminedCells.length} mine cells`);
+                    // 地雷セル発見ログは削除
                 }
                 // 全て安全確定の場合
                 else if (neededMines === 0 && undeterminedCells.length > 0) {
@@ -1004,7 +1003,7 @@ class SimpleBitCSP {
                             changed = true;
                         }
                     }
-                    this.debugLog(`Found ${undeterminedCells.length} safe cells`);
+                    // 安全セル発見ログは削除
                 }
             }
         }
@@ -1024,7 +1023,6 @@ class SimpleBitCSP {
     
     // メイン確率計算（シンプル版）
     calculateProbabilities() {
-        // this.debugLog('Starting simple probability calculation');
         const totalStartTime = performance.now();
         this.debugLog('🧮 確率計算開始');
         
@@ -1056,8 +1054,7 @@ class SimpleBitCSP {
         
         // 未知セルを取得
         const unknownCells = this.getUnknownCells();
-        // this.debugLog(`Unknown cells: ${unknownCells.length}`);
-        // this.debugLog(`📋 未開マス: ${unknownCells.length}個`); // 不要なので非表示
+        // 未開マス数ログは削除済み
         
         if (unknownCells.length === 0) {
             return { probabilities: this.probabilities, globalProbability: 0 };
@@ -1065,7 +1062,6 @@ class SimpleBitCSP {
         
         // 境界セルを取得
         const borderCells = this.getBorderCells();
-        // this.debugLog(`Border cells: ${borderCells.length}`);
         this.debugLog(`🔍 境界マス: ${borderCells.length}個`);
         
         if (borderCells.length === 0) {
@@ -1080,24 +1076,19 @@ class SimpleBitCSP {
         
         // 制約を生成
         const constraints = this.generateConstraints(borderCells);
-        // this.debugLog(`Generated ${constraints.length} constraints`);
         this.debugLog(`📐 制約生成: ${constraints.length}個`);
         
         // 制約伝播を適用
         const foundActionable = this.applySimpleConstraintPropagation(constraints);
         
         if (foundActionable) {
-            // this.debugLog('Found actionable cells through constraint propagation');
-            // この場合、制約伝播で既に処理時間は表示済み
+            // 制約伝播で既に処理時間は表示済み
         } else {
-            // this.debugLog('No actionable cells found');
             this.debugLog('⚠️ 確定マスなし: 高度計算を実行');
         }
         
         // 確定的でない場合は高度な確率計算を使用
-        // this.debugLog(`Checking advanced calculation: foundActionable=${foundActionable}, borderCells=${borderCells.length}`);
         if (!foundActionable && borderCells.length > 0 && borderCells.length <= 50) {
-            // this.debugLog('Starting advanced probability calculation');
             const advancedStartTime = performance.now();
             this.debugLog('🔬 高度計算開始');
             try {
@@ -1113,10 +1104,7 @@ class SimpleBitCSP {
                 for (let i = 0; i < independentGroups.length; i++) {
                     try {
                         const group = independentGroups[i];
-                        this.debugLog(`[DEBUG] グループ${i+1}処理開始: group=`, group);
-                        
                         if (!group || !group.cells || !group.constraints) {
-                            this.debugLog(`[ERROR] グループ${i+1}が無効:`, group);
                             continue;
                         }
                         
@@ -1126,9 +1114,7 @@ class SimpleBitCSP {
                         this.debugLog(`📊 グループ${i+1}: ${group.cells.length}マス, ${group.constraints.length}制約, 理論パターン数: 2^${group.cells.length} = ${Math.pow(2, group.cells.length).toLocaleString()}通り`);
                         
                         // 🚀 キャッシュチェック: グループの指紋を生成
-                        this.debugLog(`[DEBUG] グループ${i+1}: 指紋生成開始`);
                         const groupFingerprint = this.getGroupFingerprintBit(group);
-                        this.debugLog(`[DEBUG] グループ${i+1}: 指紋=${groupFingerprint}, キャッシュチェック開始`);
                         let result = this.checkGroupCacheBit(groupFingerprint);
                         
                         if (result) {
@@ -1137,18 +1123,14 @@ class SimpleBitCSP {
                             this.debugLog(`💾 キャッシュヒット: グループ${i+1} (${group.cells.length}マス)`);
                         } else {
                             // キャッシュミス - 各グループをPhase3完全探索システムで処理
-                            this.debugLog(`[DEBUG] グループ${i+1}: キャッシュミス、計算開始`);
                             result = this.optimizeSmallSetSolvingBit(group);
-                            this.debugLog(`[DEBUG] グループ${i+1}: 計算完了、キャッシュ保存開始`);
                             
                             // 結果をキャッシュに保存
                             this.saveGroupCacheBit(groupFingerprint, result, group);
                         }
                         
                         allResults.push(result);
-                        this.debugLog(`[DEBUG] グループ${i+1}処理完了`);
                     } catch (error) {
-                        this.debugLog(`[ERROR] グループ${i+1}処理エラー: ${error.message}`);
                         throw error; // エラーを再スロー
                     }
                 }
@@ -1224,13 +1206,11 @@ class SimpleBitCSP {
                             updatedCount++;
                         }
                     }
-                    // this.debugLog(`Updated ${updatedCount} cell probabilities`);
                     this.debugLog(`📈 確率更新: ${updatedCount}マス`);
                 }
             } catch (error) {
                 const advancedEndTime = performance.now();
                 const advancedDuration = (advancedEndTime - advancedStartTime) / 1000;
-                // this.debugLog(`Advanced probability calculation failed: ${error.message}`);
                 this.debugLog(`❌ 高度計算エラー: ${error.message} (${advancedDuration.toFixed(3)}秒)`);
             }
         }
@@ -1312,7 +1292,6 @@ class SimpleBitCSP {
     
     // 制約間の依存関係をビット演算で高速判定
     getConstraintDependenciesBit(constraints) {
-        this.debugLog(`Building constraint dependencies for ${constraints.length} constraints`, 'PHASE2-1');
         
         const dependencyMatrix = [];
         const constraintCount = constraints.length;
@@ -1337,7 +1316,6 @@ class SimpleBitCSP {
             }
         }
         
-        this.debugLog(`Dependencies matrix built: ${constraintCount}×${constraintCount}`, 'PHASE2-1');
         return { matrix: dependencyMatrix, constraints: bitConstraints };
     }
     
@@ -1408,7 +1386,7 @@ class SimpleBitCSP {
             }
         }
         
-        this.debugLog(`Connected component found: ${connected.length} constraints from start ${startIndex}`, 'PHASE2-1');
+        // 接続されたコンポーネント発見ログ削除
         return { connectedIndices: connected, visited };
     }
     
@@ -1419,7 +1397,7 @@ class SimpleBitCSP {
     
     // 依存関係グラフの構築をビット化
     buildDependencyGraphBit(constraints) {
-        this.debugLog('Building dependency graph with bit operations', 'PHASE2-1');
+        // 依存グラフ構築ログ削除
         
         const dependencies = this.getConstraintDependenciesBit(constraints);
         const groups = [];
@@ -1451,7 +1429,7 @@ class SimpleBitCSP {
             }
         }
         
-        this.debugLog(`Dependency graph built: ${groups.length} independent groups`, 'PHASE2-1');
+        // 依存グラフ構築完了ログ削除
         return groups;
     }
     
@@ -1478,7 +1456,6 @@ class SimpleBitCSP {
             return [];
         }
         
-        this.debugLog(`Dividing ${constraints.length} constraints into groups`, 'PHASE2-1');
         
         // 依存関係マトリックスを構築
         const dependencyResult = this.getConstraintDependenciesBit(constraints);
@@ -1534,7 +1511,6 @@ class SimpleBitCSP {
             }
         }
         
-        this.debugLog(`Created ${groups.length} constraint groups`, 'PHASE2-1');
         
         // グループをサイズ順にソート（大きいグループから処理）
         groups.sort((a, b) => b.size - a.size);
@@ -1548,29 +1524,28 @@ class SimpleBitCSP {
     
     // Phase2-1機能のテスト実行
     testPhase21Functions(testConstraints = null) {
-        this.debugLog('Testing Phase2-1 functions', 'PHASE2-1');
+        // Phase2-1テストログ削除
         
         // テスト用制約が指定されていない場合は現在のゲーム状態から生成
         const constraints = testConstraints || this.generateConstraintsHybrid();
         
         if (constraints.length === 0) {
-            this.debugLog('No constraints available for testing', 'PHASE2-1');
             return null;
         }
         
         // 依存関係テスト
         const dependencies = this.getConstraintDependenciesBit(constraints);
-        this.debugLog(`Dependencies test: ${dependencies.constraints.length} constraints processed`, 'PHASE2-1');
+        // 依存関係テストログ削除
         
         // 連結成分テスト
         if (dependencies.constraints.length > 0) {
             const connected = this.findConnectedConstraintsBit(dependencies, 0);
-            this.debugLog(`Connected components test: ${connected.connectedIndices.length} constraints in first group`, 'PHASE2-1');
+            // 接続されたコンポーネントテストログ削除
         }
         
         // グラフ構築テスト
         const groups = this.buildDependencyGraphBit(constraints);
-        this.debugLog(`Dependency graph test: ${groups.length} independent groups found`, 'PHASE2-1');
+        // 依存グラフテストログ削除
         
         return {
             dependencies,
@@ -1585,7 +1560,7 @@ class SimpleBitCSP {
     
     // 独立グループ検出の完全ビット化
     detectIndependentGroupsBit(constraints) {
-        this.debugLog(`Detecting independent groups for ${constraints.length} constraints`, 'PHASE2-2');
+        // 独立グループ検出ログ削除
         
         if (constraints.length === 0) {
             return [];
@@ -1606,7 +1581,7 @@ class SimpleBitCSP {
             };
         });
         
-        this.debugLog(`Independent groups detected: ${independentGroups.length} groups`, 'PHASE2-2');
+        // 独立グループ検出完了ログ削除
         return independentGroups;
     }
     
@@ -1653,7 +1628,7 @@ class SimpleBitCSP {
     
     // グループ分割アルゴリズムのビット最適化
     optimizeGroupPartitioningBit(groups) {
-        this.debugLog('Optimizing group partitioning with bit operations', 'PHASE2-2');
+        // グループ分割最適化ログ削除
         
         const optimizedGroups = [];
         let processedGroupsBits = new Uint32Array(Math.ceil(groups.length / 32));
@@ -1702,7 +1677,7 @@ class SimpleBitCSP {
             optimizedGroups.push(mergedGroup);
         }
         
-        this.debugLog(`Group partitioning optimized: ${groups.length} -> ${optimizedGroups.length} groups`, 'PHASE2-2');
+        // グループ分割最適化完了ログ削除
         return optimizedGroups;
     }
     
@@ -1760,7 +1735,7 @@ class SimpleBitCSP {
     
     // セル共有チェックのビット演算化
     checkCellSharingBit(groups) {
-        this.debugLog('Checking cell sharing between groups', 'PHASE2-2');
+        // セル共有チェックログ削除
         
         const sharingMatrix = [];
         const groupCount = groups.length;
@@ -1846,7 +1821,7 @@ class SimpleBitCSP {
             return [];
         }
         
-        this.debugLog(`Identifying independent groups from ${groups.length} groups`, 'PHASE2-2');
+        // 独立グループ特定ログ削除
         
         const independentGroups = [];
         
@@ -1917,7 +1892,7 @@ class SimpleBitCSP {
         });
         
         const trulyIndependentCount = independentGroups.filter(g => g.isIndependent).length;
-        this.debugLog(`Found ${trulyIndependentCount} truly independent groups out of ${groups.length}`, 'PHASE2-2');
+        // 真の独立グループ発見ログ削除
         
         return independentGroups;
     }
@@ -1928,33 +1903,32 @@ class SimpleBitCSP {
     
     // Phase2-2機能のテスト実行
     testPhase22Functions(testConstraints = null) {
-        this.debugLog('Testing Phase2-2 functions', 'PHASE2-2');
+        // Phase2-2テストログ削除
         
         const constraints = testConstraints || this.generateConstraintsHybrid();
         
         if (constraints.length === 0) {
-            this.debugLog('No constraints available for testing', 'PHASE2-2');
             return null;
         }
         
         try {
             // 独立グループ検出テスト
             const independentGroups = this.detectIndependentGroupsBit(constraints);
-            this.debugLog(`Independent groups test: ${independentGroups.length} groups detected`, 'PHASE2-2');
+            // 独立グループテストログ削除
             
             // グループ統計テスト
             const stats = this.getGroupStatisticsBit(independentGroups);
-            this.debugLog(`Group statistics test: ${stats.independentGroups}/${stats.totalGroups} independent`, 'PHASE2-2');
+            // グループ統計テストログ削除
             
             // セル共有テスト
             if (independentGroups.length > 1) {
                 const sharingMatrix = this.checkCellSharingBit(independentGroups);
-                this.debugLog(`Cell sharing test: ${independentGroups.length}x${independentGroups.length} matrix`, 'PHASE2-2');
+                // セル共有テストログ削除
             }
             
             // グループ最適化テスト
             const optimizedGroups = this.optimizeGroupPartitioningBit(independentGroups);
-            this.debugLog(`Group optimization test: ${independentGroups.length} -> ${optimizedGroups.length} groups`, 'PHASE2-2');
+            // グループ最適化テストログ削除
             
             return {
                 originalGroups: independentGroups,
@@ -1964,7 +1938,7 @@ class SimpleBitCSP {
             };
             
         } catch (error) {
-            this.debugLog(`Phase2-2 test error: ${error.message}`, 'PHASE2-2');
+            // Phase2-2テストエラーログ削除
             return {
                 testPassed: false,
                 error: error.message
@@ -1978,7 +1952,7 @@ class SimpleBitCSP {
     
     // 制約完全性の判定をビット化
     checkConstraintCompletenessBit(constraints, targetCells = null) {
-        this.debugLog(`Checking constraint completeness for ${constraints.length} constraints`, 'PHASE2-3');
+        // 制約完全性チェックログ削除
         
         if (constraints.length === 0) {
             return {
@@ -2021,7 +1995,7 @@ class SimpleBitCSP {
             redundancyStats: redundancyResult.stats
         };
         
-        this.debugLog(`Completeness check: ${result.isComplete ? 'COMPLETE' : 'INCOMPLETE'}, score: ${result.completenessScore}%`, 'PHASE2-3');
+        // 完全性チェック結果ログ削除
         return result;
     }
     
@@ -2079,7 +2053,7 @@ class SimpleBitCSP {
     
     // 制約重複・矛盾検出のビット化
     checkConstraintRedundancyBit(constraints) {
-        this.debugLog('Checking constraint redundancy and conflicts', 'PHASE2-3');
+        // 制約冗長性チェックログ削除
         
         const redundantConstraints = [];
         const conflictingConstraints = [];
@@ -2276,28 +2250,27 @@ class SimpleBitCSP {
     
     // Phase2-3機能のテスト実行
     testPhase23Functions(testConstraints = null) {
-        this.debugLog('Testing Phase2-3 functions', 'PHASE2-3');
+        // Phase2-3テストログ削除
         
         const constraints = testConstraints || this.generateConstraintsHybrid();
         
         if (constraints.length === 0) {
-            this.debugLog('No constraints available for testing', 'PHASE2-3');
             return null;
         }
         
         try {
             // 制約完全性チェックテスト
             const completenessResult = this.checkConstraintCompletenessBit(constraints);
-            this.debugLog(`Completeness test: ${completenessResult.isComplete ? 'COMPLETE' : 'INCOMPLETE'}, score: ${completenessResult.completenessScore}%`, 'PHASE2-3');
+            // 完全性テストログ削除
             
             // 冗長性統計テスト
             if (completenessResult.redundantConstraints.length > 0) {
-                this.debugLog(`Redundancy test: ${completenessResult.redundantConstraints.length} redundant constraints found`, 'PHASE2-3');
+                // 冗長性テストログ削除
             }
             
             // 矛盾統計テスト
             if (completenessResult.conflictingConstraints.length > 0) {
-                this.debugLog(`Conflict test: ${completenessResult.conflictingConstraints.length} conflicting constraints found`, 'PHASE2-3');
+                // 競合テストログ削除
             }
             
             return {
@@ -2306,7 +2279,7 @@ class SimpleBitCSP {
             };
             
         } catch (error) {
-            this.debugLog(`Phase2-3 test error: ${error.message}`, 'PHASE2-3');
+            // Phase2-3テストエラーログ削除
             return {
                 testPassed: false,
                 error: error.message
@@ -3732,12 +3705,11 @@ class SimpleBitCSP {
     
     // Phase2-3機能のテスト実行
     testPhase23Functions(testConstraints = null) {
-        this.debugLog('Testing Phase2-3 functions', 'PHASE2-3');
+        // Phase2-3テストログ削除
         
         const constraints = testConstraints || this.generateConstraintsHybrid();
         
         if (constraints.length === 0) {
-            this.debugLog('No constraints available for testing', 'PHASE2-3');
             return null;
         }
         
@@ -3769,7 +3741,7 @@ class SimpleBitCSP {
             };
             
         } catch (error) {
-            this.debugLog(`Phase2-3 test error: ${error.message}`, 'PHASE2-3');
+            // Phase2-3テストエラーログ削除
             return {
                 testPassed: false,
                 error: error.message
@@ -4543,7 +4515,6 @@ class SimpleBitCSP {
         const cellCount = cells.length;
         
         // セルの有効性チェック
-        this.debugLog(`[DEBUG] constraintGroup.cells検証: length=${cellCount}`);
         for (let i = 0; i < cellCount; i++) {
             const cell = cells[i];
             if (!cell || typeof cell.row !== 'number' || typeof cell.col !== 'number') {
@@ -4561,7 +4532,6 @@ class SimpleBitCSP {
         // 25セル以上では大規模処理警告
         if (cellCount >= 25) {
             console.info(`generateConfigurationsBit: ${cellCount}セルの大規模処理 (2^${cellCount} = ${(1 << cellCount).toLocaleString()}パターン)`);
-            this.debugLog(`⚡ 早期終了機能有効: ${checkInterval}パターンごとにチェック`);
         }
 
         const totalConfigs = 1 << cellCount;

@@ -6,7 +6,7 @@ class CSPSolver {
         this.game = game;
         this.probabilities = [];
         this.persistentProbabilities = []; // 0%と100%の確率を永続的に保持
-        this.maxConstraintSize = 25; // 完全探索の最大サイズ
+        this.maxConstraintSize = Infinity; // 完全探索の上限撤廃
         this.maxLocalCompletenessSize = 32; // 局所制約完全性処理の最大サイズ
         this.warningThreshold = 30; // 警告を表示するセル数の閾値
         this.maxValidConfigs = 500000; // 有効な配置の最大数を増加

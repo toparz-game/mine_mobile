@@ -23,7 +23,7 @@ class BitCSPSolver {
         this.persistentProbabilities = [];
         
         // パフォーマンス設定
-        this.maxConstraintSize = 25;
+        this.maxConstraintSize = Infinity; // 完全探索の上限撤廃
         this.maxLocalCompletenessSize = 32;
         this.warningThreshold = 30;
         this.maxValidConfigs = 500000;

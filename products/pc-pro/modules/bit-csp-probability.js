@@ -201,10 +201,7 @@ class BitCSPProbabilityCalculator extends BitCSPOperations {
     
     // 制約グループの完全探索（ビット演算版）
     solveConstraintGroupBits(groupCells, skipConstraintPropagation = false) {
-        if (groupCells.length > this.maxConstraintSize) {
-            console.log(`[BIT-CSP] Group too large for exhaustive search: ${groupCells.length} > ${this.maxConstraintSize}`);
-            return this.solveLocalCompletenessBits(groupCells);
-        }
+        // 上限撤廃により、完全探索は常に実行される
         
         const constraints = this.generateConstraintsFromGroup(groupCells);
         if (constraints.length === 0) return false;
