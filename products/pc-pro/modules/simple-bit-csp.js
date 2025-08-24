@@ -4437,12 +4437,18 @@ class SimpleBitCSP {
                 }
             }
 
-            configurations.push({
+            // 🚀 効率化: 生成直後に制約チェック実行
+            const configObj = {
                 configId: config,
                 cellsBits: configBits,
                 cells: cells,
                 mineCount: this.bitSystem.popCountBits(configBits)
-            });
+            };
+            
+            // 制約に違反するパターンは追加せずスキップ
+            if (this.validateConfigurationBit(configObj, constraintGroup.constraints)) {
+                configurations.push(configObj);
+            }
         }
 
         return configurations;
@@ -4486,28 +4492,18 @@ class SimpleBitCSP {
             return [];
         }
 
-        // 全設定パターンを生成
-        const allConfigurations = this.generateConfigurationsBit(constraintGroup);
-        const validConfigurations = [];
-        let invalidCount = 0;
-
         // パターン生成ログ
         const cellCount = constraintGroup.cells ? constraintGroup.cells.length : 0;
         const totalPatterns = Math.pow(2, cellCount);
-        this.debugLog(`🔄 実際生成数: ${allConfigurations.length.toLocaleString()}通り (${(allConfigurations.length/totalPatterns*100).toFixed(1)}%)`);
 
-        // 各設定パターンの妥当性をチェック
-        for (const config of allConfigurations) {
-            if (this.validateConfigurationBit(config, constraintGroup.constraints)) {
-                validConfigurations.push(config);
-            } else {
-                invalidCount++;
-            }
-        }
+        // 🚀 効率化: generateConfigurationsBit内で制約チェック済み
+        const validConfigurations = this.generateConfigurationsBit(constraintGroup);
+        const skippedCount = totalPatterns - validConfigurations.length;
 
-        // 結果ログ追加
-        this.debugLog(`✅ 妥当パターン数: ${validConfigurations.length.toLocaleString()}通り (${(validConfigurations.length/allConfigurations.length*100).toFixed(1)}%)`);
-        this.debugLog(`❌ 無効パターン数: ${invalidCount.toLocaleString()}通り (${(invalidCount/allConfigurations.length*100).toFixed(1)}%)`);
+        // 結果ログ（効率化を反映）
+        this.debugLog(`🔄 実際生成数: ${validConfigurations.length.toLocaleString()}通り (${(validConfigurations.length/totalPatterns*100).toFixed(1)}%)`);
+        this.debugLog(`✅ 妥当パターン数: ${validConfigurations.length.toLocaleString()}通り (100.0%)`);
+        this.debugLog(`⚡ スキップ数: ${skippedCount.toLocaleString()}通り (${(skippedCount/totalPatterns*100).toFixed(1)}%) - 生成時に無効パターンをスキップ`);
 
         return validConfigurations;
     }

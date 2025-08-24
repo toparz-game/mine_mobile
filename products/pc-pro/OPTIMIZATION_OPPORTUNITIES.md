@@ -17,20 +17,6 @@
 - **現在の実装**: 全パターン完全探索 → 確率計算の順次実行
 - **問題**: 確定マス発見時も全パターンを探索継続
 
-#### 🔍 **核心メソッド位置**
-```javascript
-// メインファイル: modules/simple-bit-csp.js
-
-// 【重要】早期終了を実装すべき箇所
-line 4458: enumerateValidConfigsBit(constraintGroup)
-line 4508: const validConfigurations = this.enumerateValidConfigsBit(constraintGroup);
-line 4522-4535: 確率計算ループ
-
-// 【参考】制約伝播（別の早期終了実装済み）
-line 936: applySimpleConstraintPropagation(constraints) ← 既に早期終了あり
-line 1054: const foundActionable = this.applySimpleConstraintPropagation(constraints);
-```
-
 #### 💡 **最適化アイディア**
 
 **A. 段階的確定マス検出**
@@ -321,6 +307,7 @@ const perfTest = () => {
 ---
 
 **📝 更新履歴**
+- 2025-08-24: パターン生成時制約チェック実装完了、核心メソッド位置情報を削除
 - 2025-08-24: 実装完了項目をクリーンアップ、検討事項のみに整理
 - 2025-08-24: 独立グループ別差分キャッシュシステムの最適化機会と懸念事項を追記
 - 2025-08-24: 独立グループ分割活用完了により優先順位を再編成
