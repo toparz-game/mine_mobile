@@ -1066,7 +1066,7 @@ class SimpleBitCSP {
         
         // 確定的でない場合は高度な確率計算を使用
         // this.debugLog(`Checking advanced calculation: foundActionable=${foundActionable}, borderCells=${borderCells.length}`);
-        if (!foundActionable && borderCells.length > 0 && borderCells.length <= 29) {
+        if (!foundActionable && borderCells.length > 0 && borderCells.length <= 50) {
             // this.debugLog('Starting advanced probability calculation');
             const advancedStartTime = performance.now();
             this.debugLog('🔬 高度計算開始');
@@ -1099,15 +1099,22 @@ class SimpleBitCSP {
                     reason: allResults.find(r => !r.success)?.reason || null
                 };
                 
-                // 各グループの確率結果を統合 + 早期終了制御
+                // 各グループの確率結果を統合 + 早期終了制御 + タイムアウト制御
                 let hasAnyCertainCells = false;
                 let hasEarlyExit = false;
+                let hasTimeout = false;
                 for (const groupResult of allResults) {
                     if (groupResult.success && groupResult.cellProbabilities) {
                         // 🚀 早期終了チェック
                         if (groupResult.earlyExit) {
                             hasEarlyExit = true;
                             this.debugLog(`⚡ 早期終了グループ検出: ${groupResult.processedPatterns}/${groupResult.totalPossiblePatterns}パターン処理`);
+                        }
+                        
+                        // 🚀 タイムアウトチェック
+                        if (groupResult.timeout) {
+                            hasTimeout = true;
+                            this.debugLog(`⏰ タイムアウトグループ検出: ${groupResult.timeoutMs.toFixed(0)}ms経過`);
                         }
                         
                         // 🚀 効率化: 確定マス発見時の表示制御
@@ -1129,6 +1136,7 @@ class SimpleBitCSP {
                 
                 // 🚀 早期終了時の追加情報
                 advancedResult.earlyExit = hasEarlyExit;
+                advancedResult.timeout = hasTimeout;
                 
                 this.debugLog(`📊 処理対象: ${totalCellsProcessed}マス, ${totalConstraintsProcessed}制約`);
                 
@@ -1176,8 +1184,9 @@ class SimpleBitCSP {
         // 🚀 早期終了時は全体確率計算をスキップ  
         let globalProbability = 0;
         let hasEarlyExit = advancedResult?.earlyExit || false;
+        let hasTimeout = advancedResult?.timeout || false;
         
-        if (!hasEarlyExit) {
+        if (!hasEarlyExit && !hasTimeout) {
             // 通常時のグローバル確率計算
             const flaggedCount = this.countFlags();
             const remainingMines = this.game.mineCount - flaggedCount;
@@ -1188,8 +1197,10 @@ class SimpleBitCSP {
             globalProbability = constraintFreeCount > 0 
                 ? Math.round((remainingMines / constraintFreeCount) * 100)
                 : 0;
-        } else {
+        } else if (hasEarlyExit) {
             this.debugLog(`⚡ 早期終了のため全体確率計算をスキップ`);
+        } else if (hasTimeout) {
+            this.debugLog(`⏰ タイムアウトのため全体確率計算をスキップ`);
         }
         
         const totalEndTime = performance.now();
@@ -1197,6 +1208,8 @@ class SimpleBitCSP {
         
         if (hasEarlyExit) {
             this.debugLog(`🎯 計算完了: 早期終了により高速化 (${totalDuration.toFixed(3)}秒)`);
+        } else if (hasTimeout) {
+            this.debugLog(`🎯 計算完了: タイムアウトによりスキップ (${totalDuration.toFixed(3)}秒)`);
         } else {
             this.debugLog(`🎯 計算完了: 全体確率 ${globalProbability}% (${totalDuration.toFixed(3)}秒)`);
         }
@@ -1204,7 +1217,8 @@ class SimpleBitCSP {
         return { 
             probabilities: this.probabilities, 
             globalProbability: globalProbability,
-            earlyExit: hasEarlyExit  // 🚀 早期終了情報をUI側に伝達
+            earlyExit: hasEarlyExit,  // 🚀 早期終了情報をUI側に伝達
+            timeout: hasTimeout       // 🚀 タイムアウト情報をUI側に伝達
         };
     }
     
@@ -4448,7 +4462,9 @@ class SimpleBitCSP {
         const {
             checkInterval = 2000,  // 2000パターンごとにチェック
             minSamples = 1000,     // 最小サンプル数
-            enableEarlyExit = true // 早期終了を有効化
+            enableEarlyExit = true, // 早期終了を有効化
+            timeoutMs = 10000,     // タイムアウト（ミリ秒）
+            startTime = performance.now() // 開始時刻
         } = earlyExitConfig;
 
         if (!constraintGroup || !constraintGroup.cells || constraintGroup.cells.length === 0) {
@@ -4458,9 +4474,9 @@ class SimpleBitCSP {
         const cells = constraintGroup.cells;
         const cellCount = cells.length;
         
-        // 29セル以下の小規模セットに制限
-        if (cellCount > 29) {
-            console.warn(`generateConfigurationsBit: セル数${cellCount}は制限を超えています（最大29）`);
+        // 50セル以下の小規模セットに制限（時間制限で処理をスキップ）
+        if (cellCount > 50) {
+            console.warn(`generateConfigurationsBit: セル数${cellCount}は制限を超えています（最大50）`);
             return { configurations: [], earlyExit: false };
         }
         
@@ -4501,11 +4517,12 @@ class SimpleBitCSP {
                 configurations.push(configObj);
             }
 
-            // 🚀 早期終了チェック
+            // 🚀 早期終了・タイムアウトチェック（統合版）
             if (enableEarlyExit && configurations.length > 0 && 
                 (configurations.length % checkInterval === 0 || config === totalConfigs - 1) &&
                 configurations.length >= minSamples) {
                 
+                // 🚀 確定マスチェック（最優先）
                 const tempResult = this.calculateCellProbabilitiesBit(configurations);
                 checkedCount++;
                 
@@ -4513,6 +4530,20 @@ class SimpleBitCSP {
                     this.debugLog(`🎯 確定マス発見！早期終了: ${configurations.length}/${totalConfigs}パターン処理 (${((configurations.length/totalConfigs)*100).toFixed(3)}%)`);
                     earlyExitTriggered = true;
                     break;
+                }
+                
+                // 🚀 確定マスが見つからない場合のみタイムアウトチェック
+                const elapsedTime = performance.now() - startTime;
+                if (elapsedTime > timeoutMs) {
+                    this.debugLog(`⏰ タイムアウト: ${elapsedTime.toFixed(0)}ms経過で処理中断 (${configurations.length}/${totalConfigs}パターン処理)`);
+                    return {
+                        configurations: configurations,
+                        earlyExit: false,
+                        timeoutTriggered: true,
+                        totalGenerated: configurations.length,
+                        totalPossible: totalConfigs,
+                        elapsedTime: elapsedTime
+                    };
                 }
             }
         }
@@ -4524,9 +4555,35 @@ class SimpleBitCSP {
         return {
             configurations: configurations,
             earlyExit: earlyExitTriggered,
+            timeoutTriggered: false,
             checkedTimes: checkedCount,
             totalGenerated: configurations.length,
             totalPossible: totalConfigs
+        };
+    }
+
+    // タイムアウト時の結果作成（平均確率で「スキップ」表示）
+    createTimeoutResult(constraintGroup, elapsedTime, startTime) {
+        const cells = constraintGroup.cells || [];
+        const cellProbabilities = {};
+        
+        // 全セルを平均確率（50%）に設定し、「スキップ」として表示
+        for (const cell of cells) {
+            const cellKey = `${cell.row},${cell.col}`;
+            cellProbabilities[cellKey] = 0.5; // 平均確率
+        }
+        
+        return {
+            success: true,
+            reason: 'timeout_with_average_probabilities',
+            cellProbabilities: cellProbabilities,
+            solutions: 0, // タイムアウトのため解数不明
+            totalConfigurations: 0,
+            executionTime: performance.now() - startTime,
+            timeout: true,
+            timeoutMs: elapsedTime,
+            skipped: true,
+            skipReason: 'タイムアウト（10秒）'
         };
     }
 
@@ -4604,13 +4661,13 @@ class SimpleBitCSP {
 
         const cellCount = constraintGroup.cells.length;
         
-        // 小規模セット（29セル以下）に限定 (64x64盤面対応)
-        if (cellCount > 29) {
+        // 境界セル数制限を大幅緩和（時間制限で処理をスキップ）
+        if (cellCount > 50) {
             return {
                 success: false,
                 reason: 'set_too_large',
                 cellCount: cellCount,
-                maxCellCount: 29,
+                maxCellCount: 50,
                 executionTime: performance.now() - startTime
             };
         }
@@ -4624,18 +4681,27 @@ class SimpleBitCSP {
         const totalPatterns = Math.pow(2, cellCount);
         this.debugLog(`🔢 理論パターン数: 2^${cellCount} = ${totalPatterns.toLocaleString()}通り`);
 
-        // 🚀 早期終了機能付き有効パターン列挙
+        // 🚀 早期終了機能付き有効パターン列挙 + 時間制限
         const configurationResult = this.generateConfigurationsBitWithEarlyExit(constraintGroup, {
             checkInterval: 2000,  // 2000パターンごとにチェック  
             minSamples: 1000,     // 最小1000サンプルで判定
-            enableEarlyExit: true
+            enableEarlyExit: true,
+            timeoutMs: 10000,     // 10秒タイムアウト
+            startTime: startTime  // 開始時刻を渡す
         });
         
         const validConfigurations = configurationResult.configurations;
         const isEarlyExit = configurationResult.earlyExit;
+        const isTimeout = configurationResult.timeoutTriggered;
         
         if (isEarlyExit) {
             this.debugLog(`⚡ 早期終了実行: ${configurationResult.totalGenerated}パターンで確定マス発見`);
+        }
+        
+        if (isTimeout) {
+            this.debugLog(`⏰ タイムアウト発生: ${configurationResult.elapsedTime.toFixed(0)}ms経過`);
+            // タイムアウト時は平均確率で「スキップ」表示
+            return this.createTimeoutResult(constraintGroup, configurationResult.elapsedTime, startTime);
         }
         
         if (validConfigurations.length === 0) {

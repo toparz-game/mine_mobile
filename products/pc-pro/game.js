@@ -994,7 +994,7 @@ class PCProMinesweeper extends PCMinesweeper {
             
             // 永続確率と通常確率をマージして表示用の確率を作成
             const displayProbabilities = this.mergeWithPersistentProbabilities(result.probabilities);
-            this.displayAssist(displayProbabilities);
+            this.displayAssist(displayProbabilities, result.timeout);
             this.hideCalculatingIndicator();
         }, 10);
     }
@@ -1261,7 +1261,11 @@ class PCProMinesweeper extends PCMinesweeper {
         let statusText = '';
         let assistClass = '';
         
-        if (displayProbability === 101) {
+        if (timeout) {
+            // タイムアウト時の特別表示
+            statusText = 'スキップ（タイムアウト）';
+            assistClass = 'timeout';
+        } else if (displayProbability === 101) {
             // 確率が計算できない場合
             if (hasSkippedCells) {
                 // スキップされたセルがある場合は「組み合わせ超過」のみ表示
@@ -1356,13 +1360,13 @@ class PCProMinesweeper extends PCMinesweeper {
         // 永続確率と通常確率をマージして表示用の確率を作成
         const displayProbabilities = this.mergeWithPersistentProbabilities(result.probabilities);
         
-        // 🚀 早期終了情報を含めて表示
-        this.displayProbabilities(displayProbabilities, result.globalProbability, result.earlyExit);
+        // 🚀 早期終了情報とタイムアウト情報を含めて表示
+        this.displayProbabilities(displayProbabilities, result.globalProbability, result.earlyExit, result.timeout);
     }
     
-    displayProbabilities(probabilities, globalProbability, earlyExit = false) {
-        // 🚀 全体確率を表示（早期終了考慮）
-        this.updateGlobalProbabilityDisplay(globalProbability, earlyExit);
+    displayProbabilities(probabilities, globalProbability, earlyExit = false, timeout = false) {
+        // 🚀 全体確率を表示（早期終了・タイムアウト考慮）
+        this.updateGlobalProbabilityDisplay(globalProbability, earlyExit, false, timeout);
         
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
@@ -1512,7 +1516,7 @@ class PCProMinesweeper extends PCMinesweeper {
         return;
     }
     
-    updateGlobalProbabilityDisplay(globalProbability, earlyExit = false, isDefinitiveSkip = false) {
+    updateGlobalProbabilityDisplay(globalProbability, earlyExit = false, isDefinitiveSkip = false, timeout = false) {
         const container = document.querySelector('.global-stats-display-container');
         if (!container) return;
         
@@ -1535,6 +1539,9 @@ class PCProMinesweeper extends PCMinesweeper {
         } else if (earlyExit) {
             // 早期終了時
             probabilityText = '<span style="color: #ffa500;">平均確率: 未計算 ⚡</span>';
+        } else if (timeout) {
+            // タイムアウト時
+            probabilityText = '<span style="color: #ff6b6b;">平均確率: スキップ ⏰</span>';
         } else {
             // 通常時
             probabilityText = `平均確率: ${globalProbability}%`;
