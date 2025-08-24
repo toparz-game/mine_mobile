@@ -100,6 +100,158 @@ open /Users/jimba_toparz/work/game/mine_web_sumaho/products/pc-pro/test-phase4-6
 
 ---
 
+## ⏱️ **処理時間問題の原因確認ガイド**
+
+### 🚨 **処理が重い・終わらない時の緊急チェック**
+
+#### Step 1: 基本状況確認（最重要）
+```javascript
+// コンソールで実行 - 処理状況の即座確認
+console.log('Border cells count:', borderCells ? borderCells.length : 'undefined');
+console.log('Constraint groups:', constraintGroups ? constraintGroups.length : 'undefined');
+console.log('Total configurations to check:', Math.pow(2, borderCells?.length || 0));
+
+// 危険域判定
+if (borderCells && borderCells.length > 29) {
+    console.error('⚠️ CRITICAL: セル数過多 =', borderCells.length, '(上限29)');
+    console.error('予想処理時間: 2^' + borderCells.length + ' = ', Math.pow(2, borderCells.length), '通り');
+}
+```
+
+#### Step 2: 処理パフォーマンス監視
+```javascript
+// 実行時間計測コード（処理前に挿入）
+const perfStart = performance.now();
+let iterationCount = 0;
+
+// 処理中のタイムアウト監視
+const timeoutChecker = setInterval(() => {
+    const elapsed = performance.now() - perfStart;
+    console.log('経過時間:', Math.round(elapsed), 'ms, 反復回数:', iterationCount);
+    
+    if (elapsed > 5000) {
+        console.error('⚠️ TIMEOUT: 5秒経過 - 処理停止推奨');
+        clearInterval(timeoutChecker);
+    }
+}, 1000);
+```
+
+### 🎯 **処理時間問題の典型パターンと対策**
+
+#### 🔥 **パターン1: 境界セル過多（最頻出）**
+```javascript
+// 📍 確認箇所: findBoundaryCellsBit() line 71
+// 症状: 30個以上の境界セルで指数的増大
+
+// 🔧 即座修正: セル数制限の強制実装
+if (boundaryCells.length > 29) {
+    console.warn('セル数制限適用:', boundaryCells.length, '→ 従来版に切り替え');
+    return this.fallbackToOriginalSolver();
+}
+
+// ✅ 根本対策: 分割処理の実装確認
+// 確認箇所: divideConstraintGroupsBit() line 8234
+```
+
+#### 🔄 **パターン2: 無限ループ・スタック**
+```javascript
+// 📍 確認箇所: enumerateValidConfigsBit() line 4985
+// 症状: 同じ処理が永続的に繰り返される
+
+// 🔧 デバッグ: ループカウンター追加
+let loopCounter = 0;
+const MAX_ITERATIONS = 1000000;
+
+while (/* 処理条件 */) {
+    if (++loopCounter > MAX_ITERATIONS) {
+        console.error('無限ループ検出:', loopCounter);
+        break;
+    }
+    // 既存の処理...
+}
+```
+
+#### 💾 **パターン3: メモリリーク・蓄積**
+```javascript
+// 📍 確認箇所: Phase4最適化メソッド全般 line 9782-10550
+// 症状: メモリ使用量が継続的に増加
+
+// 🔧 即座チェック: メモリ監視
+if (performance.memory) {
+    const memMB = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
+    console.log('メモリ使用量:', memMB, 'MB');
+    
+    if (memMB > 100) {
+        console.warn('⚠️ メモリ使用量過大 - リセット推奨');
+        // キャッシュクリア等の処理
+    }
+}
+```
+
+### ⚡ **緊急時の処理停止・復旧方法**
+
+#### 🛑 即座停止コード
+```javascript
+// ブラウザ開発者ツールで実行
+// Method 1: タイムアウト強制設定
+if (window.currentProcessingTimeout) {
+    clearTimeout(window.currentProcessingTimeout);
+    console.log('処理タイムアウト強制クリア');
+}
+
+// Method 2: 処理フラグ強制リセット
+if (typeof solver !== 'undefined') {
+    solver.forceStop = true;
+    console.log('ソルバー強制停止フラグ設定');
+}
+```
+
+#### 🔄 安全な復旧手順
+```javascript
+// 1. システム状態リセット
+game.processingInProgress = false;
+solver.currentOperation = null;
+
+// 2. UI状態の復旧
+document.getElementById('calculate-probabilities').disabled = false;
+document.getElementById('loading-indicator').style.display = 'none';
+
+// 3. エラー状態クリア
+console.clear();
+console.log('✅ システム復旧完了');
+```
+
+### 📊 **処理時間分析・予測ツール**
+
+#### 処理時間予測計算機
+```javascript
+// 境界セル数から処理時間を予測
+function predictProcessingTime(borderCellCount) {
+    const configurations = Math.pow(2, borderCellCount);
+    const estimatedMs = configurations / 100000; // 概算値
+    
+    console.log('🎯 処理予測:');
+    console.log('- セル数:', borderCellCount);
+    console.log('- 設定数:', configurations.toLocaleString());
+    console.log('- 予想時間:', estimatedMs < 1000 ? 
+        Math.round(estimatedMs) + 'ms' : 
+        Math.round(estimatedMs/1000) + '秒');
+        
+    if (borderCellCount > 29) {
+        console.error('⚠️ 危険: 処理不可能レベル');
+    } else if (borderCellCount > 25) {
+        console.warn('⚠️ 注意: 数秒要する可能性');
+    }
+    
+    return estimatedMs;
+}
+
+// 使用例
+predictProcessingTime(borderCells?.length || 0);
+```
+
+---
+
 ## 🔧 **修正時の必須チェック項目**
 
 ### ✅ **修正前チェック**

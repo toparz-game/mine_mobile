@@ -271,7 +271,7 @@ class SimpleBitCSP {
     clearDebugLog() {
         if (this.debugLogEnabled) {
             console.clear();
-            console.log('[SIMPLE-BIT-CSP] Debug log cleared');
+            console.log('🔄 ログクリア: 新しい手を解析中...');
         }
     }
     
@@ -288,7 +288,7 @@ class SimpleBitCSP {
     // デバッグログ出力（制御機能付き）
     debugLog(message, category = 'INFO') {
         if (this.debugLogEnabled) {
-            console.log(`[SIMPLE-BIT-CSP] ${category}: ${message}`);
+            console.log(message);
         }
     }
     
@@ -934,7 +934,9 @@ class SimpleBitCSP {
     
     // シンプルな制約伝播
     applySimpleConstraintPropagation(constraints) {
-        this.debugLog(`Applying constraint propagation with ${constraints.length} constraints`);
+        // this.debugLog(`Applying constraint propagation with ${constraints.length} constraints`);
+        const propagationStartTime = performance.now();
+        this.debugLog(`⚡ 制約伝播実行: ${constraints.length}個の制約`);
         
         let changed = true;
         let foundSafeCells = [];
@@ -984,12 +986,24 @@ class SimpleBitCSP {
             }
         }
         
-        return foundSafeCells.length > 0 || foundMineCells.length > 0;
+        const propagationEndTime = performance.now();
+        const propagationDuration = (propagationEndTime - propagationStartTime) / 1000;
+        
+        const hasResult = foundSafeCells.length > 0 || foundMineCells.length > 0;
+        if (hasResult) {
+            this.debugLog(`⚡ 制約伝播完了: 確定マス発見 (${propagationDuration.toFixed(3)}秒)`);
+        } else {
+            this.debugLog(`⚡ 制約伝播完了: 確定マスなし (${propagationDuration.toFixed(3)}秒)`);
+        }
+        
+        return hasResult;
     }
     
     // メイン確率計算（シンプル版）
     calculateProbabilities() {
-        this.debugLog('Starting simple probability calculation');
+        // this.debugLog('Starting simple probability calculation');
+        const totalStartTime = performance.now();
+        this.debugLog('🧮 確率計算開始');
         
         const rows = this.game.rows;
         const cols = this.game.cols;
@@ -1011,7 +1025,8 @@ class SimpleBitCSP {
         
         // 未知セルを取得
         const unknownCells = this.getUnknownCells();
-        this.debugLog(`Unknown cells: ${unknownCells.length}`);
+        // this.debugLog(`Unknown cells: ${unknownCells.length}`);
+        // this.debugLog(`📋 未開マス: ${unknownCells.length}個`); // 不要なので非表示
         
         if (unknownCells.length === 0) {
             return { probabilities: this.probabilities, globalProbability: 0 };
@@ -1019,7 +1034,8 @@ class SimpleBitCSP {
         
         // 境界セルを取得
         const borderCells = this.getBorderCells();
-        this.debugLog(`Border cells: ${borderCells.length}`);
+        // this.debugLog(`Border cells: ${borderCells.length}`);
+        this.debugLog(`🔍 境界マス: ${borderCells.length}個`);
         
         if (borderCells.length === 0) {
             // 境界セルがない場合、全て制約外
@@ -1031,21 +1047,26 @@ class SimpleBitCSP {
         
         // 制約を生成
         const constraints = this.generateConstraints(borderCells);
-        this.debugLog(`Generated ${constraints.length} constraints`);
+        // this.debugLog(`Generated ${constraints.length} constraints`);
+        this.debugLog(`📐 制約生成: ${constraints.length}個`);
         
         // 制約伝播を適用
         const foundActionable = this.applySimpleConstraintPropagation(constraints);
         
         if (foundActionable) {
-            this.debugLog('Found actionable cells through constraint propagation');
+            // this.debugLog('Found actionable cells through constraint propagation');
+            // この場合、制約伝播で既に処理時間は表示済み
         } else {
-            this.debugLog('No actionable cells found');
+            // this.debugLog('No actionable cells found');
+            this.debugLog('⚠️ 確定マスなし: 高度計算を実行');
         }
         
         // 確定的でない場合は高度な確率計算を使用
-        this.debugLog(`Checking advanced calculation: foundActionable=${foundActionable}, borderCells=${borderCells.length}`);
+        // this.debugLog(`Checking advanced calculation: foundActionable=${foundActionable}, borderCells=${borderCells.length}`);
         if (!foundActionable && borderCells.length > 0 && borderCells.length <= 29) {
-            this.debugLog('Starting advanced probability calculation');
+            // this.debugLog('Starting advanced probability calculation');
+            const advancedStartTime = performance.now();
+            this.debugLog('🔬 高度計算開始');
             try {
                 // 制約グループを作成
                 const constraintGroup = {
@@ -1055,11 +1076,21 @@ class SimpleBitCSP {
                 
                 // Phase3の完全探索システムを使用
                 const result = this.optimizeSmallSetSolvingBit(constraintGroup);
-                this.debugLog(`Advanced calculation result: ${JSON.stringify({success: result.success, reason: result.reason, hasProbabilities: !!result.cellProbabilities})}`);
-                this.debugLog(`Constraint group: cells=${constraintGroup.cells.length}, constraints=${constraintGroup.constraints.length}`);
-                if (constraintGroup.constraints.length > 0) {
-                    this.debugLog(`First constraint: ${JSON.stringify(constraintGroup.constraints[0])}`);
+                // this.debugLog(`Advanced calculation result: ${JSON.stringify({success: result.success, reason: result.reason, hasProbabilities: !!result.cellProbabilities})}`);
+                this.debugLog(`📊 処理対象: ${constraintGroup.cells.length}マス, ${constraintGroup.constraints.length}制約`);
+                
+                const advancedEndTime = performance.now();
+                const advancedDuration = (advancedEndTime - advancedStartTime) / 1000;
+                
+                if (result.success && result.cellProbabilities) {
+                    this.debugLog(`✅ 高度計算成功 (${advancedDuration.toFixed(3)}秒)`);
+                } else if (result.reason) {
+                    this.debugLog(`⚠️ 高度計算制限: ${result.reason} (${advancedDuration.toFixed(3)}秒)`);
                 }
+                
+                // if (constraintGroup.constraints.length > 0) {
+                //     this.debugLog(`First constraint: ${JSON.stringify(constraintGroup.constraints[0])}`);
+                // }
                 
                 if (result.success && result.cellProbabilities) {
                     let updatedCount = 0;
@@ -1071,10 +1102,14 @@ class SimpleBitCSP {
                             updatedCount++;
                         }
                     }
-                    this.debugLog(`Updated ${updatedCount} cell probabilities`);
+                    // this.debugLog(`Updated ${updatedCount} cell probabilities`);
+                    this.debugLog(`📈 確率更新: ${updatedCount}マス`);
                 }
             } catch (error) {
-                this.debugLog(`Advanced probability calculation failed: ${error.message}`);
+                const advancedEndTime = performance.now();
+                const advancedDuration = (advancedEndTime - advancedStartTime) / 1000;
+                // this.debugLog(`Advanced probability calculation failed: ${error.message}`);
+                this.debugLog(`❌ 高度計算エラー: ${error.message} (${advancedDuration.toFixed(3)}秒)`);
             }
         }
         
@@ -1096,7 +1131,10 @@ class SimpleBitCSP {
             ? Math.round((remainingMines / constraintFreeCount) * 100)
             : 0;
         
-        this.debugLog(`Calculation complete. Global probability: ${globalProbability}%`);
+        // this.debugLog(`Calculation complete. Global probability: ${globalProbability}%`);
+        const totalEndTime = performance.now();
+        const totalDuration = (totalEndTime - totalStartTime) / 1000; // ミリ秒を秒に変換
+        this.debugLog(`🎯 計算完了: 全体確率 ${globalProbability}% (${totalDuration.toFixed(3)}秒)`);
         
         return { probabilities: this.probabilities, globalProbability };
     }
@@ -4425,13 +4463,25 @@ class SimpleBitCSP {
         // 全設定パターンを生成
         const allConfigurations = this.generateConfigurationsBit(constraintGroup);
         const validConfigurations = [];
+        let invalidCount = 0;
+
+        // パターン生成ログ
+        const cellCount = constraintGroup.cells ? constraintGroup.cells.length : 0;
+        const totalPatterns = Math.pow(2, cellCount);
+        this.debugLog(`🔄 実際生成数: ${allConfigurations.length.toLocaleString()}通り (${(allConfigurations.length/totalPatterns*100).toFixed(1)}%)`);
 
         // 各設定パターンの妥当性をチェック
         for (const config of allConfigurations) {
             if (this.validateConfigurationBit(config, constraintGroup.constraints)) {
                 validConfigurations.push(config);
+            } else {
+                invalidCount++;
             }
         }
+
+        // 結果ログ追加
+        this.debugLog(`✅ 妥当パターン数: ${validConfigurations.length.toLocaleString()}通り (${(validConfigurations.length/allConfigurations.length*100).toFixed(1)}%)`);
+        this.debugLog(`❌ 無効パターン数: ${invalidCount.toLocaleString()}通り (${(invalidCount/allConfigurations.length*100).toFixed(1)}%)`);
 
         return validConfigurations;
     }
@@ -4466,6 +4516,10 @@ class SimpleBitCSP {
             console.info(`optimizeSmallSetSolvingBit: ${cellCount}セルの大規模処理 (2^${cellCount} = ${(1 << cellCount).toLocaleString()}パターン)`);
         }
 
+        // 理論パターン数のログ
+        const totalPatterns = Math.pow(2, cellCount);
+        this.debugLog(`🔢 理論パターン数: 2^${cellCount} = ${totalPatterns.toLocaleString()}通り`);
+
         // 有効な設定パターンを列挙
         const validConfigurations = this.enumerateValidConfigsBit(constraintGroup);
         
@@ -4497,6 +4551,12 @@ class SimpleBitCSP {
         }
 
         const executionTime = performance.now() - startTime;
+
+        // 処理効率ログ追加
+        if (executionTime > 100) {
+            const patternsPerMs = Math.round(totalPatterns / executionTime);
+            this.debugLog(`⚡ 処理効率: ${patternsPerMs.toLocaleString()}パターン/ms`);
+        }
 
         return {
             success: true,

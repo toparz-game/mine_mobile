@@ -1498,6 +1498,11 @@ class PCProMinesweeper extends PCMinesweeper {
             return;
         }
         
+        // セルを開く前にデバッグログをクリア
+        if (this.cspSolver && typeof this.cspSolver.clearDebugLog === 'function') {
+            this.cspSolver.clearDebugLog();
+        }
+        
         // 再帰的な開示処理中またはchord操作中は確率計算を延期
         const wasRevealing = this.isRevealing || this.isChording;
         if (!wasRevealing) {

@@ -27,6 +27,17 @@ class CSPSolver {
                 this.useWebWorker = false;
             }
         }
+        
+        // デバッグログ設定
+        this.debugLogEnabled = true;
+    }
+    
+    // デバッグログをクリア
+    clearDebugLog() {
+        if (this.debugLogEnabled) {
+            console.clear();
+            console.log('🔄 ログクリア: 新しい手を解析中...');
+        }
     }
     
     // 各セルの地雷確率を計算
@@ -566,19 +577,33 @@ class CSPSolver {
     // 局所制約完全性をチェック（完全ビットマスク版）
     // 引数も戻り値もビットマスクのみで、配列変換を一切行わない最高速版
     checkLocalConstraintCompletenessWithBitmask(cellMask, constraintMask, allConstraintsBitmask) {
+        const startTime = performance.now();
+        
+        const cellCount = this.popcount(cellMask);
+        const constraintCount = this.popcount(constraintMask);
+        
+        let cellIterations = 0;
+        let constraintIterations = 0;
+        let bitOperations = 0;
+        
         // 条件1: セル集合内の各セルが関与する制約が、すべて制約集合内に含まれているか
         for (let cellIdx = 0; cellIdx < 32; cellIdx++) {
             if ((cellMask >> cellIdx) & 1) { // このセルがセル集合に含まれている
+                cellIterations++;
                 // このセルが関与する制約のビットマスクを生成
                 let cellConstraintMask = 0;
                 for (let constraintIdx = 0; constraintIdx < Math.min(32, allConstraintsBitmask.length); constraintIdx++) {
+                    bitOperations++;
                     if ((allConstraintsBitmask[constraintIdx].cellsMask >> cellIdx) & 1) {
                         cellConstraintMask |= (1 << constraintIdx);
                     }
                 }
                 
                 // このセルの制約がすべて制約集合に含まれているかビット演算でチェック
+                bitOperations++;
                 if ((constraintMask & cellConstraintMask) !== cellConstraintMask) {
+                    const endTime = performance.now();
+                    // console.log(`[PERF] Local completeness check (early exit false): ${(endTime - startTime).toFixed(3)}ms, cells=${cellCount}, constraints=${constraintCount}, iterations=${cellIterations}/${constraintIterations}, bitOps=${bitOperations}`);
                     return false; // 制約集合外の制約がセルに影響している
                 }
             }
@@ -587,13 +612,23 @@ class CSPSolver {
         // 条件2: 制約集合内の各制約が影響するセルが、すべてセル集合内に含まれているか
         for (let constraintIdx = 0; constraintIdx < Math.min(32, allConstraintsBitmask.length); constraintIdx++) {
             if ((constraintMask >> constraintIdx) & 1) { // この制約が制約集合に含まれている
+                constraintIterations++;
                 const constraintCellMask = allConstraintsBitmask[constraintIdx].cellsMask;
                 // この制約が影響するセルがすべてセル集合に含まれているかビット演算でチェック
+                bitOperations++;
                 if ((cellMask & constraintCellMask) !== constraintCellMask) {
+                    const endTime = performance.now();
+                    // console.log(`[PERF] Local completeness check (early exit false): ${(endTime - startTime).toFixed(3)}ms, cells=${cellCount}, constraints=${constraintCount}, iterations=${cellIterations}/${constraintIterations}, bitOps=${bitOperations}`);
                     return false; // セル集合外のセルに制約が影響している
                 }
             }
         }
+        
+        const endTime = performance.now();
+        if (endTime - startTime > 1.0) { // 1ms以上の場合のみ表示
+            console.log(`⚡ 完全性チェック: ${(endTime - startTime).toFixed(1)}ms (${cellCount}マス, ${constraintCount}制約)`);
+        }
+        // console.log(`[PERF] Local completeness check (success): ${(endTime - startTime).toFixed(3)}ms, cells=${cellCount}, constraints=${constraintCount}, iterations=${cellIterations}/${constraintIterations}, bitOps=${bitOperations}`);
         
         return true; // 完全性が確認された
     }
@@ -601,8 +636,15 @@ class CSPSolver {
     // 独立した部分集合を検出
     // ビットマスク版：Set操作をビット演算で高速化
     findIndependentSubsets(group, constraints) {
+        const startTime = performance.now();
+        // console.log(`[PERF] Starting independent subset detection: groupSize=${group.length}, constraints=${constraints.length}`);
+        
         const independentSubsets = [];
         let processedConstraintsMask = 0; // 処理済み制約をビットマスクで管理
+        
+        let totalIterations = 0;
+        let totalOverlapChecks = 0;
+        let totalCompletenessChecks = 0;
         
         // 制約にビットマスクを追加
         const constraintsBitmask = this.addBitmaskToConstraints(constraints);
@@ -619,7 +661,11 @@ class CSPSolver {
             let processedInThisSetMask = (1 << constraintIdx); // この集合で処理済みの制約
             
             // 制約の連鎖を辿る（ビット演算版）
+            totalIterations++;
+            let queueIterations = 0;
+            
             while (constraintQueue.length > 0) {
+                queueIterations++;
                 const currentConstraintIdx = constraintQueue.shift();
                 const currentConstraint = constraintsBitmask[currentConstraintIdx];
                 
@@ -633,6 +679,7 @@ class CSPSolver {
                     const otherConstraint = constraintsBitmask[otherIdx];
                     
                     // セルの重複をビット演算でチェック（高速化）
+                    totalOverlapChecks++;
                     const hasOverlap = (otherConstraint.cellsMask & relatedCellsMask) !== 0;
                     
                     if (hasOverlap) {
@@ -643,7 +690,11 @@ class CSPSolver {
                 }
             }
             
+            const cellCount = this.popcount(relatedCellsMask);
+            // console.log(`[PERF] Subset candidate found: ${cellCount} cells, ${relatedConstraints.length} constraints, queueIter=${queueIterations}`);
+            
             // 完全性をチェック（ビットマスク版を直接使用）
+            totalCompletenessChecks++;
             if (this.checkLocalConstraintCompletenessWithBitmask(relatedCellsMask, processedInThisSetMask, constraintsBitmask)) {
                 independentSubsets.push({
                     cellsMask: relatedCellsMask, // ビットマスクで管理
@@ -656,6 +707,12 @@ class CSPSolver {
             // 処理済みとしてマーク（ビット演算）
             processedConstraintsMask |= processedInThisSetMask;
         }
+        
+        const endTime = performance.now();
+        if (independentSubsets.length > 0) {
+            console.log(`⏱️ 独立グループ検出完了: ${(endTime - startTime).toFixed(1)}ms (${group.length}マス → ${independentSubsets.length}個のグループに分解)`);
+        }
+        // console.log(`[PERF] Independent subset detection completed: ${(endTime - startTime).toFixed(3)}ms, found=${independentSubsets.length} subsets, totalIter=${totalIterations}, overlapChecks=${totalOverlapChecks}, completenessChecks=${totalCompletenessChecks}`);
         
         return independentSubsets;
     }
@@ -673,11 +730,14 @@ class CSPSolver {
             return false;
         }
         
-        console.log(`[LOCAL COMPLETENESS] Solving independent subset: ${cellCount} cells, ${subset.constraints.length} constraints`);
+        const startTime = performance.now();
+        console.log(`🔍 完全探索開始: ${cellCount}マス (${subset.constraints.length}制約) - ${Math.pow(2, cellCount)}通りの配置を検証中...`);
         
         // 完全探索を実行（ビットマスク版）
         const validConfigurations = []; // ビットマスクで地雷配置を保存
         const totalConfigs = Math.pow(2, cellCount);
+        
+        // console.log(`[PERF] Total configurations to test: ${totalConfigs} (2^${cellCount})`);
         
         // パフォーマンス測定用カウンター更新
         this.totalConfigurations += totalConfigs;
@@ -688,15 +748,26 @@ class CSPSolver {
         const constraintsWithBitmask = this.addBitmaskToConstraints(subset.constraints);
         
         // すべての可能な配置を試す（ビット演算版）
+        let validationCalls = 0;
+        const validationStartTime = performance.now();
+        
         for (let config = 0; config < totalConfigs; config++) {
+            validationCalls++;
             // ビットマスクで直接検証
             if (this.isValidConfigurationForSubsetWithBitmask(config, constraintsWithBitmask)) {
                 validConfigurations.push(config); // ビットマスクで保存
             }
         }
         
+        const validationEndTime = performance.now();
+        console.log(`✅ 配置検証完了: ${(validationEndTime - validationStartTime).toFixed(1)}ms - 有効な配置 ${validConfigurations.length}/${totalConfigs}通り`);
+        // console.log(`[PERF] Configuration validation completed: ${(validationEndTime - validationStartTime).toFixed(3)}ms, valid=${validConfigurations.length}/${totalConfigs} configs, validationCalls=${validationCalls}`);
+        
         // 有効な配置から確率を計算（ビット演算版）
+        const probabilityStartTime = performance.now();
         let hasActionableCell = false;
+        let actionableCells = [];
+        
         if (validConfigurations.length > 0) {
             // ビットマスクから実際のセル座標を取得（確率設定のみに使用）
             const cellIndices = subset.cellsMask ? this.bitmaskToArray(subset.cellsMask) : subset.cells;
@@ -722,6 +793,7 @@ class CSPSolver {
                 if (probability === 0 || probability === 100) {
                     this.persistentProbabilities[cell.row][cell.col] = probability;
                     hasActionableCell = true;
+                    actionableCells.push({row: cell.row, col: cell.col, prob: probability});
                 }
             }
         } else {
@@ -733,6 +805,19 @@ class CSPSolver {
                 this.probabilities[cell.row][cell.col] = 50; // デフォルト値
             }
         }
+        
+        const probabilityEndTime = performance.now();
+        const endTime = performance.now();
+        
+        if (actionableCells.length > 0) {
+            const cellInfo = actionableCells.map(c => `(${c.row},${c.col})=${c.prob}%`).join(', ');
+            console.log(`🎯 完全探索で確定マス発見: ${(endTime - startTime).toFixed(1)}ms - ${cellInfo}`);
+        } else {
+            console.log(`📊 完全探索完了: ${(endTime - startTime).toFixed(1)}ms - 確定マスなし (確率のみ計算)`);
+        }
+        
+        // console.log(`[PERF] Probability calculation completed: ${(probabilityEndTime - probabilityStartTime).toFixed(3)}ms, actionable=${actionableCells.length} cells`);
+        // console.log(`[PERF] Total exhaustive search completed: ${(endTime - startTime).toFixed(3)}ms, hasActionable=${hasActionableCell}`);
         
         return hasActionableCell;
     }
@@ -798,7 +883,7 @@ class CSPSolver {
             }
         }
         
-        console.log(`[LOCAL COMPLETENESS] Marked ${interruptedCount} cells as calculation interrupted (-3)`);
+        // console.log(`[LOCAL COMPLETENESS] Marked ${interruptedCount} cells as calculation interrupted (-3)`);
     }
     
     // 確定安全マス（0%）の依存地雷候補をマーク
@@ -1179,7 +1264,7 @@ class CSPSolver {
         let determinedCells = { certain: [], safe: [] };
         let hasActionableFromPropagation = false;
         
-        console.log(`[DEBUG] solveExact called with skipConstraintPropagation: ${skipConstraintPropagation}`);
+        // console.log(`[DEBUG] solveExact called with skipConstraintPropagation: ${skipConstraintPropagation}`);
         
         // STEP 1: 制約伝播（スキップしない場合のみ）
         if (!skipConstraintPropagation) {
@@ -1211,19 +1296,24 @@ class CSPSolver {
         if (!hasActionableFromPropagation) {
             // グループサイズが局所制約完全性の制限内かチェック
             if (group.length <= this.maxLocalCompletenessSize) {
-                console.log(`[LOCAL COMPLETENESS] Analyzing group of ${group.length} cells for independent subsets...`);
+                // console.log(`[LOCAL COMPLETENESS] Analyzing group of ${group.length} cells for independent subsets...`);
+                console.log(`🔍 高度解析: ${group.length}マスのグループを独立部分に分解中...`);
+                
                 const independentSubsets = this.findIndependentSubsets(group, constraints);
                 
                 if (independentSubsets.length > 0) {
-                    console.log(`[LOCAL COMPLETENESS] Found ${independentSubsets.length} independent subset(s): ${independentSubsets.map(s => s.cells.length + ' cells').join(', ')}`);
+                    // console.log(`[LOCAL COMPLETENESS] Found ${independentSubsets.length} independent subset(s): ${independentSubsets.map(s => s.cells.length + ' cells').join(', ')}`);
+                    const subsetInfo = independentSubsets.map(s => `${s.cells.length}マス`).join(', ');
+                    console.log(`✅ 独立した部分グループを発見: ${independentSubsets.length}個 (${subsetInfo})`);
                     
                     // 小さな独立部分集合があれば優先的に処理
                     for (const subset of independentSubsets) {
                         if (subset.cells.length <= this.maxConstraintSize) {
                             const hasActionableFromSubset = this.solveIndependentSubset(subset, group);
                             if (hasActionableFromSubset) {
-                                console.log(`[LOCAL COMPLETENESS] Found actionable cells in independent subset of ${subset.cells.length} cells`);
-                                console.log(`[LOCAL COMPLETENESS] Early return - marking remaining cells as calculation interrupted`);
+                                // console.log(`[LOCAL COMPLETENESS] Found actionable cells in independent subset of ${subset.cells.length} cells`);
+                                // console.log(`[LOCAL COMPLETENESS] Early return - marking remaining cells as calculation interrupted`);
+                                console.log(`🎯 確定マス発見: ${subset.cells.length}マスの独立グループで確定マスを特定`);
                                 
                                 // 確定マス以外は「計算中断」としてマーク
                                 this.markRemainingCellsAsInterrupted(group);
@@ -1231,18 +1321,23 @@ class CSPSolver {
                                 this.localCompletenessSuccess = 1; // 局所制約完全性成功をマーク
                                 return true; // 確定マスが見つかったので早期終了
                             } else {
-                                console.log(`[LOCAL COMPLETENESS] No actionable cells found in subset of ${subset.cells.length} cells`);
+                                // console.log(`[LOCAL COMPLETENESS] No actionable cells found in subset of ${subset.cells.length} cells`);
+                                // 不要なので非表示
                             }
                         } else {
-                            console.log(`[LOCAL COMPLETENESS] Skipping large subset of ${subset.cells.length} cells (exceeds limit of ${this.maxConstraintSize})`);
+                            // console.log(`[LOCAL COMPLETENESS] Skipping large subset of ${subset.cells.length} cells (exceeds limit of ${this.maxConstraintSize})`);
+                            // 不要なので非表示
                         }
                     }
-                    console.log(`[LOCAL COMPLETENESS] All independent subsets processed. No actionable cells found.`);
+                    // console.log(`[LOCAL COMPLETENESS] All independent subsets processed. No actionable cells found.`);
+                    console.log(`⚠️ 独立グループから確定マスは見つかりませんでした`);
                 } else {
-                    console.log(`[LOCAL COMPLETENESS] No independent subsets found in group of ${group.length} cells`);
+                    // console.log(`[LOCAL COMPLETENESS] No independent subsets found in group of ${group.length} cells`);
+                    // 不要なので非表示
                 }
             } else {
-                console.log(`[LOCAL COMPLETENESS] Group too large for local completeness (${group.length} > ${this.maxLocalCompletenessSize} cells). Skipping group.`);
+                // console.log(`[LOCAL COMPLETENESS] Group too large for local completeness (${group.length} > ${this.maxLocalCompletenessSize} cells). Skipping group.`);
+                console.log(`⚠️ グループが大きすぎます (${group.length}マス > ${this.maxLocalCompletenessSize}マス制限): 高度解析をスキップ`);
                 // グループが大きすぎる場合はスキップ（近似機能は廃止）
             }
         }
@@ -1288,17 +1383,22 @@ class CSPSolver {
             // 局所制約完全性処理を試行（グループサイズが制限内の場合）
             let hasActionableFromLocal = false;
             if (group.length <= this.maxLocalCompletenessSize) {
-                console.log(`[LOCAL COMPLETENESS] Trying local completeness after full search skip for group of ${group.length} cells...`);
+                // console.log(`[LOCAL COMPLETENESS] Trying local completeness after full search skip for group of ${group.length} cells...`);
+                console.log(`🔄 代替手法: 完全探索をスキップして高度解析を実行中...`);
+                
                 const independentSubsets = this.findIndependentSubsets(group, constraints);
                 
                 if (independentSubsets.length > 0) {
-                    console.log(`[LOCAL COMPLETENESS] Found ${independentSubsets.length} independent subset(s): ${independentSubsets.map(s => s.cells.length + ' cells').join(', ')}`);
+                    // console.log(`[LOCAL COMPLETENESS] Found ${independentSubsets.length} independent subset(s): ${independentSubsets.map(s => s.cells.length + ' cells').join(', ')}`);
+                    const subsetInfo = independentSubsets.map(s => `${s.cells.length}マス`).join(', ');
+                    console.log(`✅ 代替手法で独立グループ発見: ${independentSubsets.length}個 (${subsetInfo})`);
                     
                     for (const subset of independentSubsets) {
                         if (subset.cells.length <= this.maxConstraintSize) {
                             const hasActionableFromSubset = this.solveIndependentSubset(subset, group);
                             if (hasActionableFromSubset) {
-                                console.log(`[LOCAL COMPLETENESS] Found actionable cells in independent subset of ${subset.cells.length} cells`);
+                                // console.log(`[LOCAL COMPLETENESS] Found actionable cells in independent subset of ${subset.cells.length} cells`);
+                                console.log(`🎯 代替手法で確定マス発見: ${subset.cells.length}マスのグループから確定`);
                                 hasActionableFromLocal = true;
                                 break; // 1つでも確定マスが見つかれば成功
                             }
