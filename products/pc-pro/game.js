@@ -1283,12 +1283,14 @@ class PCProMinesweeper extends PCMinesweeper {
         
         // 永続確率と通常確率をマージして表示用の確率を作成
         const displayProbabilities = this.mergeWithPersistentProbabilities(result.probabilities);
-        this.displayProbabilities(displayProbabilities, result.globalProbability);
+        
+        // 🚀 早期終了情報を含めて表示
+        this.displayProbabilities(displayProbabilities, result.globalProbability, result.earlyExit);
     }
     
-    displayProbabilities(probabilities, globalProbability) {
-        // 全体確率を表示
-        this.updateGlobalProbabilityDisplay(globalProbability);
+    displayProbabilities(probabilities, globalProbability, earlyExit = false) {
+        // 🚀 全体確率を表示（早期終了考慮）
+        this.updateGlobalProbabilityDisplay(globalProbability, earlyExit);
         
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
@@ -1437,7 +1439,7 @@ class PCProMinesweeper extends PCMinesweeper {
         return;
     }
     
-    updateGlobalProbabilityDisplay(globalProbability) {
+    updateGlobalProbabilityDisplay(globalProbability, earlyExit = false) {
         const container = document.querySelector('.global-stats-display-container');
         if (!container) return;
         
@@ -1452,9 +1454,14 @@ class PCProMinesweeper extends PCMinesweeper {
         const remainingMines = this.mineCount - flaggedCount;
         const unknownCount = this.getUnknownCells().length;
         
+        // 🚀 早期終了時は「未計算」表示
+        const probabilityText = earlyExit ? 
+            '<span style="color: #ffa500;">平均確率: 未計算 ⚡</span>' : 
+            `平均確率: ${globalProbability}%`;
+        
         display.innerHTML = `
             <div class="global-prob-content">
-                <div class="global-prob-value">平均確率: ${globalProbability}%</div>
+                <div class="global-prob-value">${probabilityText}</div>
             </div>
         `;
         display.classList.add('show');

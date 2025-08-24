@@ -160,6 +160,7 @@ NO → 新機能実装として実行禁止
 - [ ] テストページの使い方を知りたい
 - [ ] メソッドの詳細仕様を確認したい
 - [ ] 安全な修正方法を知りたい
+- [ ] アルゴリズムの動作原理を理解したい（制約伝播、局所制約完全性など）
 
 ### 🌟 **こんな時は COMPREHENSIVE_DEVELOPER_GUIDE.md**
 - [ ] プロジェクト全体を理解したい
@@ -244,6 +245,27 @@ NO → 新機能実装として実行禁止
 🌟 完全理解・アーキテクチャ
 → COMPREHENSIVE_DEVELOPER_GUIDE.md
 → 「Phase3詳細解説」「無効パターン早期検出の技術的背景」セクション
+```
+
+##### ⚡ **確定マス表示制御最適化**
+- 📍 **実装箇所**: `modules/simple-bit-csp.js:4577-4579,4598,1104-1117` で完全実装済み
+- 🧪 **動作テスト**: `test-phase4-6.html` で動作確認可能
+
+**詳細情報の分岐指針**：
+```
+質問の種類に応じて適切なドキュメントを選択：
+
+🚨 緊急問題（エラー・動作不良）
+→ QUICK_REFERENCE.md
+→ 「確定マス表示制御エラー対応」セクション
+
+🔧 実装理解・修正作業
+→ AI_DEBUG_GUIDE.md
+→ 「Phase3実装メソッド」「確定マス表示制御システム」セクション
+
+🌟 完全理解・アーキテクチャ
+→ COMPREHENSIVE_DEVELOPER_GUIDE.md
+→ 「Phase3詳細解説」「再計算回避による複合効果の技術的背景」セクション
 ```
 
 ---
@@ -378,6 +400,38 @@ DOCUMENTATION_GUIDE.md → "実装完了した最適化の参照先"
 ・🔧 実装理解 → AI_DEBUG_GUIDE.md → 「パターン生成最適化システム」
 ・🌟 完全理解 → COMPREHENSIVE_DEVELOPER_GUIDE.md → 「無効パターン早期検出の技術的背景」
 ```
+
+### 例6: 「確定マス表示制御について教えて」
+```
+質問: 確定マス表示制御最適化について
+↓
+DOCUMENTATION_GUIDE.md → "実装完了した最適化の参照先"
+↓
+実装箇所確認: modules/simple-bit-csp.js:4577-4579,4598,1104-1117
+↓
+詳細理解の目的を判定:
+・🚨 エラー対応 → QUICK_REFERENCE.md → 「確定マス表示制御エラー対応」
+・🔧 実装理解 → AI_DEBUG_GUIDE.md → 「確定マス表示制御システム」
+・🌟 完全理解 → COMPREHENSIVE_DEVELOPER_GUIDE.md → 「再計算回避による複合効果の技術的背景」
+```
+
+### 例7: 「局所制約完全性の仕組みについて教えて」
+```
+質問: 局所制約完全性（Local Constraint Completeness）の動作原理について
+↓
+質問分析: 既存機能の理解・アルゴリズム解説が目的
+↓
+詳細理解の目的を判定:
+・🚨 エラー対応 → QUICK_REFERENCE.md → 「制約伝播・確率計算エラー対応」
+・🔧 実装理解 → AI_DEBUG_GUIDE.md → 「制約伝播システム・確率計算メソッド」
+・🌟 完全理解 → COMPREHENSIVE_DEVELOPER_GUIDE.md → 「制約伝播アルゴリズムの技術的背景」
+↓
+実装箇所参照:
+・制約伝播: modules/csp-solver.js:1428-1503
+・局所制約完全性: modules/csp-solver.js:525-575
+・確定判定: modules/bit-csp-probability.js:391-410
+```
+
 **⚠️注意**: 新機能追加は禁止 - 修正作業のみ実行
 
 ---
@@ -395,6 +449,7 @@ DOCUMENTATION_GUIDE.md → "実装完了した最適化の参照先"
 | 🎯 特定調査 | AI_DEBUG_GUIDE.md | 実践的詳細 |
 | 🧠 学術研究 | COMPREHENSIVE_DEVELOPER_GUIDE.md | 学術的価値 |
 | ⚡ 高速化検討 | OPTIMIZATION_OPPORTUNITIES.md | 具体的最適化案 |
+| 📚 アルゴリズム理解 | AI_DEBUG_GUIDE.md → COMPREHENSIVE_DEVELOPER_GUIDE.md | 段階的理解 |
 
 ### 💡 **効率化のコツ**
 1. **問題の緊急度を最初に判定**

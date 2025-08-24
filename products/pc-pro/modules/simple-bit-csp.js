@@ -1005,6 +1005,9 @@ class SimpleBitCSP {
         const totalStartTime = performance.now();
         this.debugLog('🧮 確率計算開始');
         
+        // 🚀 高度計算の結果を格納する変数
+        let advancedResult = null;
+        
         const rows = this.game.rows;
         const cols = this.game.cols;
         
@@ -1090,52 +1093,62 @@ class SimpleBitCSP {
                 }
                 
                 // 統合結果を作成
-                const result = {
+                advancedResult = {
                     success: allResults.every(r => r.success),
                     cellProbabilities: {},
                     reason: allResults.find(r => !r.success)?.reason || null
                 };
                 
-                // 各グループの確率結果を統合 + 確定マス制御
+                // 各グループの確率結果を統合 + 早期終了制御
                 let hasAnyCertainCells = false;
+                let hasEarlyExit = false;
                 for (const groupResult of allResults) {
                     if (groupResult.success && groupResult.cellProbabilities) {
+                        // 🚀 早期終了チェック
+                        if (groupResult.earlyExit) {
+                            hasEarlyExit = true;
+                            this.debugLog(`⚡ 早期終了グループ検出: ${groupResult.processedPatterns}/${groupResult.totalPossiblePatterns}パターン処理`);
+                        }
+                        
                         // 🚀 効率化: 確定マス発見時の表示制御
                         if (groupResult.hasCertainCells) {
                             hasAnyCertainCells = true;
                             // 確定マス(0%/100%)のみ表示、不確定マスは非表示
                             for (const [cellKey, probability] of Object.entries(groupResult.cellProbabilities)) {
                                 if (probability === 0 || probability === 1) {
-                                    result.cellProbabilities[cellKey] = probability;
+                                    advancedResult.cellProbabilities[cellKey] = probability;
                                 }
                                 // 不確定マス(0%～100%の中間値)は非表示 → 再計算待ち
                             }
                         } else {
                             // 確定マスなしの場合は通常通り全確率を表示
-                            Object.assign(result.cellProbabilities, groupResult.cellProbabilities);
+                            Object.assign(advancedResult.cellProbabilities, groupResult.cellProbabilities);
                         }
                     }
                 }
+                
+                // 🚀 早期終了時の追加情報
+                advancedResult.earlyExit = hasEarlyExit;
                 
                 this.debugLog(`📊 処理対象: ${totalCellsProcessed}マス, ${totalConstraintsProcessed}制約`);
                 
                 const advancedEndTime = performance.now();
                 const advancedDuration = (advancedEndTime - advancedStartTime) / 1000;
                 
-                if (result.success && result.cellProbabilities) {
+                if (advancedResult.success && advancedResult.cellProbabilities) {
                     this.debugLog(`✅ 高度計算成功 (${advancedDuration.toFixed(3)}秒)`);
-                } else if (result.reason) {
-                    this.debugLog(`⚠️ 高度計算制限: ${result.reason} (${advancedDuration.toFixed(3)}秒)`);
+                } else if (advancedResult.reason) {
+                    this.debugLog(`⚠️ 高度計算制限: ${advancedResult.reason} (${advancedDuration.toFixed(3)}秒)`);
                 }
                 
                 // if (constraintGroup.constraints.length > 0) {
                 //     this.debugLog(`First constraint: ${JSON.stringify(constraintGroup.constraints[0])}`);
                 // }
                 
-                if (result.success && result.cellProbabilities) {
+                if (advancedResult.success && advancedResult.cellProbabilities) {
                     let updatedCount = 0;
                     // 確率分布をprobabilities配列に反映
-                    for (const [cellKey, probability] of Object.entries(result.cellProbabilities)) {
+                    for (const [cellKey, probability] of Object.entries(advancedResult.cellProbabilities)) {
                         const [row, col] = cellKey.split(',').map(Number);
                         if (row >= 0 && row < this.game.rows && col >= 0 && col < this.game.cols) {
                             this.probabilities[row][col] = Math.round(probability * 100);
@@ -1160,23 +1173,39 @@ class SimpleBitCSP {
             }
         }
         
-        // グローバル確率を計算
-        const flaggedCount = this.countFlags();
-        const remainingMines = this.game.mineCount - flaggedCount;
-        const constraintFreeCount = unknownCells.filter(cell => 
-            this.probabilities[cell.row][cell.col] === -2
-        ).length;
+        // 🚀 早期終了時は全体確率計算をスキップ  
+        let globalProbability = 0;
+        let hasEarlyExit = advancedResult?.earlyExit || false;
         
-        const globalProbability = constraintFreeCount > 0 
-            ? Math.round((remainingMines / constraintFreeCount) * 100)
-            : 0;
+        if (!hasEarlyExit) {
+            // 通常時のグローバル確率計算
+            const flaggedCount = this.countFlags();
+            const remainingMines = this.game.mineCount - flaggedCount;
+            const constraintFreeCount = unknownCells.filter(cell => 
+                this.probabilities[cell.row][cell.col] === -2
+            ).length;
+            
+            globalProbability = constraintFreeCount > 0 
+                ? Math.round((remainingMines / constraintFreeCount) * 100)
+                : 0;
+        } else {
+            this.debugLog(`⚡ 早期終了のため全体確率計算をスキップ`);
+        }
         
-        // this.debugLog(`Calculation complete. Global probability: ${globalProbability}%`);
         const totalEndTime = performance.now();
-        const totalDuration = (totalEndTime - totalStartTime) / 1000; // ミリ秒を秒に変換
-        this.debugLog(`🎯 計算完了: 全体確率 ${globalProbability}% (${totalDuration.toFixed(3)}秒)`);
+        const totalDuration = (totalEndTime - totalStartTime) / 1000;
         
-        return { probabilities: this.probabilities, globalProbability };
+        if (hasEarlyExit) {
+            this.debugLog(`🎯 計算完了: 早期終了により高速化 (${totalDuration.toFixed(3)}秒)`);
+        } else {
+            this.debugLog(`🎯 計算完了: 全体確率 ${globalProbability}% (${totalDuration.toFixed(3)}秒)`);
+        }
+        
+        return { 
+            probabilities: this.probabilities, 
+            globalProbability: globalProbability,
+            earlyExit: hasEarlyExit  // 🚀 早期終了情報をUI側に伝達
+        };
     }
     
     // 旗の数をカウント
@@ -4414,28 +4443,37 @@ class SimpleBitCSP {
     // ===== PHASE3-1: 小規模完全探索のビット化基盤 =====
 
     // 制約グループの全設定パターンをビット化で生成
-    generateConfigurationsBit(constraintGroup) {
+    // 🚀 確定マス発見時の早期終了機能付きパターン生成
+    generateConfigurationsBitWithEarlyExit(constraintGroup, earlyExitConfig = {}) {
+        const {
+            checkInterval = 2000,  // 2000パターンごとにチェック
+            minSamples = 1000,     // 最小サンプル数
+            enableEarlyExit = true // 早期終了を有効化
+        } = earlyExitConfig;
+
         if (!constraintGroup || !constraintGroup.cells || constraintGroup.cells.length === 0) {
-            return [];
+            return { configurations: [], earlyExit: false };
         }
 
         const cells = constraintGroup.cells;
         const cellCount = cells.length;
         
-        // 29セル以下の小規模セットに制限 (64x64盤面対応)
+        // 29セル以下の小規模セットに制限
         if (cellCount > 29) {
             console.warn(`generateConfigurationsBit: セル数${cellCount}は制限を超えています（最大29）`);
-            return [];
+            return { configurations: [], earlyExit: false };
         }
         
         // 25セル以上では大規模処理警告
         if (cellCount >= 25) {
             console.info(`generateConfigurationsBit: ${cellCount}セルの大規模処理 (2^${cellCount} = ${(1 << cellCount).toLocaleString()}パターン)`);
+            this.debugLog(`⚡ 早期終了機能有効: ${checkInterval}パターンごとにチェック`);
         }
 
-        // 全設定パターン数: 2^cellCount
         const totalConfigs = 1 << cellCount;
         const configurations = [];
+        let checkedCount = 0;
+        let earlyExitTriggered = false;
 
         for (let config = 0; config < totalConfigs; config++) {
             const configBits = new Uint32Array(this.intsNeeded);
@@ -4451,7 +4489,6 @@ class SimpleBitCSP {
                 }
             }
 
-            // 🚀 効率化: 生成直後に制約チェック実行
             const configObj = {
                 configId: config,
                 cellsBits: configBits,
@@ -4463,9 +4500,40 @@ class SimpleBitCSP {
             if (this.validateConfigurationBit(configObj, constraintGroup.constraints)) {
                 configurations.push(configObj);
             }
+
+            // 🚀 早期終了チェック
+            if (enableEarlyExit && configurations.length > 0 && 
+                (configurations.length % checkInterval === 0 || config === totalConfigs - 1) &&
+                configurations.length >= minSamples) {
+                
+                const tempResult = this.calculateCellProbabilitiesBit(configurations);
+                checkedCount++;
+                
+                if (tempResult.hasCertainCells) {
+                    this.debugLog(`🎯 確定マス発見！早期終了: ${configurations.length}/${totalConfigs}パターン処理 (${((configurations.length/totalConfigs)*100).toFixed(3)}%)`);
+                    earlyExitTriggered = true;
+                    break;
+                }
+            }
         }
 
-        return configurations;
+        if (!earlyExitTriggered && configurations.length > 0) {
+            this.debugLog(`🔄 完全探索完了: ${configurations.length}/${totalConfigs}パターン処理 (${((configurations.length/totalConfigs)*100).toFixed(3)}%)`);
+        }
+
+        return {
+            configurations: configurations,
+            earlyExit: earlyExitTriggered,
+            checkedTimes: checkedCount,
+            totalGenerated: configurations.length,
+            totalPossible: totalConfigs
+        };
+    }
+
+    // 従来版の互換性維持
+    generateConfigurationsBit(constraintGroup) {
+        const result = this.generateConfigurationsBitWithEarlyExit(constraintGroup, { enableEarlyExit: false });
+        return result.configurations;
     }
 
     // 設定の妥当性をビット演算で判定
@@ -4556,8 +4624,19 @@ class SimpleBitCSP {
         const totalPatterns = Math.pow(2, cellCount);
         this.debugLog(`🔢 理論パターン数: 2^${cellCount} = ${totalPatterns.toLocaleString()}通り`);
 
-        // 有効な設定パターンを列挙
-        const validConfigurations = this.enumerateValidConfigsBit(constraintGroup);
+        // 🚀 早期終了機能付き有効パターン列挙
+        const configurationResult = this.generateConfigurationsBitWithEarlyExit(constraintGroup, {
+            checkInterval: 2000,  // 2000パターンごとにチェック  
+            minSamples: 1000,     // 最小1000サンプルで判定
+            enableEarlyExit: true
+        });
+        
+        const validConfigurations = configurationResult.configurations;
+        const isEarlyExit = configurationResult.earlyExit;
+        
+        if (isEarlyExit) {
+            this.debugLog(`⚡ 早期終了実行: ${configurationResult.totalGenerated}パターンで確定マス発見`);
+        }
         
         if (validConfigurations.length === 0) {
             return {
@@ -4567,30 +4646,25 @@ class SimpleBitCSP {
             };
         }
 
-        // セル別の確率を計算 + 確定マス検出
+        // 🚀 確率計算（確定マス発見時は早期終了扱い）
+        const probabilityResult = this.calculateCellProbabilitiesBit(validConfigurations);
         const cellProbabilities = {};
-        const cells = constraintGroup.cells;
-        let hasCertainCells = false;
+        let hasCertainCells = probabilityResult.hasCertainCells;
         
-        for (const cell of cells) {
-            let mineCount = 0;
-            const cellBit = this.bitSystem.coordToBit(cell.row, cell.col);
-            const arrayIndex = Math.floor(cellBit / 32);
-            const bitPos = cellBit % 32;
-            
-            for (const config of validConfigurations) {
-                if (config.cellsBits[arrayIndex] & (1 << bitPos)) {
-                    mineCount++;
+        // 🎯 確定マス発見時は早期終了扱いに
+        let finalEarlyExit = isEarlyExit || hasCertainCells;
+        
+        // 確定マス発見時は確定マス(0%/100%)のみ返す
+        if (finalEarlyExit && hasCertainCells) {
+            for (const [cellKey, probability] of Object.entries(probabilityResult.probabilities)) {
+                if (probability === 0 || probability === 1) {
+                    cellProbabilities[cellKey] = probability;
                 }
             }
-            
-            const probability = mineCount / validConfigurations.length;
-            cellProbabilities[`${cell.row},${cell.col}`] = probability;
-            
-            // 🚀 効率化: 確定マス(0%/100%)検出
-            if (probability === 0 || probability === 1) {
-                hasCertainCells = true;
-            }
+            this.debugLog(`🎯 確定マス発見により早期終了扱い: ${Object.keys(cellProbabilities).length}個の確定マス`);
+        } else {
+            // 確定マスなしの場合は全確率表示
+            Object.assign(cellProbabilities, probabilityResult.probabilities);
         }
 
         const executionTime = performance.now() - startTime;
@@ -4609,7 +4683,10 @@ class SimpleBitCSP {
             cellCount: cellCount,
             executionTime: executionTime,
             averageTimePerSolution: executionTime / validConfigurations.length,
-            hasCertainCells: hasCertainCells // 🚀 確定マス存在フラグ
+            hasCertainCells: hasCertainCells,
+            earlyExit: finalEarlyExit, // 🚀 早期終了フラグ（確定マス発見含む）
+            processedPatterns: isEarlyExit ? configurationResult.totalGenerated : configurationResult.totalPossible,
+            totalPossiblePatterns: configurationResult.totalPossible
         };
     }
 
