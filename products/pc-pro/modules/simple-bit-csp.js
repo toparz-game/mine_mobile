@@ -1096,10 +1096,24 @@ class SimpleBitCSP {
                     reason: allResults.find(r => !r.success)?.reason || null
                 };
                 
-                // 各グループの確率結果を統合
+                // 各グループの確率結果を統合 + 確定マス制御
+                let hasAnyCertainCells = false;
                 for (const groupResult of allResults) {
                     if (groupResult.success && groupResult.cellProbabilities) {
-                        Object.assign(result.cellProbabilities, groupResult.cellProbabilities);
+                        // 🚀 効率化: 確定マス発見時の表示制御
+                        if (groupResult.hasCertainCells) {
+                            hasAnyCertainCells = true;
+                            // 確定マス(0%/100%)のみ表示、不確定マスは非表示
+                            for (const [cellKey, probability] of Object.entries(groupResult.cellProbabilities)) {
+                                if (probability === 0 || probability === 1) {
+                                    result.cellProbabilities[cellKey] = probability;
+                                }
+                                // 不確定マス(0%～100%の中間値)は非表示 → 再計算待ち
+                            }
+                        } else {
+                            // 確定マスなしの場合は通常通り全確率を表示
+                            Object.assign(result.cellProbabilities, groupResult.cellProbabilities);
+                        }
                     }
                 }
                 
@@ -4553,9 +4567,10 @@ class SimpleBitCSP {
             };
         }
 
-        // セル別の確率を計算
+        // セル別の確率を計算 + 確定マス検出
         const cellProbabilities = {};
         const cells = constraintGroup.cells;
+        let hasCertainCells = false;
         
         for (const cell of cells) {
             let mineCount = 0;
@@ -4569,7 +4584,13 @@ class SimpleBitCSP {
                 }
             }
             
-            cellProbabilities[`${cell.row},${cell.col}`] = mineCount / validConfigurations.length;
+            const probability = mineCount / validConfigurations.length;
+            cellProbabilities[`${cell.row},${cell.col}`] = probability;
+            
+            // 🚀 効率化: 確定マス(0%/100%)検出
+            if (probability === 0 || probability === 1) {
+                hasCertainCells = true;
+            }
         }
 
         const executionTime = performance.now() - startTime;
@@ -4587,7 +4608,8 @@ class SimpleBitCSP {
             solutionCount: validConfigurations.length,
             cellCount: cellCount,
             executionTime: executionTime,
-            averageTimePerSolution: executionTime / validConfigurations.length
+            averageTimePerSolution: executionTime / validConfigurations.length,
+            hasCertainCells: hasCertainCells // 🚀 確定マス存在フラグ
         };
     }
 
@@ -4628,8 +4650,15 @@ class SimpleBitCSP {
         }
 
         // 確率を計算（地雷があるパターン数 / 全パターン数）
+        let hasCertainCells = false;
         for (const [cellKey, mineCount] of cellMineCount.entries()) {
-            cellProbabilities[cellKey] = mineCount / totalSolutions;
+            const probability = mineCount / totalSolutions;
+            cellProbabilities[cellKey] = probability;
+            
+            // 🚀 効率化: 確定マス(0%/100%)検出
+            if (probability === 0 || probability === 1) {
+                hasCertainCells = true;
+            }
         }
 
         const executionTime = performance.now() - startTime;
@@ -4638,7 +4667,8 @@ class SimpleBitCSP {
             probabilities: cellProbabilities,
             totalSolutions: totalSolutions,
             cellsAnalyzed: cellMineCount.size,
-            executionTime: executionTime
+            executionTime: executionTime,
+            hasCertainCells: hasCertainCells // 🚀 確定マス存在フラグ
         };
     }
 
