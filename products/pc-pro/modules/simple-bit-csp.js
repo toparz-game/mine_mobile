@@ -20,6 +20,12 @@ class SimpleBitCSP {
         this.probabilities = [];
         this.persistentProbabilities = [];
         
+        // グループ計算結果のキャッシュシステム（ビット版対応復旧）
+        this.groupCache = new Map();
+        this.tempGroupCache = new Map(); // 一時保存用キャッシュ
+        this.previousBoardState = null; // 前回の盤面状態
+        this.cacheHits = 0; // キャッシュヒット数統計
+        
         // デバッグログ管理
         this.debugLogEnabled = true; // デバッグログの有効/無効
         
@@ -474,6 +480,7 @@ class SimpleBitCSP {
                         
                         // 旗が立っていないセルのみを制約対象とする
                         const constraintCells = neighborCells.filter(cell => 
+                            cell && typeof cell.row === 'number' && typeof cell.col === 'number' &&
                             !this.game.flagged[cell.row][cell.col]
                         );
                         
@@ -627,9 +634,17 @@ class SimpleBitCSP {
         
         // 各開示済みセルについて隣接する未開セルを境界セルに追加
         for (const cell of revealedCells) {
+            if (!cell || typeof cell.row !== 'number' || typeof cell.col !== 'number') {
+                continue; // 無効なセルをスキップ
+            }
+            
             const neighbors = this.getNeighbors(cell.row, cell.col);
             
             for (const neighbor of neighbors) {
+                if (!neighbor || typeof neighbor.row !== 'number' || typeof neighbor.col !== 'number') {
+                    continue; // 無効な隣接セルをスキップ
+                }
+                
                 // ゲーム状態が利用できる場合は実際の状態をチェック
                 if (this.game && this.game.revealed) {
                     if (!this.game.revealed[neighbor.row][neighbor.col]) {
@@ -913,6 +928,7 @@ class SimpleBitCSP {
                         
                         // 旗が立っていないセルのみを制約対象とする
                         const constraintCells = neighborCells.filter(cell => 
+                            cell && typeof cell.row === 'number' && typeof cell.col === 'number' &&
                             !this.game.flagged[cell.row][cell.col]
                         );
                         
@@ -950,15 +966,18 @@ class SimpleBitCSP {
                 
                 // 未確定のセルをフィルタ
                 const undeterminedCells = cells.filter(cell => 
-                    this.probabilities[cell.row] === undefined || 
-                    this.probabilities[cell.row][cell.col] === undefined ||
-                    this.probabilities[cell.row][cell.col] === -1
+                    cell && typeof cell.row === 'number' && typeof cell.col === 'number' && (
+                        this.probabilities[cell.row] === undefined || 
+                        this.probabilities[cell.row][cell.col] === undefined ||
+                        this.probabilities[cell.row][cell.col] === -1
+                    )
                 );
                 
                 // 既に確定した地雷数をカウント
                 let confirmedMines = 0;
                 for (const cell of cells) {
-                    if (this.probabilities[cell.row] && this.probabilities[cell.row][cell.col] === 100) {
+                    if (cell && typeof cell.row === 'number' && typeof cell.col === 'number' &&
+                        this.probabilities[cell.row] && this.probabilities[cell.row][cell.col] === 100) {
                         confirmedMines++;
                     }
                 }
@@ -968,18 +987,22 @@ class SimpleBitCSP {
                 // 全て地雷確定の場合
                 if (undeterminedCells.length === neededMines && neededMines > 0) {
                     for (const cell of undeterminedCells) {
-                        this.probabilities[cell.row][cell.col] = 100;
-                        foundMineCells.push(cell);
-                        changed = true;
+                        if (cell && typeof cell.row === 'number' && typeof cell.col === 'number') {
+                            this.probabilities[cell.row][cell.col] = 100;
+                            foundMineCells.push(cell);
+                            changed = true;
+                        }
                     }
                     this.debugLog(`Found ${undeterminedCells.length} mine cells`);
                 }
                 // 全て安全確定の場合
                 else if (neededMines === 0 && undeterminedCells.length > 0) {
                     for (const cell of undeterminedCells) {
-                        this.probabilities[cell.row][cell.col] = 0;
-                        foundSafeCells.push(cell);
-                        changed = true;
+                        if (cell && typeof cell.row === 'number' && typeof cell.col === 'number') {
+                            this.probabilities[cell.row][cell.col] = 0;
+                            foundSafeCells.push(cell);
+                            changed = true;
+                        }
                     }
                     this.debugLog(`Found ${undeterminedCells.length} safe cells`);
                 }
@@ -1004,6 +1027,11 @@ class SimpleBitCSP {
         // this.debugLog('Starting simple probability calculation');
         const totalStartTime = performance.now();
         this.debugLog('🧮 確率計算開始');
+        
+        // 🚀 キャッシュシステム: 盤面変更検出とキャッシュ無効化
+        const boardChanges = this.detectBoardChanges();
+        this.invalidateCacheBit(boardChanges);
+        this.cacheHits = 0; // キャッシュヒット数リセット
         
         // 🚀 高度計算の結果を格納する変数
         let advancedResult = null;
@@ -1043,7 +1071,9 @@ class SimpleBitCSP {
         if (borderCells.length === 0) {
             // 境界セルがない場合、全て制約外
             for (const cell of unknownCells) {
-                this.probabilities[cell.row][cell.col] = -2;
+                if (cell && typeof cell.row === 'number' && typeof cell.col === 'number') {
+                    this.probabilities[cell.row][cell.col] = -2;
+                }
             }
             return { probabilities: this.probabilities, globalProbability: 50 };
         }
@@ -1081,15 +1111,46 @@ class SimpleBitCSP {
                 
                 // 各独立グループを個別処理
                 for (let i = 0; i < independentGroups.length; i++) {
-                    const group = independentGroups[i];
-                    totalCellsProcessed += group.cells.length;
-                    totalConstraintsProcessed += group.constraints.length;
-                    
-                    this.debugLog(`📊 グループ${i+1}: ${group.cells.length}マス, ${group.constraints.length}制約, 理論パターン数: 2^${group.cells.length} = ${Math.pow(2, group.cells.length).toLocaleString()}通り`);
-                    
-                    // 各グループをPhase3完全探索システムで処理
-                    const result = this.optimizeSmallSetSolvingBit(group);
-                    allResults.push(result);
+                    try {
+                        const group = independentGroups[i];
+                        this.debugLog(`[DEBUG] グループ${i+1}処理開始: group=`, group);
+                        
+                        if (!group || !group.cells || !group.constraints) {
+                            this.debugLog(`[ERROR] グループ${i+1}が無効:`, group);
+                            continue;
+                        }
+                        
+                        totalCellsProcessed += group.cells.length;
+                        totalConstraintsProcessed += group.constraints.length;
+                        
+                        this.debugLog(`📊 グループ${i+1}: ${group.cells.length}マス, ${group.constraints.length}制約, 理論パターン数: 2^${group.cells.length} = ${Math.pow(2, group.cells.length).toLocaleString()}通り`);
+                        
+                        // 🚀 キャッシュチェック: グループの指紋を生成
+                        this.debugLog(`[DEBUG] グループ${i+1}: 指紋生成開始`);
+                        const groupFingerprint = this.getGroupFingerprintBit(group);
+                        this.debugLog(`[DEBUG] グループ${i+1}: 指紋=${groupFingerprint}, キャッシュチェック開始`);
+                        let result = this.checkGroupCacheBit(groupFingerprint);
+                        
+                        if (result) {
+                            // キャッシュヒット
+                            this.cacheHits++;
+                            this.debugLog(`💾 キャッシュヒット: グループ${i+1} (${group.cells.length}マス)`);
+                        } else {
+                            // キャッシュミス - 各グループをPhase3完全探索システムで処理
+                            this.debugLog(`[DEBUG] グループ${i+1}: キャッシュミス、計算開始`);
+                            result = this.optimizeSmallSetSolvingBit(group);
+                            this.debugLog(`[DEBUG] グループ${i+1}: 計算完了、キャッシュ保存開始`);
+                            
+                            // 結果をキャッシュに保存
+                            this.saveGroupCacheBit(groupFingerprint, result, group);
+                        }
+                        
+                        allResults.push(result);
+                        this.debugLog(`[DEBUG] グループ${i+1}処理完了`);
+                    } catch (error) {
+                        this.debugLog(`[ERROR] グループ${i+1}処理エラー: ${error.message}`);
+                        throw error; // エラーを再スロー
+                    }
                 }
                 
                 // 統合結果を作成
@@ -1122,7 +1183,7 @@ class SimpleBitCSP {
                             hasAnyCertainCells = true;
                             // 確定マス(0%/100%)のみ表示、不確定マスは非表示
                             for (const [cellKey, probability] of Object.entries(groupResult.cellProbabilities)) {
-                                if (probability === 0 || probability === 1) {
+                                if (probability === 0 || probability === 100) {
                                     advancedResult.cellProbabilities[cellKey] = probability;
                                 }
                                 // 不確定マス(0%～100%の中間値)は非表示 → 再計算待ち
@@ -1176,7 +1237,8 @@ class SimpleBitCSP {
         
         // 残りのセルを制約外としてマーク
         for (const cell of unknownCells) {
-            if (this.probabilities[cell.row][cell.col] === -1) {
+            if (cell && typeof cell.row === 'number' && typeof cell.col === 'number' &&
+                this.probabilities[cell.row] && this.probabilities[cell.row][cell.col] === -1) {
                 this.probabilities[cell.row][cell.col] = -2;
             }
         }
@@ -1191,6 +1253,7 @@ class SimpleBitCSP {
             const flaggedCount = this.countFlags();
             const remainingMines = this.game.mineCount - flaggedCount;
             const constraintFreeCount = unknownCells.filter(cell => 
+                cell && typeof cell.row === 'number' && typeof cell.col === 'number' &&
                 this.probabilities[cell.row][cell.col] === -2
             ).length;
             
@@ -1212,6 +1275,11 @@ class SimpleBitCSP {
             this.debugLog(`🎯 計算完了: タイムアウトによりスキップ (${totalDuration.toFixed(3)}秒)`);
         } else {
             this.debugLog(`🎯 計算完了: 全体確率 ${globalProbability}% (${totalDuration.toFixed(3)}秒)`);
+        }
+        
+        // 🚀 キャッシュ統計情報の表示
+        if (this.cacheHits > 0) {
+            this.debugLog(`💾 キャッシュ効果: ${this.cacheHits}グループでヒット`);
         }
         
         return { 
@@ -4474,6 +4542,16 @@ class SimpleBitCSP {
         const cells = constraintGroup.cells;
         const cellCount = cells.length;
         
+        // セルの有効性チェック
+        this.debugLog(`[DEBUG] constraintGroup.cells検証: length=${cellCount}`);
+        for (let i = 0; i < cellCount; i++) {
+            const cell = cells[i];
+            if (!cell || typeof cell.row !== 'number' || typeof cell.col !== 'number') {
+                this.debugLog(`[ERROR] cells[${i}] is invalid in constraintGroup:`, cell);
+                return { configurations: [], earlyExit: false };
+            }
+        }
+        
         // 50セル以下の小規模セットに制限（時間制限で処理をスキップ）
         if (cellCount > 50) {
             console.warn(`generateConfigurationsBit: セル数${cellCount}は制限を超えています（最大50）`);
@@ -4498,6 +4576,11 @@ class SimpleBitCSP {
             for (let i = 0; i < cellCount; i++) {
                 if (config & (1 << i)) {
                     const cell = cells[i];
+                    if (!cell || typeof cell.row !== 'number' || typeof cell.col !== 'number') {
+                        this.debugLog(`[ERROR] cells[${i}] is invalid during config generation:`, cell);
+                        continue; // 無効なセルをスキップ
+                    }
+                    
                     const bitIndex = this.bitSystem.coordToBit(cell.row, cell.col);
                     const arrayIndex = Math.floor(bitIndex / 32);
                     const bitPos = bitIndex % 32;
@@ -4694,6 +4777,8 @@ class SimpleBitCSP {
         const isEarlyExit = configurationResult.earlyExit;
         const isTimeout = configurationResult.timeoutTriggered;
         
+        this.debugLog(`[DEBUG] 有効パターン取得: ${validConfigurations ? validConfigurations.length : 'null'}, earlyExit=${isEarlyExit}, timeout=${isTimeout}`);
+        
         if (isEarlyExit) {
             this.debugLog(`⚡ 早期終了実行: ${configurationResult.totalGenerated}パターンで確定マス発見`);
         }
@@ -4713,7 +4798,16 @@ class SimpleBitCSP {
         }
 
         // 🚀 確率計算（確定マス発見時は早期終了扱い）
-        const probabilityResult = this.calculateCellProbabilitiesBit(validConfigurations);
+        let probabilityResult;
+        try {
+            this.debugLog(`[DEBUG] calculateCellProbabilitiesBit開始: solutions=${validConfigurations.length}`);
+            probabilityResult = this.calculateCellProbabilitiesBit(validConfigurations);
+            this.debugLog(`[DEBUG] calculateCellProbabilitiesBit完了`);
+        } catch (error) {
+            this.debugLog(`[ERROR] calculateCellProbabilitiesBit内エラー: ${error.message}`);
+            throw error; // 元のエラーを再スロー
+        }
+        
         const cellProbabilities = {};
         let hasCertainCells = probabilityResult.hasCertainCells;
         
@@ -4771,11 +4865,25 @@ class SimpleBitCSP {
         // 全解決パターンから各セルの地雷確率を計算
         const cellMineCount = new Map();
         
-        for (const solution of solutions) {
-            if (!solution.cellsBits || !solution.cells) continue;
+        for (let sIndex = 0; sIndex < solutions.length; sIndex++) {
+            const solution = solutions[sIndex];
+            if (!solution) {
+                this.debugLog(`[DEBUG] solution[${sIndex}] is null/undefined`);
+                continue;
+            }
+            if (!solution.cellsBits || !solution.cells) {
+                this.debugLog(`[DEBUG] solution[${sIndex}] missing cellsBits or cells`);
+                continue;
+            }
 
             // 各セルについてビット演算で地雷の有無をチェック
-            for (const cell of solution.cells) {
+            for (let cIndex = 0; cIndex < solution.cells.length; cIndex++) {
+                const cell = solution.cells[cIndex];
+                if (!cell || typeof cell.row !== 'number' || typeof cell.col !== 'number') {
+                    this.debugLog(`[DEBUG] solution[${sIndex}].cells[${cIndex}] is invalid:`, cell);
+                    continue; // 無効なセルをスキップ
+                }
+                
                 const cellKey = `${cell.row},${cell.col}`;
                 const cellBit = this.bitSystem.coordToBit(cell.row, cell.col);
                 const arrayIndex = Math.floor(cellBit / 32);
@@ -11058,6 +11166,190 @@ class SimpleBitCSP {
             deployment: 0.92,
             overallScore: 0.94
         };
+    }
+    
+    // ========================================
+    // キャッシュシステム - ビット版対応復旧
+    // ========================================
+    
+    // グループの指紋（fingerprint）を生成 - ビット版対応
+    getGroupFingerprintBit(group) {
+        if (!group || !group.cells || !group.constraints) {
+            return 'invalid-group';
+        }
+        
+        // グループのセル座標を文字列化（ソート済み）
+        const cells = group.cells.filter(c => c && typeof c.row === 'number' && typeof c.col === 'number')
+                                 .map(c => `${c.row},${c.col}`).sort().join('|');
+        
+        // 制約情報を文字列化（数字マスの位置、値、必要地雷数をソート済み）
+        const constraintInfo = group.constraints.filter(c => c && c.numberCell && 
+                                                       typeof c.numberCell.row === 'number' &&
+                                                       typeof c.numberCell.col === 'number')
+                                               .map(c => {
+                                                   const numCell = c.numberCell;
+                                                   return `${numCell.row},${numCell.col}:${numCell.value}-${c.requiredMines}`;
+                                               }).sort().join('|');
+        
+        return `${cells}#${constraintInfo}`;
+    }
+    
+    // 盤面の変更を検出
+    detectBoardChanges() {
+        if (!this.previousBoardState) {
+            // 初回は変更なしとして扱う
+            this.saveBoardState();
+            return [];
+        }
+        
+        // 盤面サイズが変わった場合（ゲームリセット等）
+        if (!this.previousBoardState.revealed || 
+            this.previousBoardState.revealed.length !== this.game.rows ||
+            (this.previousBoardState.revealed[0] && this.previousBoardState.revealed[0].length !== this.game.cols)) {
+            this.debugLog('[CACHE] Board size changed or reset detected. Clearing all cache.');
+            this.saveBoardState();
+            return ['reset']; // 特別なフラグとして'reset'を返す
+        }
+        
+        const changes = [];
+        for (let row = 0; row < this.game.rows; row++) {
+            for (let col = 0; col < this.game.cols; col++) {
+                // 開示状態または旗の状態が変わったセルを検出
+                if (this.game.revealed[row][col] !== this.previousBoardState.revealed[row][col] ||
+                    this.game.flagged[row][col] !== this.previousBoardState.flagged[row][col]) {
+                    changes.push({ row, col });
+                }
+            }
+        }
+        
+        this.saveBoardState();
+        return changes;
+    }
+    
+    // 現在の盤面状態を保存
+    saveBoardState() {
+        this.previousBoardState = {
+            revealed: this.game.revealed.map(row => [...row]),
+            flagged: this.game.flagged.map(row => [...row])
+        };
+    }
+    
+    // キャッシュの無効化
+    invalidateCacheBit(changes) {
+        if (changes.length === 0) return;
+        
+        // リセットの場合は特別な処理
+        if (changes[0] === 'reset') {
+            const cacheSize = this.groupCache.size;
+            if (cacheSize > 0) {
+                this.groupCache.clear();
+                this.tempGroupCache.clear();
+                this.debugLog(`[CACHE] Game reset detected. Cleared ${cacheSize} cached group results.`);
+            }
+            return;
+        }
+        
+        // キャッシュを一時保存して、計算中に利用できるようにする
+        const cacheSize = this.groupCache.size;
+        if (cacheSize > 0) {
+            // 現在のキャッシュを一時保存
+            this.tempGroupCache = new Map(this.groupCache);
+            this.debugLog(`[CACHE] Board changes detected. Moved ${cacheSize} entries to temp cache.`);
+        }
+    }
+    
+    // グループキャッシュをチェック
+    checkGroupCacheBit(fingerprint) {
+        try {
+            // まず通常のキャッシュをチェック
+            if (this.groupCache.has(fingerprint)) {
+                const cached = this.groupCache.get(fingerprint);
+                
+                // キャッシュから確率を復元
+                if (cached && cached.cellProbabilities && Array.isArray(cached.cellProbabilities)) {
+                    for (const cellInfo of cached.cellProbabilities) {
+                        if (cellInfo && typeof cellInfo.row === 'number' && typeof cellInfo.col === 'number' && typeof cellInfo.probability === 'number') {
+                            this.probabilities[cellInfo.row][cellInfo.col] = cellInfo.probability;
+                            
+                            // 0%または100%の場合は永続確率も更新
+                            if (cellInfo.probability === 0 || cellInfo.probability === 100) {
+                                this.persistentProbabilities[cellInfo.row][cellInfo.col] = cellInfo.probability;
+                            }
+                        }
+                    }
+                }
+                
+                return cached ? cached.result : null;
+            }
+        } catch (error) {
+            this.debugLog(`[CACHE ERROR] checkGroupCacheBit normal cache: ${error.message}`);
+            return null;
+        }
+        
+        try {
+            // 通常のキャッシュにない場合、一時キャッシュをチェック
+            if (this.tempGroupCache.has(fingerprint)) {
+                const cached = this.tempGroupCache.get(fingerprint);
+                
+                // キャッシュから確率を復元
+                if (cached && cached.cellProbabilities && Array.isArray(cached.cellProbabilities)) {
+                    for (const cellInfo of cached.cellProbabilities) {
+                        if (cellInfo && typeof cellInfo.row === 'number' && typeof cellInfo.col === 'number' && typeof cellInfo.probability === 'number') {
+                            this.probabilities[cellInfo.row][cellInfo.col] = cellInfo.probability;
+                            
+                            // 0%または100%の場合は永続確率も更新
+                            if (cellInfo.probability === 0 || cellInfo.probability === 100) {
+                                this.persistentProbabilities[cellInfo.row][cellInfo.col] = cellInfo.probability;
+                            }
+                        }
+                    }
+                }
+                
+                return cached ? cached.result : null;
+            }
+        } catch (error) {
+            this.debugLog(`[CACHE ERROR] checkGroupCacheBit temp cache: ${error.message}`);
+        }
+        
+        return null; // キャッシュなし
+    }
+    
+    // グループ結果をキャッシュに保存
+    saveGroupCacheBit(fingerprint, result, group) {
+        try {
+            if (!result || !result.success) {
+                return; // 失敗した結果はキャッシュしない
+            }
+            
+            // セル確率情報を保存形式に変換
+            const cellProbabilities = [];
+            
+            if (group && group.cells && Array.isArray(group.cells)) {
+                for (const cell of group.cells) {
+                    if (cell && typeof cell.row === 'number' && typeof cell.col === 'number') {
+                        const probability = this.probabilities[cell.row][cell.col];
+                        if (probability !== -1 && probability !== -2 && typeof probability === 'number') {
+                            cellProbabilities.push({
+                                row: cell.row,
+                                col: cell.col,
+                                probability: probability
+                            });
+                        }
+                    }
+                }
+            }
+            
+            // キャッシュエントリを作成
+            const cacheEntry = {
+                result: result,
+                cellProbabilities: cellProbabilities,
+                timestamp: Date.now()
+            };
+            
+            this.groupCache.set(fingerprint, cacheEntry);
+        } catch (error) {
+            this.debugLog(`[CACHE ERROR] saveGroupCacheBit: ${error.message}`);
+        }
     }
 }
 
