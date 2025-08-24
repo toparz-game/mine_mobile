@@ -958,6 +958,13 @@ class PCProMinesweeper extends PCMinesweeper {
             return;
         }
         
+        // 確定マス表示済みの場合はスキップ
+        const definitiveStatus = this.hasDefinitiveCellsDisplayed();
+        if (definitiveStatus.hasDefinitive) {
+            console.log('確定マスが表示されているためアシスト計算をスキップしました');
+            this.updateGlobalProbabilityDisplay(0, 0, 0, 0, 'skip');
+            return;
+        }
         
         // 計算中インジケーターを表示
         this.showCalculatingIndicator();
@@ -1273,8 +1280,54 @@ class PCProMinesweeper extends PCMinesweeper {
         display.classList.add('show');
     }
     
+    // 🚀 確定マス表示中のスキップ判定
+    hasDefinitiveCellsDisplayed() {
+        let hasDefinitive = false;
+        let definitiveGlobalProbability = null;
+        let foundDefinitiveCells = [];
+        
+        // 盤面上の確率表示をチェック
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                if (!cell) continue;
+                
+                const overlay = cell.querySelector('.probability-overlay');
+                if (overlay) {
+                    const text = overlay.textContent.trim();
+                    // 0%または100%が表示されている場合
+                    if (text === '0%' || text === '100%') {
+                        hasDefinitive = true;
+                        foundDefinitiveCells.push(`${row},${col}:${text}`);
+                        // 最初に見つかった確定マスの確率を全体確率として使用
+                        if (definitiveGlobalProbability === null) {
+                            definitiveGlobalProbability = text === '100%' ? 100 : 0;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // デバッグログ追加
+        if (hasDefinitive) {
+            console.log('🔍 確定マス表示を検出:', foundDefinitiveCells);
+        }
+        
+        return { hasDefinitive, definitiveGlobalProbability };
+    }
+
     calculateAndDisplayProbabilities() {
         if (!this.cspSolver) {
+            return;
+        }
+        
+        // 🚀 確定マス表示中はスキップ
+        const definitiveStatus = this.hasDefinitiveCellsDisplayed();
+        if (definitiveStatus.hasDefinitive) {
+            console.log('🎯 確定マス表示中のため制約伝播処理をスキップ');
+            
+            // 全体確率表示（スキップ表示）
+            this.updateGlobalProbabilityDisplay(0, false, true);
             return;
         }
         
@@ -1414,10 +1467,11 @@ class PCProMinesweeper extends PCMinesweeper {
                                     'probability-approximate');
             } else {
                 // 補助機能が無効または視覚表示無効な場合は全て削除
-                const overlay = cell.querySelector('.probability-overlay');
-                if (overlay) {
+                // 🔧 修正: querySelectorではなくquerySelectorAllで全ての要素を削除
+                const overlays = cell.querySelectorAll('.probability-overlay');
+                overlays.forEach(overlay => {
                     overlay.remove();
-                }
+                });
                 cell.classList.remove('probability-safe', 'probability-low', 
                                     'probability-medium', 'probability-high', 'probability-certain',
                                     'probability-unknown', 'probability-interrupted', 'probability-skipped',
@@ -1439,7 +1493,7 @@ class PCProMinesweeper extends PCMinesweeper {
         return;
     }
     
-    updateGlobalProbabilityDisplay(globalProbability, earlyExit = false) {
+    updateGlobalProbabilityDisplay(globalProbability, earlyExit = false, isDefinitiveSkip = false) {
         const container = document.querySelector('.global-stats-display-container');
         if (!container) return;
         
@@ -1454,10 +1508,18 @@ class PCProMinesweeper extends PCMinesweeper {
         const remainingMines = this.mineCount - flaggedCount;
         const unknownCount = this.getUnknownCells().length;
         
-        // 🚀 早期終了時は「未計算」表示
-        const probabilityText = earlyExit ? 
-            '<span style="color: #ffa500;">平均確率: 未計算 ⚡</span>' : 
-            `平均確率: ${globalProbability}%`;
+        // 🚀 表示方式の分岐
+        let probabilityText;
+        if (isDefinitiveSkip) {
+            // 確定マス表示中のスキップ
+            probabilityText = '<span style="color: #00ff00;">平均確率: スキップ済 🎯</span>';
+        } else if (earlyExit) {
+            // 早期終了時
+            probabilityText = '<span style="color: #ffa500;">平均確率: 未計算 ⚡</span>';
+        } else {
+            // 通常時
+            probabilityText = `平均確率: ${globalProbability}%`;
+        }
         
         display.innerHTML = `
             <div class="global-prob-content">
@@ -1644,6 +1706,23 @@ class PCProMinesweeper extends PCMinesweeper {
     toggleFlag(row, col) {
         // 旗を外す場合の判定（旗を外す前に状態を確認）
         const isRemovingFlag = this.flagged[row][col];
+        
+        // 🔧 修正: 旗を立てた/外したセルの確率表示を即座にクリア
+        const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+        if (cell) {
+            const overlays = cell.querySelectorAll('.probability-overlay');
+            overlays.forEach(overlay => {
+                // mine-candidate-overlay以外の確率表示をクリア
+                if (!overlay.classList.contains('mine-candidate-overlay')) {
+                    overlay.remove();
+                }
+            });
+            // 確率関連のクラスも削除
+            cell.classList.remove('probability-safe', 'probability-low', 
+                                'probability-medium', 'probability-high', 'probability-certain',
+                                'probability-unknown', 'probability-interrupted', 'probability-skipped',
+                                'probability-approximate');
+        }
         
         super.toggleFlag(row, col);
         
