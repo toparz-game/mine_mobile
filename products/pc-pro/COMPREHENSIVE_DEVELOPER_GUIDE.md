@@ -117,6 +117,21 @@ setBit(bitArray, row, col, value) {
 probability = (地雷である設定数) / (全有効設定数)
 ```
 
+#### パターン絞り込みの具体例
+```javascript
+// 実際のケース: 数字「2」周囲の8マスケース
+理論パターン数: 2^8 = 256通り
+制約条件: 8マス中に地雷がちょうど2個
+妥当パターン: C(8,2) = 28通り (10.9%)
+除外パターン: 228通り (89.1%) - 地雷数が2個以外
+
+// validateConfigurationBit()による検証プロセス:
+1. 各パターンで制約セル内の地雷数をカウント
+2. 期待地雷数（2個）と実際地雷数を比較
+3. 一致しない場合は無効パターンとして除外
+4. 全制約を満たすパターンのみが妥当パターンとして残存
+```
+
 ### 🧩 制約満足問題(CSP)の構造
 ```javascript
 // 制約の形式
@@ -204,6 +219,11 @@ enumerateValidConfigsBit(constraintGroups)
 // 機能: 有効設定の列挙・フィルタリング
 // 処理: 制約チェック・重複除去・最適化
 // 重要: 完全探索の心臓部
+// 絞り込みロジック:
+//   1. 全パターン生成（2^セル数）
+//   2. 各制約で妥当性検証（ビット演算による高速化）
+//   3. 制約違反パターンを除外
+//   4. 妥当パターンのみを抽出
 
 // line 4587-4685 ⭐⭐⭐⭐⭐
 calculateCellProbabilitiesBit(validConfigs, boundaryCells)  
@@ -223,6 +243,8 @@ optimizeSmallSetSolvingBit()
 validateConfigurationBit(config, constraints)
 // 機能: 設定の制約満足チェック
 // 重要: 正確性保証の要
+// 処理: 各制約について期待地雷数と実際地雷数の照合
+// 例: 2^8=256パターン → 28通り（10.9%）に絞り込み
 
 // line 6123-6185 ⭐⭐⭐⭐
 integrateMultiGroupSolutionsBit()

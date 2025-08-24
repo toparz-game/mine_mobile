@@ -1068,16 +1068,42 @@ class SimpleBitCSP {
             const advancedStartTime = performance.now();
             this.debugLog('🔬 高度計算開始');
             try {
-                // 制約グループを作成
-                const constraintGroup = {
-                    cells: borderCells,
-                    constraints: constraints
+                // 独立グループに分割して処理
+                const independentGroups = this.divideConstraintsIntoGroups(constraints);
+                this.debugLog(`🔗 独立グループ分割: ${independentGroups.length}グループ`);
+                
+                let totalCellsProcessed = 0;
+                let totalConstraintsProcessed = 0;
+                const allResults = [];
+                
+                // 各独立グループを個別処理
+                for (let i = 0; i < independentGroups.length; i++) {
+                    const group = independentGroups[i];
+                    totalCellsProcessed += group.cells.length;
+                    totalConstraintsProcessed += group.constraints.length;
+                    
+                    this.debugLog(`📊 グループ${i+1}: ${group.cells.length}マス, ${group.constraints.length}制約, 理論パターン数: 2^${group.cells.length} = ${Math.pow(2, group.cells.length).toLocaleString()}通り`);
+                    
+                    // 各グループをPhase3完全探索システムで処理
+                    const result = this.optimizeSmallSetSolvingBit(group);
+                    allResults.push(result);
+                }
+                
+                // 統合結果を作成
+                const result = {
+                    success: allResults.every(r => r.success),
+                    cellProbabilities: {},
+                    reason: allResults.find(r => !r.success)?.reason || null
                 };
                 
-                // Phase3の完全探索システムを使用
-                const result = this.optimizeSmallSetSolvingBit(constraintGroup);
-                // this.debugLog(`Advanced calculation result: ${JSON.stringify({success: result.success, reason: result.reason, hasProbabilities: !!result.cellProbabilities})}`);
-                this.debugLog(`📊 処理対象: ${constraintGroup.cells.length}マス, ${constraintGroup.constraints.length}制約`);
+                // 各グループの確率結果を統合
+                for (const groupResult of allResults) {
+                    if (groupResult.success && groupResult.cellProbabilities) {
+                        Object.assign(result.cellProbabilities, groupResult.cellProbabilities);
+                    }
+                }
+                
+                this.debugLog(`📊 処理対象: ${totalCellsProcessed}マス, ${totalConstraintsProcessed}制約`);
                 
                 const advancedEndTime = performance.now();
                 const advancedDuration = (advancedEndTime - advancedStartTime) / 1000;
