@@ -749,6 +749,25 @@ class PCProMinesweeper extends PCMinesweeper {
             this.cspSolver.clearDebugLog();
         }
         
+        // 🔧 修正: マスを開く前に確率表示をクリア
+        if (!wasRevealed) {
+            const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+            if (cell) {
+                const overlays = cell.querySelectorAll('.probability-overlay');
+                overlays.forEach(overlay => {
+                    // mine-candidate-overlay以外の確率表示をクリア
+                    if (!overlay.classList.contains('mine-candidate-overlay')) {
+                        overlay.remove();
+                    }
+                });
+                // 確率関連のクラスも削除
+                cell.classList.remove('probability-safe', 'probability-low', 
+                                    'probability-medium', 'probability-high', 'probability-certain',
+                                    'probability-unknown', 'probability-interrupted', 'probability-skipped',
+                                    'probability-approximate');
+            }
+        }
+        
         super.revealCell(row, col);
         
         if (!wasRevealed && this.revealed[row][col]) {
@@ -1570,6 +1589,23 @@ class PCProMinesweeper extends PCMinesweeper {
         // セルを開く前にデバッグログをクリア
         if (this.cspSolver && typeof this.cspSolver.clearDebugLog === 'function') {
             this.cspSolver.clearDebugLog();
+        }
+        
+        // 🔧 修正: マスを開く前に確率表示をクリア
+        const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+        if (cell) {
+            const overlays = cell.querySelectorAll('.probability-overlay');
+            overlays.forEach(overlay => {
+                // mine-candidate-overlay以外の確率表示をクリア
+                if (!overlay.classList.contains('mine-candidate-overlay')) {
+                    overlay.remove();
+                }
+            });
+            // 確率関連のクラスも削除
+            cell.classList.remove('probability-safe', 'probability-low', 
+                                'probability-medium', 'probability-high', 'probability-certain',
+                                'probability-unknown', 'probability-interrupted', 'probability-skipped',
+                                'probability-approximate');
         }
         
         // 再帰的な開示処理中またはchord操作中は確率計算を延期
